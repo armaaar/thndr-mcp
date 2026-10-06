@@ -124,6 +124,47 @@ describe('ThndrHttpClient', () => {
     expect(sleep).toHaveBeenCalledOnce();
   });
 
+  it('releases the body of a 429 or 401 response before retrying', async () => {
+    const retried: Response[] = [];
+    const keep = (response: Response) => {
+      retried.push(response);
+      return response;
+    };
+    const fetch = fakeFetch(
+      () => keep(json({ message: 'Exceeded rate limit' }, 429)),
+      () => keep(json({ message: 'expired' }, 401)),
+      () => json({ v: 4 }),
+    );
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('OLD', 'NEW'),
+      runtimeVersion: '1',
+      sleep: async () => {},
+    });
+    expect(await client.get('/x')).toEqual({ v: 4 });
+    expect(retried.map((r) => r.bodyUsed)).toEqual([true, true]);
+  });
+
+  it('retries even when the rejected response body was already consumed', async () => {
+    const fetch = fakeFetch(
+      async () => {
+        const response = json({}, 429);
+        await response.text();
+        return response;
+      },
+      () => json({ v: 5 }),
+    );
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('T'),
+      runtimeVersion: '1',
+      sleep: async () => {},
+    });
+    expect(await client.get('/x')).toEqual({ v: 5 });
+  });
+
   it('waits Retry-After seconds, capped at 5 s, or 1 s when absent or invalid', () => {
     expect(rateLimitWaitMs('3')).toBe(3_000);
     expect(rateLimitWaitMs('120')).toBe(5_000);
