@@ -19,7 +19,9 @@ const input = {
     .string()
     .min(1)
     .optional()
-    .describe('Index symbol, e.g. "EGX30", "EGX70 EWI", "SHARIAH". Omit to list the indices of the market'),
+    .describe(
+      'Index symbol or name, e.g. "EGX30", "EGX70" (→ EGX70-EWI), "SHARIAH" or "EGX33". Omit to list the indices',
+    ),
   market: marketInput,
   sortBy: z.enum(CONSTITUENT_SORT_FIELDS).default('marketCap'),
   order: z.enum(['asc', 'desc']).optional().describe('Default: asc for ticker, desc otherwise'),

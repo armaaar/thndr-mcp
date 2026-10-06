@@ -74,7 +74,19 @@ describe('IndexMembership', () => {
     );
     expect((await indices.find('EGX33', 'egypt')).ticker.value).toBe('SHARIAH');
     expect((await indices.find('egx33 sharia', 'egypt')).ticker.value).toBe('SHARIAH');
-    expect((await indices.find('EGX 30', 'egypt')).ticker.value).toBe('EGX30');
+    expect((await indices.find('EGX30 Capped', 'egypt')).ticker.value).toBe('EGX30CAPPED');
+  });
+
+  it('reports a name shared by two indices as ambiguous', async () => {
+    const { repository, indices } = setup();
+    repository.indicators.egypt = [
+      aQuote({ ticker: 'EGX30CAPPED', board: 'INDX', name: 'EGX99 Capped' }),
+      aQuote({ ticker: 'SHARIAH', board: 'INDX', name: 'EGX99 Sharia' }),
+    ];
+    repository.quotes.egypt = (repository.quotes.egypt ?? []).map((q) =>
+      q.ticker.value === 'SHARIAH' ? { ...q, name: null } : q,
+    );
+    await expect(indices.find('EGX99', 'egypt')).rejects.toThrow('Indices: EGX30CAPPED, SHARIAH.');
   });
 
   it('rejects unknown or ambiguous names and lists the candidates', async () => {
@@ -127,13 +139,19 @@ describe('IndexMembership', () => {
     expect(repository.calls.getIndexConstituents).toHaveLength(4);
   });
 
-  it('retries a load in which an index came back without members', async () => {
-    const { repository, indices } = setup();
+  it('keeps an answer with a memberless index for 5 minutes only', async () => {
+    let now = new Date('2026-01-01T12:00:00Z').getTime();
+    const clock = { now: () => new Date(now) };
+    const { repository } = setup(clock);
+    const indices = new IndexMembership(repository, new MarketQuotesCache(repository, clock, 0), clock);
     repository.constituents[idFor('EGX70-EWI')] = [];
     const first = await indices.indices('egypt');
     expect(first.find((i) => i.ticker.value === 'EGX70-EWI')?.members).toEqual([]);
     repository.constituents[idFor('EGX70-EWI')] = [idFor('HRHO')];
     await new Promise((resolve) => setTimeout(resolve, 0));
+    now += 5 * 60_000 - 1;
+    expect((await indices.indices('egypt')).find((i) => i.ticker.value === 'EGX70-EWI')?.members).toEqual([]);
+    now += 1;
     const second = await indices.indices('egypt');
     expect(second.find((i) => i.ticker.value === 'EGX70-EWI')?.members.map((m) => m.value)).toEqual([
       idFor('HRHO'),

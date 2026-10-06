@@ -25,8 +25,11 @@ function normalize(symbol: string): string {
  * each index's members from `constituents` on its asset details (docs/api/market-data.md §1.2). Membership only
  * changes at index rebalances, so it is cached per market for `ttlMs` (6 hours by default).
  */
+/** How long an incomplete answer (an index without members) is kept before it is reloaded. */
+const INCOMPLETE_TTL_MS = 5 * 60_000;
+
 export class IndexMembership {
-  private readonly entries = new Map<Market, { at: number; indices: Promise<MarketIndex[]> }>();
+  private readonly entries = new Map<Market, { at: number; ttl: number; indices: Promise<MarketIndex[]> }>();
 
   constructor(
     private readonly repository: MarketDataRepository,
@@ -39,17 +42,19 @@ export class IndexMembership {
   indices(market: Market): Promise<MarketIndex[]> {
     const now = this.clock.now().getTime();
     const entry = this.entries.get(market);
-    if (entry && now - entry.at < this.ttlMs) return entry.indices;
+    if (entry && now - entry.at < entry.ttl) return entry.indices;
     const indices = this.load(market);
-    const fresh = { at: now, indices };
+    const fresh = { at: now, ttl: this.ttlMs, indices };
     this.entries.set(market, fresh);
-    // Evict failures and incomplete answers — no index rows, or an index without members — so the next call retries,
-    // but never evict a newer entry that replaced this one.
+    // Evict failures and answers without index rows, so the next call retries; keep an answer with a memberless index
+    // only briefly (reloading it costs ~8 calls). Never touch a newer entry that replaced this one.
     const evict = () => {
       if (this.entries.get(market) === fresh) this.entries.delete(market);
     };
     indices.then((list) => {
-      if (list.length === 0 || list.some((index) => index.members.length === 0)) evict();
+      if (list.length === 0) evict();
+      else if (list.some((index) => index.members.length === 0))
+        fresh.ttl = Math.min(this.ttlMs, INCOMPLETE_TTL_MS);
     }, evict);
     return indices;
   }
@@ -68,17 +73,17 @@ export class IndexMembership {
       const first = normalize(index.name.split(/[\s(]/)[0] ?? '');
       return [normalize(index.name), ...(/\d/.test(first) ? [first] : [])];
     };
-    const exact =
-      indices.find((index) => normalize(index.ticker.value) === wanted) ??
-      (wanted ? indices.find((index) => names(index).includes(wanted)) : undefined);
-    if (exact) return exact;
-    const prefixed = wanted
-      ? indices.filter((index) => normalize(index.ticker.value).startsWith(wanted))
-      : [];
+    const bySymbol = indices.find((index) => normalize(index.ticker.value) === wanted);
+    if (bySymbol) return bySymbol;
+    const byName = wanted ? indices.filter((index) => names(index).includes(wanted)) : [];
+    if (byName.length === 1 && byName[0]) return byName[0];
+    const prefixed =
+      wanted && byName.length === 0
+        ? indices.filter((index) => normalize(index.ticker.value).startsWith(wanted))
+        : [];
     if (prefixed.length === 1 && prefixed[0]) return prefixed[0];
-    const available = (prefixed.length > 1 ? prefixed : indices)
-      .map((index) => index.ticker.value)
-      .join(', ');
+    const candidates = byName.length > 1 ? byName : prefixed.length > 1 ? prefixed : indices;
+    const available = candidates.map((index) => index.ticker.value).join(', ');
     throw new NotFoundError(
       `No single ${market} index matches "${symbol}".${available ? ` Indices: ${available}.` : ''}`,
     );

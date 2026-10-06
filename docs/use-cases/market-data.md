@@ -191,8 +191,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetIndexConstituents` (`Query`) in `src/application/market-data/queries/get-index-constituents.ts`
 - **Invoke:** MCP `get_index_constituents {"index": "EGX30"}` · CLI `thndr get-index-constituents EGX30 [--sort-by changePercent] [--limit 10]` (no argument lists the indices)
 - **Goal:** list the market's indices, or the members of one index with their quotes.
-- **Input:** `index` (optional; exact symbol ignoring case and separators, or a unique prefix: `egx70` →
-  `EGX70-EWI`), `market`, `sortBy` (`marketCap` default, `changePercent`, `value`, `volume`, `last`, `ticker`),
+- **Input:** `index` (optional; exact symbol or name ignoring case and separators — `EGX33` finds SHARIAH,
+  "EGX33 (Sharia)" — or a unique symbol prefix: `egx70` → `EGX70-EWI`), `market`, `sortBy` (`marketCap` default, `changePercent`, `value`, `volume`, `last`, `ticker`),
   `order` (default `asc` for `ticker`, else `desc`), `limit` (1–300, default 100).
 - **Main flow:**
   1. In parallel: load the market snapshot and the indices with their members (`IndexMembership`).
@@ -207,7 +207,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   are returned.
 - **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}`
   per `INDX` row, one at a time (`constituents`) + `GET prod /assets-service/assets/market-indicators` (index names);
-  membership is cached 6 h (an answer without index rows, or with an index without members, is not cached).
+  membership is cached 6 h (an answer without index rows is not cached; one with an index without members is kept 5
+  minutes).
 
 ## Peers — `get_peers` (`GetPeers`)
 
