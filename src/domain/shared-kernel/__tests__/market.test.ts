@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ValidationError } from '../errors';
 import {
   DEFAULT_MARKET,
+  MARKET_FEATURES,
   MARKET_PROFILES,
   MARKETS,
   marketSupports,
@@ -60,6 +61,25 @@ describe('market profiles and features', () => {
       ['simulator', 'EGP', 'Africa/Cairo'],
     ]);
     expect(Object.isFrozen(MARKET_PROFILES.uae)).toBe(true);
+  });
+
+  it('pins the whole feature table', () => {
+    expect(MARKET_FEATURES.map((feature) => [feature, marketsSupporting(feature)])).toEqual([
+      ['marketSnapshot', ['egypt']],
+      ['candles', ['egypt']],
+      ['orderBook', ['egypt']],
+      ['financials', ['egypt']],
+      ['indices', ['egypt']],
+      ['movers', ['egypt', 'us']],
+      ['marketStatus', ['egypt', 'us', 'uae']],
+      ['account', ['egypt', 'us', 'uae', 'simulator']],
+      ['activity', ['egypt', 'us', 'uae']],
+      ['returns', ['egypt', 'us', 'uae']],
+      ['journal', ['egypt']],
+      ['watchlists', ['egypt', 'us', 'uae']],
+      ['priceAlerts', ['egypt', 'us']],
+      ['savings', ['egypt']],
+    ]);
   });
 
   it('knows what Thndr offers in each market', () => {

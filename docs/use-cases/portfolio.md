@@ -17,7 +17,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Read-only** ([ADR 0006](../adr/0006-trading-safety.md)): nothing here places, modifies or cancels orders or
   moves funds (savings balances are read, never transferred). Every use case is a CQRS `Query`, so every MCP tool is annotated `readOnlyHint: true`.
 - **Preconditions:** a Thndr session exists.
-- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); activity, returns, journal and savings exist only in some markets (`FEATURE_DISABLED` otherwise); `symbol` is a ticker or Thndr asset id.
+- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); activity, returns and the journal exist only in some markets (`FEATURE_DISABLED` otherwise) and savings are Egypt-only; `symbol` is a ticker or Thndr asset id.
   Date-filtered tools take either `from`/`to` (ISO dates; date-only values are Cairo market days) or a `period`
   preset — `today`, `7d`, `30d`, `90d` (the last N Cairo calendar days including today), `mtd`, `ytd`, `1y` (the
   last 12 months including today) — which starts at 00:00 Cairo on its first day and runs until now. Giving

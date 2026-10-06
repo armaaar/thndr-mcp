@@ -263,6 +263,17 @@ describe('GetFinancials', () => {
       expect(out.notes?.[1]).toContain('no daily candles');
     });
 
+    it('compares within the instrument’s own market, e.g. Egypt for a simulator user', async () => {
+      const deps = sector();
+      const out = await new GetFinancials(deps).run({
+        symbol: deps.repository.instruments[0]?.id.value,
+        market: 'simulator',
+        compareToSector: true,
+      });
+      expect(out.sectorComparison?.sector).toBe('Banks');
+      expect(deps.repository.calls.getMarketQuotes).toEqual(['egypt']);
+    });
+
     it('uses today’s price when the candle request fails, and propagates other errors', async () => {
       const deps = sector();
       deps.repository.failures.getCandles = new UpstreamError('Thndr API error 500', 500);

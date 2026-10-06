@@ -37,7 +37,7 @@ Thndr serves four markets and that each offers a different set of features:
 
 - **Markets** in the domain (shared kernel): `egypt` (EGX, EGP, Africa/Cairo), `us` (NYSE, Nasdaq and ETFs via
   Alpaca, USD, America/New_York), `uae` (ADX, AED, Asia/Dubai) and `simulator` (Thndr's paper-trading market). Inputs
-  take exactly these four codes (case-insensitive), so the published tool schemas list them. Thndr's wire codes stay in
+  take exactly these four lower-case codes, so the published tool schemas list them. Thndr's wire codes stay in
   the Thndr adapters (anti-corruption layer): `uae` → `adsm` for instruments, `abudhabi` for accounts.
 - **Capabilities** are domain knowledge per market (`marketSupports(market, feature)`), based on the live checks
   above. A use case asked for a feature a market lacks fails fast with `FEATURE_DISABLED` and a message naming the
