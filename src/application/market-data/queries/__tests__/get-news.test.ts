@@ -20,7 +20,14 @@ describe('GetNews', () => {
   it('declares its contract', async () => {
     const uc = new GetNews(setup());
     expect(uc).toMatchObject({ name: 'get_news', kind: 'query', context: 'market-data' });
-    for (const input of [{ page: 0 }, { locale: 'fr' }, { contentChars: -1 }, { symbol: '' }]) {
+    for (const input of [
+      { page: 0 },
+      { locale: 'fr' },
+      { contentChars: -1 },
+      { symbol: '' },
+      { limit: 0 },
+      { limit: 26 },
+    ]) {
       await expect(uc.run(input), JSON.stringify(input)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     }
   });
@@ -53,9 +60,9 @@ describe('GetNews', () => {
       total: 2,
       hasMore: false,
       articles: [
-        aNewsArticle({ id: 'fits', content: 'abcde' }),
-        aNewsArticle({ id: 'over', content: 'abcdef' }),
-        aNewsArticle({ id: 'space', content: 'abcd efg' }),
+        aNewsArticle({ id: 'fits', title: 'A', content: 'abcde' }),
+        aNewsArticle({ id: 'over', title: 'B', content: 'abcdef' }),
+        aNewsArticle({ id: 'space', title: 'C', content: 'abcd efg' }),
       ],
     };
     const out = await new GetNews(deps).run({ contentChars: 5 });
@@ -76,5 +83,30 @@ describe('GetNews', () => {
     expect(direct.items[0]?.content).toHaveLength(501);
     const full = await new GetNews(deps).run({ contentChars: 1000 });
     expect(full.items[0]?.content).toHaveLength(600);
+  });
+
+  it('drops repeated filings and keeps the first `limit` articles', async () => {
+    const deps = setup();
+    const at = new Date('2026-08-02T08:36:29Z');
+    deps.research.news = {
+      total: 168,
+      hasMore: false,
+      articles: [
+        aNewsArticle({ id: 'a1', title: 'Board decisions', publishedAt: new Date('2026-08-13T12:29:41Z') }),
+        aNewsArticle({ id: 'r-nolink', title: 'ADIB Reports 6 Months Results', link: null, publishedAt: at }),
+        aNewsArticle({ id: 'r-link', title: 'ADIB  reports 6 months results', publishedAt: at }),
+        aNewsArticle({ id: 'a3', title: 'Disclosure form', publishedAt: new Date('2026-07-13T12:20:28Z') }),
+      ],
+    };
+    const all = await new GetNews(deps).run({ symbol: 'COMI' });
+    expect(all.items.map((i) => i.id)).toEqual(['a1', 'r-link', 'a3']);
+    expect(all).toMatchObject({ duplicatesRemoved: 1, hasMore: false, total: 168 });
+
+    const two = await new GetNews(deps).run({ symbol: 'COMI', limit: 2 });
+    expect(two.items.map((i) => i.id)).toEqual(['a1', 'r-link']);
+    // More articles remain on this page, so there is more to read even on Thndr's last page.
+    expect(two.hasMore).toBe(true);
+    expect((await new GetNews(deps).run({ limit: 3 })).hasMore).toBe(false);
+    expect((await new GetNews(deps).execute({ limit: 0 })).items).toHaveLength(1);
   });
 });

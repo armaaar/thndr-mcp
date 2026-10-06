@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { NEWS_LOCALES, type NewsLocale } from '../../../domain/market-data/research';
+import { dedupeNews, NEWS_LOCALES, type NewsLocale } from '../../../domain/market-data/research';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, pageInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
 const DEFAULT_CONTENT_CHARS = 500;
+/** Thndr serves 25 articles per page. */
+const PAGE_SIZE = 25;
 
 const input = {
   symbol: z
@@ -18,6 +20,13 @@ const input = {
       'EGX and US items)',
   ),
   page: pageInput.describe('Page number (25 articles per page, newest first)'),
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(PAGE_SIZE)
+    .default(PAGE_SIZE)
+    .describe('Return only the first N articles of the page (1–25, default 25), e.g. 2 for the latest two'),
   locale: z.enum(NEWS_LOCALES).default('en').describe('"en" (default) or "ar"'),
   contentChars: z
     .number()
@@ -50,6 +59,8 @@ export interface NewsView {
   /** Articles matching the query across all pages, as Thndr counts them. */
   total: number | null;
   hasMore: boolean;
+  /** Repeated articles dropped from this page (Thndr lists some filings twice, with and without the PDF link). */
+  duplicatesRemoved: number;
   items: NewsItemView[];
 }
 
@@ -58,8 +69,9 @@ export class GetNews extends Query<typeof input, NewsView> {
   readonly title = 'News';
   readonly description =
     'News and exchange disclosures from Thndr’s feed, newest first: for one instrument, or market-wide when ' +
-    '`symbol` is omitted (every Thndr market mixed: EGX and US; `market` does not filter it). 25 per page; content is truncated to `contentChars` (default 500) — follow `link` for ' +
-    'the full text (EGX disclosures are PDFs).';
+    '`symbol` is omitted (every Thndr market mixed: EGX and US; `market` does not filter it). 25 per page, ' +
+    'repeated filings removed; `limit` keeps the first N. Content is truncated to `contentChars` (default 500) — ' +
+    'follow `link` for the full text (EGX disclosures are PDFs).';
   readonly context = 'market-data';
   readonly input = input;
 
@@ -75,13 +87,16 @@ export class GetNews extends Query<typeof input, NewsView> {
       ? await this.deps.resolver.resolve(params.symbol, parseMarket(params.market))
       : null;
     const result = await this.deps.research.getNews({ assetId: instrument?.id, locale, page });
+    const unique = dedupeNews(result.articles);
+    const limit = Math.min(Math.max(params.limit ?? PAGE_SIZE, 1), PAGE_SIZE);
     return {
       ticker: instrument?.ticker.value ?? null,
       locale,
       page,
       total: result.total,
-      hasMore: result.hasMore,
-      items: result.articles.map((article) => {
+      hasMore: result.hasMore || unique.length > limit,
+      duplicatesRemoved: result.articles.length - unique.length,
+      items: unique.slice(0, limit).map((article) => {
         const truncated = article.content.length > maxChars;
         return {
           id: article.id,

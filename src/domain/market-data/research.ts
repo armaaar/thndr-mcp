@@ -19,6 +19,33 @@ export interface NewsArticle {
   readonly tickers: readonly string[];
 }
 
+/**
+ * Drops repeated articles, keeping the first position of each. Thndr lists some exchange filings twice — once with the
+ * PDF link and once without — so articles with the same title (ignoring case and spacing) and publication time are one
+ * article: the copy with a link wins, then the one with more content.
+ */
+export function dedupeNews(articles: readonly NewsArticle[]): NewsArticle[] {
+  const keyOf = (a: NewsArticle) =>
+    `${a.title.trim().replace(/\s+/g, ' ').toLowerCase()}|${a.publishedAt?.getTime() ?? ''}`;
+  const better = (a: NewsArticle, b: NewsArticle) =>
+    a.link === null && b.link !== null
+      ? true
+      : (a.link === null) === (b.link === null) && b.content.length > a.content.length;
+  const order: string[] = [];
+  const kept = new Map<string, NewsArticle>();
+  for (const article of articles) {
+    const key = keyOf(article);
+    const current = kept.get(key);
+    if (!current) {
+      order.push(key);
+      kept.set(key, article);
+    } else if (better(current, article)) {
+      kept.set(key, article);
+    }
+  }
+  return order.map((key) => kept.get(key) as NewsArticle);
+}
+
 export interface NewsPage {
   readonly total: number | null;
   readonly hasMore: boolean;

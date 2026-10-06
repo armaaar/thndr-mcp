@@ -319,19 +319,25 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 ## News — `get_news` (`GetNews`)
 
 - **Use case:** `GetNews` (`Query`) in `src/application/market-data/queries/get-news.ts`
-- **Invoke:** MCP `get_news {"symbol": "COMI"}` · CLI `thndr get-news COMI [--page 2] [--locale ar] [--content-chars 0]`;
+- **Invoke:** MCP `get_news {"symbol": "COMI", "limit": 2}` · CLI `thndr get-news COMI [--limit 2] [--page 2] [--locale ar] [--content-chars 0]`;
   market-wide: `thndr get-news`
 - **Goal:** recent news and exchange disclosures, for one instrument or market-wide.
 - **Input:** `symbol` (optional; omit for market-wide news across Thndr's markets), `market` (only to resolve the
   symbol: market-wide news cannot be filtered by market — the endpoint ignores a `market` parameter and mixes EGX
-  and US items, live-verified 2026-10-06), `page` (default 1, 25 per page), `locale` (`en` default, `ar`), `contentChars` (truncate each article's
-  content to N characters, default 500, 0 omits it, up to 20000).
+  and US items, live-verified 2026-10-06), `page` (default 1, 25 per page), `limit` (keep the first N articles of
+  the page, 1–25, default 25), `locale` (`en` default, `ar`), `contentChars` (truncate each article's content to N
+  characters, default 500, 0 omits it, up to 20000).
 - **Main flow:**
   1. Resolve the symbol when given.
   2. Fetch the page of news (newest first).
-  3. Truncate content longer than `contentChars` (adds `…` and `contentTruncated: true`).
+  3. Drop repeated articles (domain `dedupeNews`): Thndr lists some EGX filings twice, with and without the PDF link
+     (live 2026-10-06, e.g. ADIB's 6-month results); same title (ignoring case and spacing) and publication time → one
+     article, the copy with a link first, then the one with more content.
+  4. Keep the first `limit` articles; truncate content longer than `contentChars` (adds `…` and
+     `contentTruncated: true`).
 - **Alternative/error flows:** a page past the last one → empty `items`, `hasMore: false`. Common errors.
-- **Output:** `ticker` (or null), `locale`, `page`, `total` (Thndr's count across pages), `hasMore`, `items`
+- **Output:** `ticker` (or null), `locale`, `page`, `total` (Thndr's count across pages, duplicates included),
+  `hasMore` (another page exists, or `limit` left articles of this page out), `duplicatesRemoved`, `items`
   (`[{id, title, content?, contentTruncated?, source, link, publishedAt, market, tickers}]`). Many EGX disclosures
   have empty content: their text is the PDF at `link`.
 - **Thndr endpoints:** (resolve) + `GET prod /api/post/news/?asset_id=&locale=&page=`.
