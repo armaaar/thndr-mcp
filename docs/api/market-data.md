@@ -1083,7 +1083,7 @@ interface NewsItem {
   created_at: string;   // "2026-08-20T09:55:27+03:00"
   locale: "en" | "ar";
   market: "egypt" | "us" | string;
-  link: string;         // an EGX bulletin PDF or the article URL
+  link: string | null;  // an EGX bulletin PDF or the article URL; null on one copy of filings Thndr lists twice (live 2026-10-06)
   external_id: string;
   source: string;       // "egx", "The Motley Fool", …
   source_logo: string;
