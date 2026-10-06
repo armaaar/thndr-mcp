@@ -13,7 +13,7 @@ const CONTEXT_TITLES: Record<BoundedContext, string> = {
 export function renderOverview(useCases: readonly UseCase[], version: string): string {
   const width = Math.max(...useCases.map((u) => commandName(u).length), 'login'.length);
   const lines = [
-    `thndr ${version} — unofficial CLI for Thndr (EGX). Same use cases as the thndr-mcp MCP server.`,
+    `thndr ${version} — unofficial CLI for Thndr (Egypt, US, UAE, simulator). Same use cases as the thndr-mcp MCP server.`,
     '',
     'Usage: thndr <command> [arguments] [--json] [--help]',
     '',

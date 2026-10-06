@@ -27,3 +27,4 @@ is changed by adding a new ADR that supersedes the old one.
 | 0019 | [Document write operations; implementing them stays out of scope](0019-document-write-operations.md) | Accepted |
 | 0020 | [Apache-2.0 license and a liability disclaimer](0020-apache-license-and-disclaimer.md) | Accepted |
 | 0021 | [Support every Thndr market, with per-market capabilities](0021-all-thndr-markets.md) | Accepted |
+| 0022 | [Distribution, CI/CD and versioning](0022-distribution-ci-cd-and-versioning.md) | Accepted |

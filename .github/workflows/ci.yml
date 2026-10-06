@@ -1,0 +1,63 @@
+# Tests every pull request and every push to main (ADR 0022). No secrets; the tests never call Thndr.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['20', '22']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Typecheck, lint, tests with the coverage gate
+        run: npm run check
+      - run: npm run build
+
+  package:
+    name: Package smoke test
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Pack what users install
+        run: npm pack
+      - name: Install the tarball in a fresh project and run both commands
+        run: |
+          tarball="$PWD/$(ls thndr-mcp-*.tgz)"
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          npm init -y > /dev/null
+          npm install "$tarball"
+          npx thndr help | head -3
+          # The MCP server speaks JSON-RPC on stdio: it must start and keep running until a client connects.
+          set +e
+          timeout 3 npx thndr-mcp < /dev/null
+          status=$?
+          set -e
+          if [ "$status" -ne 124 ] && [ "$status" -ne 0 ]; then
+            echo "thndr-mcp exited with $status"
+            exit 1
+          fi

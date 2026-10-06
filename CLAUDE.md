@@ -72,7 +72,8 @@ any without a superseding ADR.
 
 - Conventional Commits (`feat(portfolio): …`, `fix(infra): …`, `docs(adr): …`, `test: …`, `chore: …`).
   Commit author is `armaaar`. No AI co-author trailers.
-- Run `npm run check` before committing.
+- Run `npm run check` before committing. Releases are cut by release-please from these commit types (ADR 0022):
+  never bump versions, `src/version.ts` or `CHANGELOG.md` by hand.
 - **Independent review**: after a meaningful change, ask the `qa-reviewer` agent (`.claude/agents/qa-reviewer.md`)
   to review. The author of a change never approves their own work.
 - **API research**: to learn or re-check Thndr's private API from its clients, delegate to the `thndr-api-researcher`
