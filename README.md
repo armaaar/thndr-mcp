@@ -85,7 +85,7 @@ thndr login        # or step by step: thndr login-start you@example.com → thnd
 ```
 
 …or just ask Claude for what you want ("how is my portfolio doing?"). If you are not logged in, the MCP server asks
-you itself — in Claude Code's own prompt, not in the chat — for your email, the emailed code and the approval on your
+you itself — in your MCP client's own prompt (e.g. Claude Code's), not in the chat — for your email, the emailed code and the approval on your
 phone, then answers the request ([ADR 0016](docs/adr/0016-login-on-demand-via-mcp-elicitation.md)). Your code never
 passes through the model. The session is renewed automatically; when it finally expires you are only asked to approve
 once more on your phone (no new email code).

@@ -29,7 +29,9 @@ The pending login (`LoginFlow`) and the session are persisted in the same owner-
     `presentation/mcp/login-on-demand.ts`): when a non-identity tool fails with `NOT_AUTHENTICATED` or
     `SESSION_EXPIRED` and the client supports form elicitation, the server asks for the email, the code and the phone
     approval through elicitation, then retries the tool once. Declined or failed logins return the original error plus
-    a `login` field. Without elicitation the error is returned unchanged.
+    a `login` field. Cancelling the tool call cancels the dialog; approval progress is sent as MCP progress
+    notifications when the call has a progress token. Without elicitation the error is returned unchanged.
+  - Sentences addressed to an agent ("Call login_complete again.") are dropped from what the person sees (`forPerson`).
 
 ```sh
 thndr login                          # guided: prompts for email, code, then waits for phone approval

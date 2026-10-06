@@ -32,8 +32,25 @@ We will log in **on demand** through MCP elicitation:
   through `runAndPresent` and talks to the user through a `LoginDialog`. The CLI implements it with terminal prompts,
   the MCP server with elicitation (`presentation/mcp/login-on-demand.ts`). No new use case and no new domain logic.
 - Identity tools never trigger it, concurrent tool calls share one login, and each question waits up to 10 minutes.
+  Cancelling the tool call cancels the dialog. When the call carries a progress token, approval progress ("still
+  waiting…") is sent as MCP progress notifications, which also keeps clients that reset their timeout on progress
+  waiting.
+- Messages written for an agent ("Call login_complete again.") are dropped from what the person sees.
 - If the user declines or the login fails, the tool returns its original error with a `login` field explaining why.
 - Clients without elicitation keep today's behaviour: the error, and the step-by-step `login_*` tools.
+
+### Why form elicitation for a one-time code
+
+The MCP specification says servers must not use form elicitation to request sensitive information such as passwords
+or API keys, and offers URL-mode elicitation for credential flows. We accept the emailed code in a form because:
+
+- it is short-lived and single-use, and on its own does not grant access: the login also needs the approval in the
+  Thndr mobile app on the user's phone;
+- it goes from the client's UI straight to this server, never into the model's context, and is never logged;
+- the server is a local stdio process run by the user, not a third party.
+
+URL mode would need a local HTTP page to collect the code, the same infrastructure as the OAuth option rejected above.
+We never ask for a password (Thndr has none in this flow) or any other long-lived secret.
 
 ## Consequences
 
