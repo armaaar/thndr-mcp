@@ -1,8 +1,4 @@
-import {
-  ElicitationCompleteNotificationSchema,
-  type ElicitRequest,
-  type ElicitResult,
-} from '@modelcontextprotocol/sdk/types.js';
+import type { ElicitRequest, ElicitResult } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { identityUseCases } from '../../../__tests__/support/fake-login';
 import { FakeQuery } from '../../../__tests__/support/fake-use-cases';
@@ -167,35 +163,22 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
     expect(t.handler).toHaveBeenCalledOnce();
   });
 
-  it('with URL elicitation, lets the client open the page and tells it when the login completed', async () => {
+  it('opens the browser itself even when the client could open URLs, so there is no consent step', async () => {
     const asked: Params[] = [];
     const t = await setup({
       url: true,
-      elicit: async (params) => {
+      elicit: (params) => {
         asked.push(params);
-        return { action: 'accept' };
+        return new Promise<ElicitResult>(() => {});
       },
-    });
-    const completed: string[] = [];
-    t.client.client.setNotificationHandler(ElicitationCompleteNotificationSchema, (n) => {
-      completed.push(n.params.elicitationId);
     });
     const call = t.client.call('get_account_positions');
     await vi.waitFor(() => expect(asked).toHaveLength(1));
-    expect(asked[0]).toMatchObject({ mode: 'url', url: URL_, message: 'Log in to Thndr in your browser.' });
-    expect(t.open).not.toHaveBeenCalled();
+    expect(t.open).toHaveBeenCalledWith(URL_);
+    expect(asked[0]).toMatchObject({ mode: 'form' });
 
     t.logIn();
     expect((await call).isError).toBeFalsy();
-    const id = (asked[0] as { elicitationId: string }).elicitationId;
-    await vi.waitFor(() => expect(completed).toEqual([id]));
-  });
-
-  it('with URL elicitation, a declined link cancels the login', async () => {
-    const t = await setup({ url: true, elicit: async () => ({ action: 'decline' }) });
-    const result = await t.client.call('get_account_positions');
-    expect(t.session.cancel).toHaveBeenCalled();
-    expect(result.json).toMatchObject({ login: 'Login cancelled.' });
   });
 
   it('keeps waiting for the browser when the prompt itself fails', async () => {

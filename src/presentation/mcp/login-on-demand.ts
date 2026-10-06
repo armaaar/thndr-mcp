@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type { Logger } from '../../application/ports/logger';
 import type { UseCase } from '../../application/use-case';
@@ -33,12 +32,10 @@ export interface LoginOnDemandOptions {
 
 /**
  * Login on demand (ADR 0016, ADR 0017): when a tool fails because there is no usable session, the server starts the
- * browser login page and the tool waits for it, then is retried once. How the user reaches the page depends on the
- * client:
- *
- * - URL elicitation: the client offers to open the page and is told when the login completed.
- * - Form elicitation: the server opens the page and shows a short prompt with its link; it closes once logged in.
- * - Neither (e.g. clients without elicitation): the server opens the page; progress messages carry the link.
+ * browser login page, opens it in the default browser and the tool waits for it, then is retried once. The server
+ * always opens the page itself, so the user never has to agree to open it (MCP URL elicitation would ask first, and a
+ * declined consent would cancel the login). The link is also shown as a fallback: in a short form prompt when the
+ * client supports form elicitation (it closes once logged in), and in progress messages.
  *
  * Concurrent tool calls share one login. A call cancelled by the client leaves the page running: the user can finish
  * logging in and ask again.
@@ -102,7 +99,7 @@ export class LoginOnDemand {
       .finally(() => {
         this.inFlight = null;
       });
-    if (!this.server.getClientCapabilities()?.elicitation?.url) this.options.open(session.url);
+    this.options.open(session.url);
     return { session, result };
   }
 
@@ -111,21 +108,12 @@ export class LoginOnDemand {
     return { ok: false, message: `Login failed — ${error instanceof Error ? error.message : String(error)}` };
   }
 
-  /** Shows the page's link in the client, when it can; declining it cancels the login. Never rejects. */
+  /** Shows the page's link in the client, when it can; declining the prompt cancels the login. Never rejects. */
   private async prompt(session: BrowserLoginSession, signal: AbortSignal): Promise<void> {
     const elicitation = this.server.getClientCapabilities()?.elicitation;
     const options = { signal, timeout: 15 * 60_000 };
     try {
-      if (elicitation?.url) {
-        const elicitationId = randomUUID();
-        const answer = await this.server.elicitInput(
-          { mode: 'url', message: 'Log in to Thndr in your browser.', url: session.url, elicitationId },
-          options,
-        );
-        if (answer.action !== 'accept') return session.cancel();
-        await session.result;
-        await this.server.createElicitationCompletionNotifier(elicitationId)();
-      } else if (elicitation?.form) {
+      if (elicitation?.form) {
         const answer = await this.server.elicitInput(
           {
             mode: 'form',

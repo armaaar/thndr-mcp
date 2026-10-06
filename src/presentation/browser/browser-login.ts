@@ -171,7 +171,7 @@ export async function startBrowserLogin(
       const scriptNonce = nonce();
       res.setHeader(
         'content-security-policy',
-        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline'; ` +
+        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; ` +
           "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
       );
       return send(res, 200, 'text/html; charset=utf-8', renderLoginPage(scriptNonce));
