@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeFetch, json, type Responder } from '../../../__tests__/support/fake-fetch';
 import { UpstreamError } from '../../../application/errors';
 import { ThndrHttpClient } from '../../../data-sources/thndr/http-client';
@@ -537,6 +537,27 @@ describe('ThndrPortfolioRepository journal', () => {
     expect(m.perInstrument[1]?.totalReturn).toBeNull();
   });
 
+  it('fills an open end of the range, since Thndr ignores a range with only one bound', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-06T10:00:00.000Z'), toFake: ['Date'] });
+    const { gateway, url } = setup(
+      () => json({}),
+      () => json({ full_trades: [] }),
+      () => json({}),
+      () => json({ sell_journals: [] }),
+    );
+    await gateway.getTradingMetrics({ from });
+    expect(url(0).searchParams.get('from_date')).toBe(from.toISOString());
+    expect(url(0).searchParams.get('to_date')).toBe('2026-10-06T10:00:00.000Z');
+    await gateway.getClosedTrades({ market: 'egypt', page: 1, limit: 10, to });
+    expect(url(1).searchParams.get('from_date')).toBe('1970-01-01T00:00:00.000Z');
+    expect(url(1).searchParams.get('to_date')).toBe(to.toISOString());
+    await gateway.getTradingMetrics({});
+    expect(url(2).searchParams.has('from_date')).toBe(false);
+    expect(url(2).searchParams.has('to_date')).toBe(false);
+    await gateway.getSellJournal({ market: 'egypt', page: 1, limit: 10, from });
+    expect(url(3).searchParams.get('to_date')).toBe('2026-10-06T10:00:00.000Z');
+  });
+
   it('tolerates empty metrics', async () => {
     const { gateway, url } = setup(() => json({}));
     const m = await gateway.getTradingMetrics({});
@@ -716,4 +737,8 @@ describe('ThndrPortfolioRepository savings (read-only)', () => {
     await expect(gateway.getSavings()).rejects.toThrow(/error_get_clouds.*down/);
     await expect(gateway.getSavingsYields()).rejects.toThrow(/error_clouds_stats/);
   });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });

@@ -170,7 +170,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   async getTradingMetrics(range: DateRange): Promise<TradingMetrics> {
     const path = '/trading-journals/v1/trading-metrics';
     const data = await this.krakend.get<TradingMetricsDto>(path, {
-      query: { from_date: range.from?.toISOString(), to_date: range.to?.toISOString() },
+      query: journalRangeParams(range),
     });
     assertNoKrakendError(data, `GET ${path}`);
     return toTradingMetrics(data);
@@ -209,7 +209,22 @@ function journalParams(query: JournalQuery) {
     page: query.page,
     limit: query.limit,
     symbol_code: query.ticker,
-    from_date: query.from?.toISOString(),
-    to_date: query.to?.toISOString(),
+    ...journalRangeParams(query),
+  };
+}
+
+/** Earliest bound sent when only the end of a journal range is given. */
+const JOURNAL_EPOCH = new Date(0);
+
+/**
+ * Thndr's journal endpoints apply a date range only when **both** `from_date` and `to_date` are sent (live check
+ * 2026-10-06: `from_date` alone returns every trade). An open end is therefore filled in: the epoch for a missing
+ * start, now for a missing end. "All time" sends neither.
+ */
+function journalRangeParams(range: DateRange): { from_date?: string; to_date?: string } {
+  if (!range.from && !range.to) return {};
+  return {
+    from_date: (range.from ?? JOURNAL_EPOCH).toISOString(),
+    to_date: (range.to ?? new Date()).toISOString(),
   };
 }

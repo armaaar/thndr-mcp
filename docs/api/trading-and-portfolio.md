@@ -442,6 +442,9 @@ documented or used** by this project (ADR 0006: read-only scope).
   - `limit` (default 10).
   - `symbol_code` (optional ticker).
   - `from_date` and `to_date` (optional). These are JS `Date` objects, which axios serializes as **ISO 8601** (`toISOString()`). Presets are 1/3/6 months or 1 year back, start of day. "All time" omits both.
+  - **Both bounds are required for the filter to apply** (live check 2026-10-06, same for grouped-sells and
+    trading-metrics): `from_date` alone (or `to_date` alone) returns every trade. thndr-mcp fills an open end with the
+    epoch or the current time.
 ```ts
 interface FullTradesResponse { full_trades: FullTrade[]; total_count: number }
 interface FullTrade {             // [I] mapping fn `s` in lazy_2019
