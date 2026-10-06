@@ -7,7 +7,7 @@ import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { idInput, symbolsInput, watchlistNameInput } from '../inputs';
 import { assetIdOrNull } from '../services/instrument-labels';
-import { checkSymbolCount, resolveIds } from '../watchlist-symbols';
+import { checkSymbolCount, resolveIds } from '../services/watchlist-symbols';
 
 const input = {
   id: idInput,

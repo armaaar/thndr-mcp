@@ -9,7 +9,7 @@ import { marketInput, symbolInput } from '../../inputs';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, priceInput } from '../inputs';
-import { decideDirection, placeAlert } from '../price-alerts';
+import { decideDirection, placeAlert } from '../services/price-alerts';
 import { type AlertReceipt, toAlertReceipt } from '../views';
 
 const input = {

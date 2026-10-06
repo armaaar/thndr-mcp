@@ -1,9 +1,9 @@
-import { uniqueAssetIds } from '../../domain/engagement/watchlist';
-import type { AssetId } from '../../domain/shared-kernel/asset-id';
-import { ValidationError } from '../../domain/shared-kernel/errors';
-import type { Market } from '../../domain/shared-kernel/market';
-import { MAX_SYMBOLS_PER_CALL } from './constants';
-import type { EngagementDependencies } from './dependencies';
+import { uniqueAssetIds } from '../../../domain/engagement/watchlist';
+import type { AssetId } from '../../../domain/shared-kernel/asset-id';
+import { ValidationError } from '../../../domain/shared-kernel/errors';
+import type { Market } from '../../../domain/shared-kernel/market';
+import { MAX_SYMBOLS_PER_CALL } from '../constants';
+import type { EngagementDependencies } from '../dependencies';
 
 /** Rejects lists longer than {@link MAX_SYMBOLS_PER_CALL}; `label` names the offending field. */
 export function checkSymbolCount(symbols: readonly string[] | undefined, label: string): readonly string[] {

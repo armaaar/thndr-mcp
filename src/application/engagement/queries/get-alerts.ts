@@ -4,7 +4,7 @@ import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { pageCountInput } from '../inputs';
-import { toAlertViews } from '../price-alerts';
+import { toAlertViews } from '../services/price-alerts';
 import type { AlertView } from '../views';
 
 const input = {

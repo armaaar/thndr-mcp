@@ -4,7 +4,7 @@ import { marketInput } from '../../inputs';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { symbolsInput, watchlistNameInput } from '../inputs';
-import { checkSymbolCount, resolveIds } from '../watchlist-symbols';
+import { checkSymbolCount, resolveIds } from '../services/watchlist-symbols';
 
 const input = { name: watchlistNameInput, symbols: symbolsInput.default([]), market: marketInput };
 

@@ -3,15 +3,15 @@ import {
   type AlertFrequency,
   deriveAlertDirection,
   type PriceAlert,
-} from '../../domain/engagement/price-alert';
-import type { AssetId } from '../../domain/shared-kernel/asset-id';
-import { ValidationError } from '../../domain/shared-kernel/errors';
-import type { Market } from '../../domain/shared-kernel/market';
-import { NotFoundError } from '../errors';
-import { ALERT_SCAN_MAX_PAGES, ALERT_SCAN_PAGE_SIZE } from './constants';
-import type { EngagementDependencies } from './dependencies';
-import { InstrumentLabeler } from './services/instrument-labeler';
-import type { AlertView, PlacedAlertView } from './views';
+} from '../../../domain/engagement/price-alert';
+import type { AssetId } from '../../../domain/shared-kernel/asset-id';
+import { ValidationError } from '../../../domain/shared-kernel/errors';
+import type { Market } from '../../../domain/shared-kernel/market';
+import { NotFoundError } from '../../errors';
+import { ALERT_SCAN_MAX_PAGES, ALERT_SCAN_PAGE_SIZE } from '../constants';
+import type { EngagementDependencies } from '../dependencies';
+import type { AlertView, PlacedAlertView } from '../views';
+import { InstrumentLabeler } from './instrument-labeler';
 
 /** Alert views enriched with tickers and current prices. */
 export async function toAlertViews(

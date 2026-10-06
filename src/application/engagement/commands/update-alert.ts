@@ -11,7 +11,7 @@ import { marketInput } from '../../inputs';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, idInput, priceInput } from '../inputs';
-import { decideDirection, findAlert, placeAlert } from '../price-alerts';
+import { decideDirection, findAlert, placeAlert } from '../services/price-alerts';
 import { type AlertReceipt, toAlertReceipt } from '../views';
 
 const input = {

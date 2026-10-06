@@ -4,7 +4,7 @@ import { marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { idInput } from '../inputs';
-import { findAlert, toAlertViews } from '../price-alerts';
+import { findAlert, toAlertViews } from '../services/price-alerts';
 import type { AlertView } from '../views';
 
 const input = { id: idInput, market: marketInput };
