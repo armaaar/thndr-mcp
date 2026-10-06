@@ -86,6 +86,8 @@ describe('market profiles and features', () => {
     expect(marketsSupporting('marketSnapshot')).toEqual(['egypt']);
     expect(marketsSupporting('orderBook')).toEqual(['egypt']);
     expect(marketsSupporting('movers')).toEqual(['egypt', 'us']);
+    expect(marketsSupporting('trending')).toEqual(['egypt', 'us', 'uae']);
+    expect(marketsSupporting('tags')).toEqual(['egypt', 'us']);
     expect(marketsSupporting('priceAlerts')).toEqual(['egypt', 'us']);
     expect(marketsSupporting('marketStatus')).toEqual(['egypt', 'us', 'uae']);
     expect(marketsSupporting('account')).toEqual(['egypt', 'us', 'uae', 'simulator']);

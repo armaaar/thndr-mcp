@@ -12,6 +12,7 @@ import type { Screener } from '../../domain/market-data/screener';
 import { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
+import { FakeDiscoveryRepository } from './fake-discovery';
 import { FakeResearchRepository } from './fake-research';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */
@@ -280,12 +281,18 @@ export function setupMarketData(
   repository = new FakeMarketDataRepository(),
   now: string | Date = '2026-01-15T12:00:00Z',
   research = new FakeResearchRepository(),
-): MarketDataDependencies & { repository: FakeMarketDataRepository; research: FakeResearchRepository } {
+  discovery = new FakeDiscoveryRepository(),
+): MarketDataDependencies & {
+  repository: FakeMarketDataRepository;
+  research: FakeResearchRepository;
+  discovery: FakeDiscoveryRepository;
+} {
   const clock = fixedClock(now);
   const quotes = new MarketQuotesCache(repository, clock);
   return {
     repository,
     research,
+    discovery,
     clock,
     resolver: new InstrumentResolver(repository),
     quotes,

@@ -46,8 +46,12 @@ Thndr serves four markets and that each offers a different set of features:
 - **Market data outside Egypt** comes from the endpoints Thndr offers there: quotes from the gateway's bulk price,
   price history as closing prices (`assets-service/charts`) labelled as such — we do not invent open/high/low values —
   and performance figures from those closes.
-- **New read-only features** from the mobile app: gainers/losers, trending instruments, tags (themes) with their
-  instruments, dividends per instrument, and the default index list per market.
+- **New read-only features** from the mobile app: gainers/losers (`get_market_movers`, Egypt and US), trending
+  instruments (`get_trending`, Egypt, US and UAE), tags (themes) with their instruments (`get_tags`,
+  `get_tag_instruments`, Egypt and US), dividends per instrument (`get_dividends`, any market) and the default index
+  list per market (`get_market_status` lists the market's own indices). They sit behind a separate
+  `DiscoveryRepository` port. Listing a tag's instruments uses Thndr's own endpoint (`assets-service/tags/{id}`), which
+  lifts ADR 0018's "tags per instrument only" limitation without crawling.
 - Write operations stay documented only (ADR 0006, ADR 0019).
 
 ## Consequences
