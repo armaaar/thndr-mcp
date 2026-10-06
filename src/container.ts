@@ -109,6 +109,8 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   const tokens = new SessionTokenProvider(sessions, authGateway, clock, logger);
   const api = http(config.apiBaseUrl, tokens);
   const krakend = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-x`, tokens);
+  // The mobile app's own KrakenD gateway (docs/api/mobile-app.md §4.A): bulk prices for every market, explore lists.
+  const appGateway = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-app`, tokens);
   /** ThndrX's own routes on x.thndr.app/api (financials, macros), with the full-access token. */
   const web = http(config.webBaseUrl, tokens);
   const login: LoginDependencies = {
@@ -200,5 +202,5 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     new MarkNotificationsRead(engagement),
   ];
 
-  return { useCases, logger, api, krakend };
+  return { useCases, logger, api, krakend, appGateway };
 }
