@@ -31,6 +31,8 @@ The pending login (`LoginFlow`) and the session are persisted in the same owner-
     approval through elicitation, then retries the tool once. Declined or failed logins return the original error plus
     a `login` field. Cancelling the tool call cancels the dialog; approval progress is sent as MCP progress
     notifications when the call has a progress token. Without elicitation the error is returned unchanged.
+  - Thndr sends no push notification for the approval: both dialogs show the approval deep link as a QR code
+    (`presentation/presenters/qr.ts`) to scan with the phone, as ThndrX does, plus the link itself.
   - Sentences addressed to an agent ("Call login_complete again.") are dropped from what the person sees (`forPerson`).
 
 ```sh

@@ -25,7 +25,11 @@ We will log in **on demand** through MCP elicitation:
 
 - When a tool fails with `NOT_AUTHENTICATED` or `SESSION_EXPIRED` and the client declares form elicitation, the MCP
   server runs the guided login itself and then retries the tool once. It asks for the Thndr email, then the emailed
-  code, then shows the phone-approval instructions (request number and deep link) and waits for the user to confirm.
+  code, then shows the phone-approval instructions and waits for the user to confirm. Thndr sends **no push
+  notification** for a web login: like ThndrX, we show the approval deep link as a **QR code** (Unicode half blocks,
+  smallest version, light-on-dark polarity for dark terminals) to scan with the phone camera or the Thndr app, plus the
+  link itself. To keep the QR small, the link's `user_agent` parameter carries a short device name (`THNDR_DEVICE_NAME`,
+  default `thndr-mcp`) instead of a browser user agent.
   When the account is still identified (session expired), only the approval is asked for.
 - The flow is the same **guided login** as `thndr login`: `presentation/presenters/guided-login.ts` runs the identity
   use cases (`auth_status` → `login_start` → `login_verify_code` | `login_request_approval` → `login_complete`)

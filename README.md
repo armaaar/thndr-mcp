@@ -121,7 +121,8 @@ full object; call the matching query to see the new state (e.g. `create_watchlis
 | `THNDR_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` (logs go to stderr) |
 | `THNDR_RUNTIME_VERSION` | bundled | Override the `x-thndrx-runtime-version` header |
 | `THNDR_API_BASE_URL` / `THNDR_WEB_BASE_URL` | `https://prod.thndr.app` / `https://x.thndr.app/api` | API endpoints |
-| `THNDR_USER_AGENT` | Chrome-like | User agent shown in the phone approval prompt |
+| `THNDR_USER_AGENT` | Chrome-like | User agent of HTTP requests to Thndr |
+| `THNDR_DEVICE_NAME` | `thndr-mcp` | Device name in the login approval link (shown as a QR code; keep it short) |
 
 ## Development
 
