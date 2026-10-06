@@ -57,7 +57,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Alternative/error flows:** membership failure → `indices: null` (the details are still returned); common errors.
 - **Output:** `Instrument` including `description`, `logoUrl` and `tags` (Thndr's visible labels, e.g. "Banks",
   "EGX30 Index", "Same Day Tradable") when Thndr sends them, plus `indices` (symbols of the indices the instrument
-  belongs to, e.g. `["EGX30", "EGX30CAPPED"]`; `[]` for none).
+  belongs to, e.g. `["EGX30", "EGX30CAPPED"]`; `[]` for none). Themes among the tags (e.g. "Sharia") can be listed
+  with `get_tags` / `get_tag_instruments`.
 - **Thndr endpoints:** resolve (`/assets-service/assets/search` or cache) + `GET prod /assets-service/assets/{id}`;
   membership: `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` per index.
 
@@ -131,17 +132,22 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 
 - **Use case:** `GetMarketStatus` (`Query`) in `src/application/market-data/queries/get-market-status.ts`
 - **Invoke:** MCP `get_market_status` · CLI `thndr get-market-status [--market us]`
-- **Goal:** is the market open now, today's session times and index levels.
-- **Input:** `market`.
+- **Goal:** is the market open now, today's session times and the market's main indices and benchmarks.
+- **Input:** `market` (`egypt`, `us`, `uae`; the simulator has no status → `FEATURE_DISABLED`).
 - **Main flow:**
-  1. In parallel: market status + hours, and market indicators.
-  2. Map indicators to index summaries.
-- **Alternative/error flows:** hours failure → `opensAt`/`closesAt` null; indicators failure → `indices: []`;
-  status failure → `UPSTREAM_ERROR`; auth errors as usual.
-- **Output:** `market`, `isOpen`, `opensAt`, `closesAt`, `indices` (`ticker`, `level`, `changePercent`,
+  1. In parallel: market status + hours, the market-indicators levels feed, and the market's default indices
+     (the mobile app's list: Egypt → EGX indices, US → SPY, QQQ, DIA…, UAE → FADGI…).
+  2. The levels feed ignores the market (it mixes EGX indices, US ETFs, ADX indices and USD/EGP, live 2026-10-06), so
+     the default list picks and orders the entries, matched by asset id. A default index missing from the feed is
+     named from its instrument details, with a null level (at most 20 entries).
+- **Alternative/error flows:** hours failure → `opensAt`/`closesAt` null; default-list failure (or an empty list) →
+  Egypt keeps the whole feed (previous behaviour), other markets `indices: []`; feed failure → only the defaults that
+  could be named, without levels; status failure → `UPSTREAM_ERROR`; auth errors as usual.
+- **Output:** `market`, `isOpen`, `opensAt`, `closesAt`, `indices` (`ticker`, `name`, `level`, `changePercent`,
   `previousClose`). EGX regular session: Sunday–Thursday 10:00–14:30 Africa/Cairo.
 - **Thndr endpoints:** `GET prod /market-service/markets/status`, `GET prod /market-service/markets/hours`,
-  `GET prod /assets-service/assets/market-indicators`.
+  `GET prod /assets-service/assets/market-indicators`, `GET app /explore/v1/default-market-indicators?market=`
+  (+ `GET prod /assets-service/assets/{id}` for defaults missing from the feed).
 
 ## Screen the market — `screen_market` (`ScreenMarket`)
 
@@ -361,3 +367,112 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   threeMonths, sixMonths, nineMonths, twelveMonths}`), `unemployment` (`{period, year, quarter, rate}`), `units`.
   Values are percent; `change` is Thndr's `growth` (the change from the previous reading).
 - **Thndr endpoints:** `GET web /macros`.
+
+---
+
+## Discovery (mobile-app endpoints, [ADR 0021](../adr/0021-all-thndr-markets.md))
+
+These use cases read the `discovery` dependency (`DiscoveryRepository`, adapter `ThndrDiscoveryRepository`), built
+from the Thndr Android app's endpoints ([api/mobile-app.md](../api/mobile-app.md) §1.3, §2.7, §2.8, §4.B), all
+live-verified read-only on 2026-10-06. Host `app` = `https://prod.thndr.app/krakend-thndr-app` (the app's KrakenD
+gateway, same full-access token; its embedded `error_*` keys become `UPSTREAM_ERROR`). Markets outside a feature's
+list fail fast with `FEATURE_DISABLED` (`requireMarketFeature`) without calling Thndr.
+
+## Markets — `get_markets` (`GetMarkets`)
+
+- **Use case:** `GetMarkets` (`Query`) in `src/application/market-data/queries/get-markets.ts`
+- **Invoke:** MCP `get_markets` · CLI `thndr get-markets`
+- **Goal:** learn which Thndr markets the account can use and which thndr-mcp features work in each.
+- **Input:** none.
+- **Main flow:**
+  1. Fetch the user's visible markets (one call).
+  2. Map Thndr's names to markets (`abudhabi` → `uae`); names thndr-mcp does not serve (e.g. `tdwl`) go to
+     `otherThndrMarkets`.
+  3. Add each market's profile (exchange name, currency, time zone) and its capability table (`marketSupports`).
+- **Alternative/error flows:** common errors.
+- **Output:** `defaultMarket`, `markets` (`[{market, name, currency, timeZone, restricted, restrictionReason,
+  supports, lacks}]`, `supports`/`lacks` = feature keys), `otherThndrMarkets`, `features` (key → what it means),
+  `note` (search, details, news and dividends work everywhere; use `egypt`/`us` for the simulator's instruments).
+- **Thndr endpoints:** `GET prod /compliance-service/eligibilities/v2/visible-markets`.
+
+## Market movers — `get_market_movers` (`GetMarketMovers`)
+
+- **Use case:** `GetMarketMovers` (`Query`) in `src/application/market-data/queries/get-market-movers.ts`
+- **Invoke:** MCP `get_market_movers {"market": "us", "type": "gainers", "period": "1W"}` ·
+  CLI `thndr get-market-movers [--market us] [--type gainers] [--period 1W] [--limit 5]`
+- **Goal:** Thndr's top gainers and losers of a market over a period.
+- **Input:** `market` (`egypt` default, `us`), `type` (`gainers`, `losers`, `both` default), `period` (`1D` default,
+  `1W`, `1M`, `6M`, `1Y`), `limit` (per list, 1–50, default 10).
+- **Main flow:**
+  1. Check the market ranks movers (Egypt, US; the UAE answers 500/422 live).
+  2. Fetch each requested ranking with the instruments' feed (in parallel for `both`).
+- **Alternative/error flows:** UAE or simulator → `FEATURE_DISABLED`; common errors.
+- **Output:** `market`, `period`, `updatedAt` (latest ranking time, or null — US rankings have none), `gainers` and/or
+  `losers` (`[{ticker, name, assetClass, sector, currency, price, changePercent, tradable, instrumentId,
+  returnPercent}]`). `returnPercent` is the period return; `changePercent` today's change. US lists can include
+  instruments Thndr does not let you trade (`tradable: false`, live 2026-10-06).
+- **Thndr endpoints:** `GET prod /assets-service/assets/rank?limit&market&type=GAINERS|LOSERS&duration&include_feed=true&feed_detail=true`.
+
+## Trending instruments — `get_trending` (`GetTrending`)
+
+- **Use case:** `GetTrending` (`Query`) in `src/application/market-data/queries/get-trending.ts`
+- **Invoke:** MCP `get_trending {"market": "uae"}` · CLI `thndr get-trending [--market us] [--stocks-only] [--limit 5]`
+- **Goal:** what is trending on Thndr in a market (the app's Explore tab).
+- **Input:** `market` (`egypt` default, `us`, `uae`), `stocksOnly` (default false), `limit` (1–20, default 10).
+- **Main flow:**
+  1. Fetch the trending asset ids from the gateway.
+  2. Name each through `InstrumentResolver` (asset details, cached), in parallel — bounded by `limit` ≤ 20.
+- **Alternative/error flows:** simulator → `FEATURE_DISABLED`; an instrument whose details fail keeps its id with
+  null fields; common errors.
+- **Output:** `market`, `stocksOnly`, `items` (`[{rank, instrumentId, ticker, name, assetClass, sector}]`). No prices:
+  use `get_price_snapshot`.
+- **Thndr endpoints:** `GET app /explore/v1/assets/trending?market=egypt|us|abudhabi&count[&asset_class=STOCK]` +
+  (resolve) `GET prod /assets-service/assets/{id}`.
+
+## Tags (themes) — `get_tags` (`GetTags`)
+
+- **Use case:** `GetTags` (`Query`) in `src/application/market-data/queries/get-tags.ts`
+- **Invoke:** MCP `get_tags {"market": "us"}` · CLI `thndr get-tags [--market us]`
+- **Goal:** Thndr's curated instrument groups for a market ("Sharia", "Gold Funds", "Dividend Players"…).
+- **Input:** `market` (`egypt` default, `us`).
+- **Main flow:** fetch the market's tags (one page of 100; Thndr has about 20 per market), skipping hidden ones.
+- **Alternative/error flows:** UAE or simulator → `FEATURE_DISABLED` (not verified for the UAE); common errors.
+- **Output:** `market`, `tags` (`[{id, name, slug, about, instrumentCount, featured}]`), in Thndr's order.
+  `get_instrument_details` shows the tags of one instrument.
+- **Thndr endpoints:** `GET prod /assets-service/tags?page_count=100&market=`.
+
+## Tag instruments — `get_tag_instruments` (`GetTagInstruments`)
+
+- **Use case:** `GetTagInstruments` (`Query`) in `src/application/market-data/queries/get-tag-instruments.ts`
+- **Invoke:** MCP `get_tag_instruments {"tag": "sharia"}` · CLI `thndr get-tag-instruments sharia [--market us] [--page 2] [--limit 50]`
+- **Goal:** the instruments of one tag — e.g. every Sharia-compliant EGX stock.
+- **Input:** `tag` (id such as `157`, slug or name; required), `market` (`egypt` default, `us`), `page` (default 1),
+  `limit` (page size, 1–50, default 20).
+- **Main flow:**
+  1. A numeric `tag` is used as the id; otherwise the market's tags are fetched and matched (`findTag`: id, slug or
+     name ignoring case and separators, else a unique partial name).
+  2. Fetch the tag with one page of its instruments and their feed.
+- **Alternative/error flows:** no tag matches → `NOT_FOUND` listing the market's tags; unknown id → `NOT_FOUND`;
+  UAE or simulator → `FEATURE_DISABLED`; common errors.
+- **Output:** `market`, `tag` (as in `get_tags`), `page`, `pageSize`, `total` (the tag's instrument count), `hasMore`,
+  `instruments` (`[{ticker, name, assetClass, sector, currency, price, changePercent, tradable, instrumentId}]`).
+- **Thndr endpoints:** (`GET prod /assets-service/tags?market=` for a slug or name) +
+  `GET prod /assets-service/tags/{id}?market&page_count&page&include_feed=true&feed_detail=true`.
+
+## Dividends — `get_dividends` (`GetDividends`)
+
+- **Use case:** `GetDividends` (`Query`) in `src/application/market-data/queries/get-dividends.ts`
+- **Invoke:** MCP `get_dividends {"symbol": "COMI"}` · CLI `thndr get-dividends COMI [--page 2] [--limit 20]`
+- **Goal:** an instrument's dividend history and announced dividends.
+- **Input:** `symbol`, `market` (to resolve the symbol; any market), `page` (default 1), `limit` (page size, 1–50,
+  default 10).
+- **Main flow:**
+  1. Resolve the symbol.
+  2. Fetch one page of its dividends (newest first).
+- **Alternative/error flows:** no dividends → empty list (e.g. NVDA, FAB live 2026-10-06); a page past the last one →
+  empty list; common errors.
+- **Output:** `ticker`, `name`, `page`, `pageSize`, `total`, `hasMore`, `dividends` (`[{id, type, status, recordDate,
+  cashPerShare | bonusSharesPerShare | ratio, currency, frequency, couponNumber, distributions: [{date, ratio}]}]`).
+  `type` is `CASH` (`cashPerShare` in `currency`) or `STOCK` (`bonusSharesPerShare`: 0.1 = one new share for ten);
+  `status` is `UPCOMING`, `ONGOING` or `PAST`.
+- **Thndr endpoints:** (resolve) + `GET prod /assets-service/assets/{id}/dividends?page&page_count`.

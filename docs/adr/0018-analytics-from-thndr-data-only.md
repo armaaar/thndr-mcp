@@ -12,7 +12,8 @@ API (read-only GETs with a free account, 2026-10-06) showed what Thndr actually 
 
 - Index members: an index's asset details carry `constituents` (EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV,
   Shariah, Tamayuz). Instrument details carry `tags` (sector, index, "sharia", "Same Day Tradable", "dollar_hedge"…),
-  but there is **no** endpoint that lists the instruments under a tag.
+  but there is **no** endpoint that lists the instruments under a tag (in the ThndrX web bundle; the mobile app has
+  one, see the update below).
 - A "similar stocks" endpoint (`/assets-service/assets/{id}/recommendations`).
 - The returns chart (`1M`/`6M` daily points, `1Y`/`2Y` weekly) with `portfolio_value`, `net_deposits` and
   `total_returns` per point. Other intervals return 422.
@@ -47,7 +48,8 @@ Rules:
 - Everything stays read-only with respect to money (ADR 0006). Reading savings balances is allowed; transfers are not.
 - No paid features: nothing that needs a Thndr subscription or the therumble.app advisory entitlement.
 - No crawling to fake an endpoint (for example, fetching every instrument's details to list a tag). Tags are shown per
-  instrument only.
+  instrument only. *(Superseded for tags by ADR 0021: the mobile app's `assets-service/tags/{id}` lists a tag's
+  instruments, so `get_tag_instruments` reads a real endpoint and the rule against crawling still holds.)*
 - Derived figures say what they are derived from (series granularity, formula), so a model does not mistake them for
   broker figures.
 - Membership of indices is cached for 6 hours (it changes at rebalances; an empty list is not cached); the market
@@ -64,3 +66,10 @@ Rules:
 - Some answers are approximations of Thndr's granularity (weekly points for 1Y/2Y), and say so.
 - IBKR tools that stay out of reach: alert pause, order instructions, options/futures/combos, the theme knowledge
   graph, multi-currency balances, `whats_new` and feedback.
+
+## Update (2026-10-06, [ADR 0021](0021-all-thndr-markets.md))
+
+The Thndr Android app's endpoints, checked live read-only, fill two gaps listed above as "not provided" by the web
+bundle: **tag → instruments** (`GET /assets-service/tags`, `GET /assets-service/tags/{id}`: `get_tags`,
+`get_tag_instruments`) and **dividend history** (`GET /assets-service/assets/{id}/dividends`: `get_dividends`). Both
+are Thndr data read from real endpoints, so they follow this ADR's rules; nothing here is crawled or derived.

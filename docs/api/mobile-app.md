@@ -178,6 +178,8 @@ interface VisibleMarkets {
   }>;
 }
 ```
+**[P] 2026-10-06:** answers `{markets:[{name, is_restricted, restriction_reason}], default_market}`; the test account
+lists `egypt`, `us`, `abudhabi`, `simulator`, none restricted, default `egypt`. Used by thndr-mcp's `get_markets`.
 On error the hook falls back to `{ default_market: <settings.v2.selectedMarket>, markets: [selected, "simulator"] }`
 (S:358246-358271). `useMarketSwitch` (M5600 S:850375) exposes `marketsList` built from `markets` (+ `MARKET_DATA_V2`
 labels `settings.egyAccount|usAccount|uaeAccount|simulatorAccount`). The market switcher (`useMarketSwitcher`, M5895)
@@ -413,15 +415,15 @@ Mutual funds: `GET apiGateway /charts/v1/mutual-funds/{symbol}?option`, legacy `
 - Legacy: `prod.thndr.app/api/post/news/` with `asset_id, locale, markets, page` (M1881, service registry M4125) [C].
 
 ### 2.7 Dividends
-- `GET thndrApi assets-service/assets/{id}/dividends?page&page_count` (M4405) → items `id, record_date, ratio, dividend_type (CASH|STOCK), status (UPCOMING|ONGOING|PAST), currency, distributions[{date,…}]` [C fields from M5464].
+- `GET thndrApi assets-service/assets/{id}/dividends?page&page_count` (M4405) → items `id, record_date, ratio, dividend_type (CASH|STOCK), status (UPCOMING|ONGOING|PAST), currency, distributions[{date,…}]` [C fields from M5464]. **[P] 2026-10-06:** `{results:[{id, asset_id, dividend_type, record_date, ratio, currency, distributions:[{date, ratio}], status, frequency (ONE_TIME…), coupon_number, recurring_*, created_at, updated_at}], page, page_count, total_count}` — `page_count` is the page size; COMI has cash (6 EGP) and stock (0.1) dividends, NVDA and FAB return an empty list. Used by `get_dividends`.
 - `GET apiGateway securities/v1/{id}/dividends?page&page_count=5&status&sort_direction` (M5827, `error_get_security_dividends`, dates normalized: `created_at, updated_at, distributions[].date`) [C].
 - `GET apiGateway /securities/v1/{id}/dividends/total?interval&dividend_type` (M5590) and bulk `GET /securities/v1/dividends/total?asset_id…&dividend_type&interval&status` → `items[{asset_id,…}]` (M5876) [C]; `/dividends/v1/total/{x}` (M5492) [C]. Market availability not gated in code [I: all markets with data].
 
 ### 2.8 Movers, trending, indices
-- Gainers/Losers (legacy Explore): `GET thndrApi assets-service/assets/rank?limit=9&market={selectedMarket|egypt}&type=GAINERS|LOSERS&duration=1D|1W|1M|6M|1Y&include_feed=true&feed_detail=true` → `{assets_ranked[], last_updated_at}` (M1929/M8077) [C]. Refetch 60 s when real-time subscribed for that market (M8081).
-- Trending (V3): `GET apiGateway /explore/v1/assets/trending?market={selectedMarket}&count=20[&asset_class=STOCK]` → `results` = asset ids (error `error_get_trending_assets`) (M8045) [C]. Legacy: `GET thndrApi /assets-service/assets/trending?market={m}&feed_detail=true&include_feed=true` (M1920); old registry also has `/assets-service/assets/top_performers?market=` (M4125) [C].
+- Gainers/Losers (legacy Explore): `GET thndrApi assets-service/assets/rank?limit=9&market={selectedMarket|egypt}&type=GAINERS|LOSERS&duration=1D|1W|1M|6M|1Y&include_feed=true&feed_detail=true` → `{assets_ranked[], last_updated_at}` (M1929/M8077) [C]. Refetch 60 s when real-time subscribed for that market (M8081). **[P] 2026-10-06:** works for `egypt` and `us` (items = asset payload + `asset_id`, `asset_return_percentage`, `feed`; US `last_updated_at` is null and lists include `is_tradable: false` / `is_visible: false` assets); UAE `adsm` → 500, `abudhabi` → 422. Used by `get_market_movers`.
+- Trending (V3): `GET apiGateway /explore/v1/assets/trending?market={selectedMarket}&count=20[&asset_class=STOCK]` → `results` = asset ids (error `error_get_trending_assets`) (M8045) [C]. **[P] 2026-10-06:** `{results:[asset ids]}` for `egypt`, `us` and `abudhabi`. Used by `get_trending`. Legacy: `GET thndrApi /assets-service/assets/trending?market={m}&feed_detail=true&include_feed=true` (M1920); old registry also has `/assets-service/assets/top_performers?market=` (M4125) [C].
 - No "most active" endpoint found.
-- Indices (V3): `GET apiGateway /explore/v1/default-market-indicators?market=…` (repeated) → `default_market_indicators.indicators` (M8015); market order per selected market (M8014): egypt → `egypt,us,tdwl,abudhabi`; us → `us,tdwl,abudhabi,egypt`; abudhabi → `abudhabi,us,tdwl,egypt` (**`tdwl` = Saudi Tadawul**) [C]. Items carry `asset_id` (prices via securities/v2/price; realtime only for `REALTIME_MARKET='egypt'`). User picks: `GET /explore/v1/user-market-indicators?market=` → `user_market_indicators.indicators`; `PUT` same path `{market, indicators}` (not money) [C].
+- Indices (V3): `GET apiGateway /explore/v1/default-market-indicators?market=…` (repeated) → `default_market_indicators.indicators` (M8015); market order per selected market (M8014): egypt → `egypt,us,tdwl,abudhabi`; us → `us,tdwl,abudhabi,egypt`; abudhabi → `abudhabi,us,tdwl,egypt` (**`tdwl` = Saudi Tadawul**) [C]. Items carry `asset_id` (prices via securities/v2/price; realtime only for `REALTIME_MARKET='egypt'`). **[P] 2026-10-06:** `{default_market_indicators:{indicators:[{asset_id}]}}` — an object, not a list; with `market=egypt&market=us&market=abudhabi` it holds EGX30, SPY, QQQ, DIA, gold, USD/EGP, FADGI… Used by `get_market_status` (one market per call) to pick that market's indices from `market-indicators`, whose answer ignores `market` and mixes every market. User picks: `GET /explore/v1/user-market-indicators?market=` → `user_market_indicators.indicators`; `PUT` same path `{market, indicators}` (not money) [C].
 - Legacy: `GET thndrApi assets-service/assets/market-indicators?page_count=100&feed_detail=true&include_feed=true&include_usd_rate=true` (filters out asset `b0a4c53e-b12f-4e93-b94b-759b8eeaef14`, likely the USD rate) and `/assets-service/user-market-indicators?feed_detail=true&include_feed=true` (GET/PUT `{assets_ids}`) [C].
 
 ### 2.9 Research / analyst data (legacy, via service registry M4125 + request helper M6475) [C paths, I usage]
@@ -701,6 +703,7 @@ Unless noted, the token is the same APP/FULL_ACCESS Bearer token [C, by client c
 - Requests:
   - `GET {api}/assets-service/assets/{assetId}/analytics`
   - `GET {api}/assets-service/assets/{assetId}/analytics-report`, which returns `{report_url}` (a PDF, opened in the PDF viewer).
+- **[P] 2026-10-06:** `analytics` answers 404 for NVDA on the test account; not implemented.
 - Source: legacy effects `securities.getAnalytics` / `getAnalyticsReport` (M6549, s:961105/961133), consumer `useAnalystRating` (M5328).
 - Fields read: `analytics.fair_value`, `.rate` (rank), `.last_updated_time`, `.analyst_report.{bull_say_list, bear_say_list, name, title, last_updated_time}`. The UI computes upside as `fair_value / last_trade_price - 1`.
 - Markets: shown only when `assetMarket === "us"`, the flag `us_funded_account` is on and `remove_morning_star` is off (M5309, s:98–146). The UI says "Powered by S&P Global" / Morningstar.
@@ -715,6 +718,7 @@ Unless noted, the token is the same APP/FULL_ACCESS Bearer token [C, by client c
   - **Dividends the user received:** `GET {gw}/wallet/v1/dividends/total?asset_id=…` → `items` (M5841).
   - `GET {gw}/dividends/v1/total/{assetId}` (M5492).
 - Markets: EGX stocks, funds and real estate confirmed by usage (flags `mobile_securities_dividend_distributing_funds`, `mobile_securities_account_for_dividends_in_equity_funds_returns`). US is likely [I].
+- **[P] 2026-10-06** (legacy `assets-service` endpoint): see §2.7. Implemented as `get_dividends`.
 
 **P3. Global and market overview indices** [C]
 - Default indices: `GET {gw}/explore/v1/default-market-indicators?market=X[&market=Y]` (repeated `market` keys, M8015). Response key `default_market_indicators[].indicators[]`.
@@ -722,6 +726,7 @@ Unless noted, the token is the same APP/FULL_ACCESS Bearer token [C, by client c
 - Indicator fields: `asset_id`, `symbol`, `market_indicator_name`, `market`, `asset_class`. Prices then come from `securities/v2/price`.
 - Errors: `error_get_default_market_indicators` and the matching user-indicators key.
 - Markets: called with the selected market (egypt / us / abudhabi).
+- **[P] 2026-10-06:** see §2.8. Implemented in `get_market_status`.
 
 **P4. Top movers, trending and leaderboards** [C]
 - Trending: `GET {gw}/explore/v1/assets/trending?market&count&asset_class` → `results` (`error_get_trending_assets`, M8045).
@@ -730,6 +735,7 @@ Unless noted, the token is the same APP/FULL_ACCESS Bearer token [C, by client c
   - `type` ∈ `GAINERS|LOSERS` (`AssetType`, M1860) [C].
   - `duration` ∈ `1D|1W|1M|6M|1Y` (`Duration`, M1860 S:349850) [C]. Response `{assets_ranked[], last_updated_at}`.
 - Legacy effect: `GET {api}/assets-service/assets/top_performers?market=` (M6549). Whether it is still reachable is unknown [I].
+- **[P] 2026-10-06:** trending and ranked lists, see §2.8. Implemented as `get_trending` and `get_market_movers`.
 
 **P5. Fund fact sheet, NAV and mutual-fund charts** [C]
 - Fact sheet: `GET {api}/assets-service/assets/{id}` returns `expense_ratio`, `risk_profile`, `subscription_frequency`, `redemption_frequency`, `subscription_fees`, … (M5306 `useFactSheet`, M1917/M1918).
@@ -749,6 +755,7 @@ Unless noted, the token is the same APP/FULL_ACCESS Bearer token [C, by client c
 - Themes and tags:
   - `GET {api}/assets-service/tags?random=&page_count=&market=` → `results` (M1926).
   - `GET {api}/assets-service/tags/{themeId}?market=&page_count=20&page=&feed_detail=true&include_feed=true` (M1928). This is the **tag → instruments listing that the web lacks**.
+  - **[P] 2026-10-06:** the list answers `{count, results:[{id, market, slug, name, about, assets_count, assets: [], is_featured, hidden, rank, …pictures}]}` for `egypt` (20 tags, e.g. 179 "Gold Funds", 157 "Sharia") and `us` (17); a tag's details add `assets` (one page of instruments with `feed`; `page_count` = page size). Implemented as `get_tags` and `get_tag_instruments`. The UAE (`adsm`/`abudhabi`) was not checked.
 - Market filters (preset screens):
   - `GET {gw}/v1/market-filters?random&page&page_count&market` when `mobile_api_gateway_market_filters` is on; otherwise `GET {api}/assets-service/market-filters?…` (M2485/M2486).
   - `GET {api}/assets-service/market-filters/{id}?page&page_count=20&market&include_feed=true&feed_detail=true` (M1930).

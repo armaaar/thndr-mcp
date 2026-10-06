@@ -27,7 +27,13 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | **Asset id** (`AssetId`) | Thndr's UUID for an instrument; the key used by every Thndr endpoint. Stored lower-case. |
 | **Ticker** (`Ticker`, shared kernel) | Exchange symbol such as `COMI`. Case-insensitive input. Users and agents refer to instruments by ticker *or* asset id. |
 | **Board** | EGX sub-market (`feed.market_id`, marketwatch `market_id`): `NOPL` main board, `OOTC` over-the-counter, `SME`, `INDX` indices, `FNDS` funds. On `Instrument.board` and `Quote.board`. |
-| **Tags** | Thndr's visible labels on an instrument's details (`Instrument.tags`): its sector, its indices ("EGX30 Index"), "sharia", "Same Day Tradable", "dollar_hedge"… Informational only: Thndr cannot list the instruments under a tag. |
+| **Tags** | Thndr's visible labels on an instrument's details (`Instrument.tags`): its sector, its indices ("EGX30 Index"), "sharia", "Same Day Tradable", "dollar_hedge"… Some of them are also **themes** (below), whose instruments can be listed. |
+| **Tag** / **theme** (`Tag`) | A curated group of instruments Thndr publishes per market (the app calls them themes): "Sharia", "Gold Funds", "Dividend Players"… with an id, slug, name, description (`about`), an instrument count and a featured flag. `get_tags` lists them, `get_tag_instruments` lists one's instruments (mobile-app endpoint, ADR 0021). Found by id, slug or name (`findTag`). |
+| **Visible market** (`VisibleMarket`) | A market Thndr lists for the user (`visible-markets`), possibly **restricted** for them (with Thndr's reason, e.g. `USER_UNDER_ELIGIBLE_AGE`), plus Thndr's **default market**. Markets thndr-mcp does not serve are reported by name only. |
+| **Mover** (`Mover`) | An instrument in Thndr's ranking of top **gainers** or **losers** of a market over a period (`1D`, `1W`, `1M`, `6M`, `1Y`), with its **return** over the period (percent), price and today's change. Egypt and US only. |
+| **Trending** | The instruments Thndr shows as trending in a market's Explore tab (ids, most trending first). Egypt, US and UAE. |
+| **Default indices** | The indices and benchmarks Thndr shows by default for a market (Egypt: EGX indices; US: SPY, QQQ, DIA…; UAE: FADGI…); `get_market_status` lists them with levels from the market indicators. |
+| **Dividend** (`Dividend`) | A distribution Thndr records for an instrument: **cash** (`ratio` = amount per share in `currency`) or **stock** (`ratio` = bonus shares per share held, 0.1 = one for ten), with a **record date** (holders on that day are entitled), payment **distributions** (date + part of the ratio), a frequency and a status `UPCOMING`, `ONGOING` or `PAST`. |
 | **Index** | An `INDX` instrument (EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV, Shariah, Tamayuz). Its **level** is the last value of its marketwatch row, in points. Symbols with spaces are sanitised (`EGX70-EWI`). |
 | **Constituent** (member) | An instrument listed in an index's `constituents`. Thndr gives membership only — **no weights**. |
 | **Peer** | A comparable instrument: one of Thndr's "similar stocks" (recommendations) or another instrument of the same sector. |
@@ -40,7 +46,7 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | **Market cap** | Derived: `listedShares × last`. |
 | **Relative volume** | `volume / averageVolume30d × 100` (percent of the 30-day average). |
 | **Marketwatch** | Thndr's whole-market snapshot: one quote row per instrument of a market. |
-| **Market indicators** | Index levels (EGX30, EGX70…) and reference rates, returned as sparse quotes (last, previous close, change %). |
+| **Market indicators** | Index levels and reference rates, returned as sparse quotes (last, previous close, change %). Thndr's feed ignores the market and mixes every market's indicators (EGX indices, US ETFs, ADX indices, USD/EGP); the market's default indices pick from it. |
 | **Candle** / **resolution** | One OHLCV bar. Resolutions: `1min`, `5min`, `10min`, `1h`, `1d`, `1w` (wire `1MIN`…`1W`). |
 | **History window** | The `from`/`to` range of a history request; Thndr serves about 5 years. |
 | **Order book** (market depth) | Bids and asks aggregated by price level, each with quantity and order count, plus total bid/ask quantity. |
@@ -84,6 +90,7 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | `compareWithSector(company, sector, mode)` (`sector-comparison.ts`) | domain service | ThndrX's comparison metrics (`COMPARISON_METRICS`, frozen: category, lowerIsBetter, rated, hidden in `qoq`, `source`, `priceBased`), `sectorStats`, `percentileRank` (null with < 2 values), `ratingBand` (applied to the unrounded mean). |
 | `pricePerformance(candles)` (`performance.ts`) | domain service | One session per Cairo market day (`marketDay`), positive closes only; `shiftDay` clamps month ends; base close on or before the start, else the first within `BASE_FORWARD_DAYS` (7) after it; returns null when history is too short; volatility null with fewer returns than the window; the 52-week range starts the day after the 1Y start and replaces lows ≤ 0 with the close; tied drawdown peaks keep the first. |
 | `NewsArticle`, `NewsPage`, `EconomicIndicators`, `YearlyReturn`, `dedupeNews` (`research.ts`) | read models | News ids are strings, tickers a list; macro series sorted oldest first. `dedupeNews`: articles with the same title (ignoring case and spacing), publication time and tickers are one (never without a title or time), the copy with a link (then more content) wins, first position kept. |
+| `MarketAccess`, `VisibleMarket`, `ListedInstrument`, `Mover`, `MoverList`, `Tag`, `TagPage`, `Dividend`, `DividendPage` (`discovery.ts`) | read models | Frozen. Visible markets are deduplicated (`abudhabi`/`adsm` → `uae`). Listed prices are null when Thndr's feed has none (a 0 price means none). Dividend dates are ISO `YYYY-MM-DD`; unknown types/statuses become `UNKNOWN`. `findTag(tags, query)`: exact id, slug or name (ignoring case, spaces, `-`, `_`), else a unique partial name match, else null. |
 
 Thndr reference symbols that don't fit the `Ticker` pattern (e.g. `USD/EGP`, `EGX70 EWI`) are sanitised by the
 anti-corruption layer (`USD-EGP`, `EGX70-EWI`) for indices and asset details.

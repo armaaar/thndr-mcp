@@ -67,7 +67,7 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_price_history` | `thndr get-price-history <symbol>` | `GetPriceHistory` (`market-data/queries/get-price-history.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` | `get_price_history` |
 | `get_market_depth` | `thndr get-market-depth <symbol>` | `GetMarketDepth` (`market-data/queries/get-market-depth.ts`) | (resolve) + `GET prod /assets-service/market-depth/{id}` | — (not in IBKR MCP) |
 | `get_recent_trades` | `thndr get-recent-trades <symbol>` | `GetRecentTrades` (`market-data/queries/get-recent-trades.ts`) | (resolve) + `GET prod /assets-service/market-depth/v3/trades-book/{id}` | — |
-| `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` | — (market clock) |
+| `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` + `GET app /explore/v1/default-market-indicators` (the market's indices) | — (market clock) |
 | `screen_market` | `thndr screen-market` | `ScreenMarket` (`market-data/queries/screen-market.ts`) | `GET prod /assets-service/assets/marketwatch` (+ index members, `GET prod /users-service/screeners/{id}` for `screenerId`) | — |
 | `get_screeners` | `thndr get-screeners` | `GetScreeners` (`market-data/queries/get-screeners.ts`) | `GET prod /users-service/screeners` (+ ThndrX's built-in presets) | — |
 | `get_index_constituents` | `thndr get-index-constituents <index>` | `GetIndexConstituents` (`market-data/queries/get-index-constituents.ts`) | `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` (`constituents`) + `GET prod /assets-service/assets/market-indicators` (names) | — |
@@ -76,9 +76,16 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_financials` | `thndr get-financials <symbol>` | `GetFinancials` (`market-data/queries/get-financials.ts`) | (resolve) + `GET web /financials`; sector comparison: + `GET prod /assets-service/assets/marketwatch` + `GET web /financials?symbols=` | — (fundamentals) |
 | `get_news` | `thndr get-news [symbol]` | `GetNews` (`market-data/queries/get-news.ts`) | (resolve) + `GET prod /api/post/news/` | — |
 | `get_economic_indicators` | `thndr get-economic-indicators` | `GetEconomicIndicators` (`market-data/queries/get-economic-indicators.ts`) | `GET web /macros` | — |
+| `get_markets` | `thndr get-markets` | `GetMarkets` (`market-data/queries/get-markets.ts`) | `GET prod /compliance-service/eligibilities/v2/visible-markets` (+ the per-market capability table) | — (account markets) |
+| `get_market_movers` | `thndr get-market-movers` | `GetMarketMovers` (`market-data/queries/get-market-movers.ts`) | `GET prod /assets-service/assets/rank` (Egypt, US) | — (scanner-like) |
+| `get_trending` | `thndr get-trending` | `GetTrending` (`market-data/queries/get-trending.ts`) | `GET app /explore/v1/assets/trending` + (resolve) per id | — |
+| `get_tags` | `thndr get-tags` | `GetTags` (`market-data/queries/get-tags.ts`) | `GET prod /assets-service/tags` (Egypt, US) | `search_investment_topics` (closest) |
+| `get_tag_instruments` | `thndr get-tag-instruments <tag>` | `GetTagInstruments` (`market-data/queries/get-tag-instruments.ts`) | (`GET prod /assets-service/tags` for a slug/name) + `GET prod /assets-service/tags/{id}` | `get_theme_details` (closest) |
+| `get_dividends` | `thndr get-dividends <symbol>` | `GetDividends` (`market-data/queries/get-dividends.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/dividends` | — |
 
 "(resolve)" = `InstrumentResolver`: cache, else `GET /assets-service/assets/search` (ticker) or
-`GET /assets-service/assets/{id}` (asset id). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
+`GET /assets-service/assets/{id}` (asset id). `app` = `https://prod.thndr.app/krakend-thndr-app` (the mobile app's
+gateway, ADR 0021). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
 each index's `GET /assets-service/assets/{indexId}` (`constituents`), cached 6 h.
 
 ## Portfolio — [details](portfolio.md)
