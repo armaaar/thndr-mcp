@@ -50,7 +50,7 @@ We will run the whole login in a **local browser page**:
   page (nothing is stored: each login runs on a new port). Typography is DM Sans, as on ThndrX, bundled from
   `@fontsource-variable/dm-sans` (SIL Open Font License) and served at `font.woff2`; if it is missing, the system font
   is used. It uses no Thndr logo and says, in the header and in the card next to the form, that it is unofficial and
-  not affiliated with Thndr, that everything runs locally and no data is collected, and that the email and code go
+  not affiliated with Thndr, that everything runs locally and thndr-mcp collects no data, and that the email and code go
   only to thndr-mcp on this machine, which sends them straight to Thndr.
 - To keep the QR code small, the deep link's `user_agent` parameter carries a short device name
   (`THNDR_DEVICE_NAME`, default `thndr-mcp`).
@@ -64,6 +64,7 @@ We will run the whole login in a **local browser page**:
 - The server now listens on a loopback port while a login is in progress. The token, host and origin checks keep
   other local web pages from driving it; other local processes of the same user are outside the threat model (they
   could read the session file anyway).
-- The page works offline up to the calls to Thndr and tells no third party that the user is logging in.
+- The page loads nothing from the internet; logging in contacts only Thndr (and its Firebase authentication, which
+  never receives the email or code).
 - The QR code needs no explanation in a dialog that may truncate it, and the user does not have to come back and press
   Accept: the page and the tool call both see the approval directly.

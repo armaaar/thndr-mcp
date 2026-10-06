@@ -21,7 +21,7 @@ describe('renderLoginPage', () => {
     const notice =
       /<p class="notice" id="notice">([\s\S]*?)<\/p>/.exec(page)?.[1]?.replace(/\s+/g, ' ') ?? '';
     expect(notice).toContain('<strong>Unofficial</strong> — not affiliated with Thndr.');
-    expect(notice).toContain('Everything runs locally on your computer and no data is collected');
+    expect(notice).toContain('Everything runs locally on your computer and thndr-mcp collects no data');
     expect(notice).toContain(
       'your email and code go only to thndr-mcp on this machine, which sends them straight to Thndr.',
     );

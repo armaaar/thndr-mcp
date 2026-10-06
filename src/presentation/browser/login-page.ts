@@ -154,7 +154,7 @@ export function renderLoginPage(nonce: string): string {
   <p class="error" id="error" role="alert"></p>
   <button class="link" id="cancel" type="button">Cancel login</button>
   <p class="notice" id="notice"><strong>Unofficial</strong> — not affiliated with Thndr. Everything runs locally on
-    your computer and no data is collected: your email and code go only to thndr-mcp on this machine, which sends them
+    your computer and thndr-mcp collects no data: your email and code go only to thndr-mcp on this machine, which sends them
     straight to Thndr.</p>
 </div>
 </main>
