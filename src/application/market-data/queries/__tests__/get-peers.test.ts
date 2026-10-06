@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aLatestPrice,
   anInstrument,
   aQuote,
+  aUsInstrument,
   COMI_ID,
   FakeMarketDataRepository,
+  idFor,
   setupMarketData,
 } from '../../../../__tests__/support/fake-market-data';
 import { GetPeers } from '../get-peers';
@@ -101,5 +104,79 @@ describe('GetPeers', () => {
     const out = await new GetPeers(deps).execute({ symbol: 'COMI', limit: 0 });
     expect(out).toMatchObject({ sector: null, sameSector: [], sameSectorTotal: 0 });
     expect(out.similar.map((p) => p.ticker)).toEqual(['ADIB']);
+  });
+
+  describe('outside Egypt', () => {
+    function foreign(market: 'us' | 'uae') {
+      const own =
+        market === 'us' ? aUsInstrument() : anInstrument({ ticker: 'FAB', market: 'uae', sector: 'Banks' });
+      const repository = new FakeMarketDataRepository({ instruments: [own] });
+      repository.similar = {
+        [own.id.value]: [
+          own,
+          aUsInstrument({ ticker: 'AMD', name: 'Advanced Micro Devices', market, sector: 'Semis' }),
+          aUsInstrument({ ticker: 'INTC', market }),
+        ],
+      };
+      repository.latestPrices = [aLatestPrice({ ticker: 'AMD', last: 110, previousClose: 100 })];
+      return { own, repository, deps: setupMarketData(repository) };
+    }
+
+    it.each(['us', 'uae'] as const)(
+      'lists similar stocks with bulk prices and an empty same-sector list in %s, without marketwatch',
+      async (market) => {
+        const { own, repository, deps } = foreign(market);
+        const out = await new GetPeers(deps).run({ symbol: own.ticker.value, market });
+        expect(repository.calls.getMarketQuotes).toEqual([]);
+        expect(repository.calls.getSimilarInstruments[0]).toMatchObject({ market });
+        expect(repository.calls.getLatestPrices).toEqual([[idFor('AMD'), idFor('INTC')]]);
+        expect(out).toMatchObject({ market, sector: own.sector, sameSector: [], sameSectorTotal: 0 });
+        expect(out.similar).toEqual([
+          {
+            ticker: 'AMD',
+            name: 'Advanced Micro Devices',
+            sector: 'Semis',
+            last: 110,
+            changePercent: 10,
+            value: null,
+            marketCap: null,
+            peRatio: null,
+            dividendYieldPercent: null,
+          },
+          expect.objectContaining({ ticker: 'INTC', last: null }),
+        ]);
+        expect(out.notes?.[0]).toMatch(/only for Egypt/);
+      },
+    );
+
+    it('skips the price call when Thndr has no similar stocks', async () => {
+      const { repository, deps } = foreign('us');
+      repository.similar = {};
+      const out = await new GetPeers(deps).run({ symbol: 'NVDA', market: 'us' });
+      expect(out.similar).toEqual([]);
+      expect(repository.calls.getLatestPrices).toEqual([]);
+    });
+
+    it('uses Egypt’s snapshot for an Egyptian listing found through the simulator', async () => {
+      const deps = setup();
+      deps.repository.searchInstruments = async () => [anInstrument({ ticker: 'COMI', sector: 'Banking' })];
+      const out = await new GetPeers(deps).run({ symbol: 'COMI', market: 'simulator' });
+      expect(deps.repository.calls.getMarketQuotes).toEqual(['egypt']);
+      expect(deps.repository.calls.getSimilarInstruments[0]).toMatchObject({ market: 'egypt' });
+      expect(out.sameSectorTotal).toBeGreaterThan(0);
+      expect(out.notes).toBeUndefined();
+    });
+
+    it('treats an instrument whose market is the simulator itself as Egyptian data', async () => {
+      const repository = new FakeMarketDataRepository({
+        instruments: [anInstrument({ ticker: 'COMI', market: 'simulator' })],
+      });
+      const out = await new GetPeers(setupMarketData(repository)).run({
+        symbol: 'COMI',
+        market: 'simulator',
+      });
+      expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
+      expect(out.sameSector).toEqual([]);
+    });
   });
 });

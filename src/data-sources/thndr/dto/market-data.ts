@@ -123,6 +123,58 @@ export interface CandlesResponseDto {
   trades_candles?: CandleDto[] | null;
 }
 
+/**
+ * `GET /assets-service/charts?asset_ids=&option=&market=` (closing prices, every market; docs/api/mobile-app.md §2.4):
+ * asset id → ISO-8601 time → close.
+ */
+export type ChartsResponseDto = Record<string, Record<string, WireNumber> | null> | null;
+
+/** A `{value, market_effective_timestamp}` reading of the mobile gateway's bulk price (§2.3). */
+export interface GatewayPriceValueDto {
+  value?: WireNumber;
+  /** Epoch nanoseconds. */
+  market_effective_timestamp?: number | string | null;
+  /** `last_trade_price` or `close`. */
+  price_field?: string | null;
+}
+
+/** `price.results[]` of `GET krakend-thndr-app/securities/v2/price?asset_id=…` (live sample 2026-10-06). */
+export interface GatewayPriceRowDto {
+  asset_id?: string | null;
+  price?: {
+    last?: GatewayPriceValueDto | null;
+    bid?: GatewayPriceValueDto | null;
+    ask?: GatewayPriceValueDto | null;
+    nav?: GatewayPriceValueDto | null;
+    rate?: GatewayPriceValueDto | null;
+  } | null;
+}
+
+/** One side of a day snapshot: `{close, open, previous_close, market_effective_timestamp}`. */
+export interface GatewayDaySideDto {
+  close?: WireNumber;
+  open?: WireNumber;
+  previous_close?: WireNumber;
+  market_effective_timestamp?: number | string | null;
+}
+
+/** `day_snapshot.results[]` of the bulk price. */
+export interface GatewayDaySnapshotRowDto {
+  asset_id?: string | null;
+  day_snapshot?: {
+    last?: GatewayDaySideDto | null;
+    bid?: GatewayDaySideDto | null;
+    ask?: GatewayDaySideDto | null;
+    rate?: GatewayDaySideDto | null;
+  } | null;
+}
+
+/** KrakenD aggregate: `{price, day_snapshot}`, plus `error_asset_price_v2` / `error_asset_day_snapshot_v2` on failure. */
+export interface GatewayPriceResponseDto {
+  price?: { results?: Array<GatewayPriceRowDto | null> | null } | null;
+  day_snapshot?: { results?: Array<GatewayDaySnapshotRowDto | null> | null } | null;
+}
+
 /** `GET /assets-service/market-depth/{id}` (§3.1). */
 export interface DepthLevelDto {
   order_price?: WireNumber;

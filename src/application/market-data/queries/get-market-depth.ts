@@ -18,7 +18,7 @@ export class GetMarketDepth extends Query<typeof input, MarketDepth> {
   readonly name = 'get_market_depth';
   readonly title = 'Market depth';
   readonly description =
-    'Order book (bids and asks aggregated by price level with order counts) and the bid/ask spread.';
+    'Egypt only: order book (bids and asks aggregated by price level with order counts) and the bid/ask spread.';
   readonly context = 'market-data';
   readonly input = input;
 

@@ -48,6 +48,8 @@ function marketData(): MarketDataRepository {
     }),
     getMarketQuotes: vi.fn(async () => []),
     getCandles: vi.fn(),
+    getLatestPrices: vi.fn(async () => []),
+    getCloses: vi.fn(async () => []),
     getOrderBook: vi.fn(),
     getRecentTrades: vi.fn(),
     getMarketSession: vi.fn(),

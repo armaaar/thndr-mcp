@@ -131,4 +131,22 @@ describe('GetNews', () => {
     };
     expect((await new GetNews(deps).execute({ limit: 100 })).items).toHaveLength(25);
   });
+
+  it('serves US market news for market "us" without a symbol', async () => {
+    const deps = setup();
+    const out = await new GetNews(deps).run({ market: 'us' });
+    expect(deps.research.calls.getNews).toEqual([
+      { assetId: undefined, market: 'us', locale: 'en', page: 1 },
+    ]);
+    expect(out.market).toBe('us');
+  });
+
+  it('keeps the mixed feed for other markets without a symbol, and per-instrument news with one', async () => {
+    const deps = setup();
+    const mixed = await new GetNews(deps).run({ market: 'uae' });
+    expect(deps.research.calls.getNews[0]).not.toHaveProperty('market');
+    expect(mixed.market).toBeNull();
+    await new GetNews(deps).run({ symbol: 'COMI' });
+    expect(deps.research.calls.getNews[1]).not.toHaveProperty('market');
+  });
 });

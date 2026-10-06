@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { dedupeNews, NEWS_LOCALES, type NewsLocale } from '../../../domain/market-data/research';
+import {
+  dedupeNews,
+  MARKET_NEWS_MARKETS,
+  NEWS_LOCALES,
+  type NewsLocale,
+} from '../../../domain/market-data/research';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, pageInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
@@ -14,10 +19,10 @@ const input = {
     .string()
     .min(1)
     .optional()
-    .describe('Ticker (e.g. "COMI") or Thndr asset id; omit for market-wide news (all of Thndr’s markets)'),
+    .describe('Ticker (e.g. "COMI") or Thndr asset id; omit for market-wide news'),
   market: marketInput.describe(
-    'Market used only to resolve `symbol`; market-wide news cannot be filtered by market (Thndr’s feed mixes ' +
-      'EGX and US items)',
+    'Market used to resolve `symbol`. Without `symbol`: "us" gives US market news; any other market gives ' +
+      'Thndr’s mixed feed of every market (EGX and US items)',
   ),
   page: pageInput.describe('Page number (25 articles per page, newest first)'),
   limit: z
@@ -54,6 +59,8 @@ export interface NewsItemView {
 
 export interface NewsView {
   ticker: string | null;
+  /** The market of market-wide news when Thndr has a feed for it (US); null for an instrument or the mixed feed. */
+  market: string | null;
   locale: NewsLocale;
   page: number;
   /** Articles matching the query across all pages, as Thndr counts them. */
@@ -68,10 +75,10 @@ export class GetNews extends Query<typeof input, NewsView> {
   readonly name = 'get_news';
   readonly title = 'News';
   readonly description =
-    'News and exchange disclosures from Thndr’s feed, newest first: for one instrument, or market-wide when ' +
-    '`symbol` is omitted (every Thndr market mixed: EGX and US; `market` does not filter it). 25 per page, ' +
-    'repeated filings removed; `limit` keeps the first N. Content is truncated to `contentChars` (default 500) — ' +
-    'follow `link` for the full text (EGX disclosures are PDFs).';
+    'All markets: news and exchange disclosures from Thndr’s feed, newest first, for one instrument (UAE ' +
+    'instruments may have none). Without `symbol`: US market news for `market: "us"`, else Thndr’s mixed feed of ' +
+    'every market (EGX and US). 25 per page, repeated filings removed; `limit` keeps the first N. Content is ' +
+    'truncated to `contentChars` (default 500) — follow `link` for the full text (EGX disclosures are PDFs).';
   readonly context = 'market-data';
   readonly input = input;
 
@@ -83,14 +90,20 @@ export class GetNews extends Query<typeof input, NewsView> {
     const locale = params.locale ?? 'en';
     const page = params.page ?? 1;
     const maxChars = params.contentChars ?? DEFAULT_CONTENT_CHARS;
-    const instrument = params.symbol
-      ? await this.deps.resolver.resolve(params.symbol, parseMarket(params.market))
-      : null;
-    const result = await this.deps.research.getNews({ assetId: instrument?.id, locale, page });
+    const market = parseMarket(params.market);
+    const instrument = params.symbol ? await this.deps.resolver.resolve(params.symbol, market) : null;
+    const ownFeed = !instrument && MARKET_NEWS_MARKETS.includes(market) ? market : null;
+    const result = await this.deps.research.getNews({
+      assetId: instrument?.id,
+      ...(ownFeed ? { market: ownFeed } : {}),
+      locale,
+      page,
+    });
     const unique = dedupeNews(result.articles);
     const limit = Math.min(Math.max(params.limit ?? PAGE_SIZE, 1), PAGE_SIZE);
     return {
       ticker: instrument?.ticker.value ?? null,
+      market: ownFeed,
       locale,
       page,
       total: result.total,

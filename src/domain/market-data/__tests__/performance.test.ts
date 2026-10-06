@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { aCandle } from '../../../__tests__/support/fake-market-data';
-import { marketDay, pricePerformance, shiftDay, TRADING_DAYS_PER_YEAR } from '../performance';
+import {
+  closePerformance,
+  marketDay,
+  pricePerformance,
+  shiftDay,
+  TRADING_DAYS_PER_YEAR,
+} from '../performance';
 
 const c = (day: string, close: number, high = close, low = close) =>
   aCandle({ time: new Date(`${day}T00:00:00Z`), open: close, high, low, close, volume: 1 });
@@ -131,7 +137,13 @@ describe('pricePerformance', () => {
       c('2026-06-01', 100, 120, 80),
       c('2026-10-06', 100, 110, 85),
     ]);
-    expect(stats.week52).toEqual({ high: 140, highDate: '2026-03-01', low: 80, lowDate: '2026-06-01' });
+    expect(stats.week52).toEqual({
+      basis: 'high-low',
+      high: 140,
+      highDate: '2026-03-01',
+      low: 80,
+      lowDate: '2026-06-01',
+    });
   });
 
   it('starts the 52-week range the day after the 1Y start and ignores lows ≤ 0', () => {
@@ -141,7 +153,13 @@ describe('pricePerformance', () => {
       c('2026-03-01', 100, 140, 95),
       c('2026-10-06', 99, 110, -5), // bad low: the close counts instead
     ]);
-    expect(stats.week52).toEqual({ high: 140, highDate: '2026-03-01', low: 95, lowDate: '2026-03-01' });
+    expect(stats.week52).toEqual({
+      basis: 'high-low',
+      high: 140,
+      highDate: '2026-03-01',
+      low: 95,
+      lowDate: '2026-03-01',
+    });
     const lowClose = pricePerformance([c('2026-03-01', 100, 140, 95), c('2026-10-06', 90, 110, 0)]);
     expect(lowClose.week52).toMatchObject({ low: 90, lowDate: '2026-10-06' });
   });
@@ -180,5 +198,43 @@ describe('pricePerformance', () => {
       troughDate: '2026-10-04',
     });
     expect(pricePerformance([c('2026-10-06', 5)]).maxDrawdown1Y).toBeNull();
+  });
+
+  describe('closePerformance', () => {
+    const point = (day: string, close: number) => ({ time: new Date(`${day}T04:00:00Z`), close });
+
+    it('returns nothing without closes', () => {
+      expect(closePerformance([])).toMatchObject({ asOf: null, sessions: 0, week52: null, volatility: [] });
+    });
+
+    it('takes the 52-week range from closes and labels it', () => {
+      const stats = closePerformance([
+        point('2025-12-01', 50),
+        point('2026-03-02', 80),
+        point('2026-10-06', 70),
+      ]);
+      expect(stats.week52).toEqual({
+        basis: 'close',
+        high: 80,
+        highDate: '2026-03-02',
+        low: 50,
+        lowDate: '2025-12-01',
+      });
+    });
+
+    it('computes volatility from the trailing daily run only, never across weekly gaps', () => {
+      const weekly = Array.from({ length: 40 }, (_, i) =>
+        point(shiftDay('2025-01-05', 0, i * 7), i % 2 ? 50 : 150),
+      );
+      const dailyRun = Array.from({ length: 40 }, (_, i) =>
+        point(shiftDay('2026-09-01', 0, i), 100 + (i % 2)),
+      );
+      const stats = closePerformance([...weekly, ...dailyRun]);
+      const vol30 = stats.volatility.find((v) => v.window === '30D')?.annualisedPercent as number;
+      // Daily swings of ~1% annualise far below the weekly 50↔150 swings.
+      expect(vol30).toBeGreaterThan(0);
+      expect(vol30).toBeLessThan(30);
+      expect(stats.volatility.find((v) => v.window === '90D')?.annualisedPercent).toBeNull();
+    });
   });
 });

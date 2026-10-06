@@ -5,7 +5,9 @@ import { InstrumentResolver } from '../../application/market-data/services/instr
 import { MarketQuotesCache } from '../../application/market-data/services/market-quotes-cache';
 import type { Clock } from '../../application/ports/clock';
 import type { Candle, CandleResolution } from '../../domain/market-data/candle';
+import type { ClosePoint, CloseSpan } from '../../domain/market-data/close-series';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
+import type { LatestPrice } from '../../domain/market-data/latest-price';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
 import type { Screener } from '../../domain/market-data/screener';
@@ -104,6 +106,29 @@ export function aCandle(overrides: Partial<Candle> = {}): Candle {
   };
 }
 
+type LatestPriceOverrides = Partial<Omit<LatestPrice, 'instrumentId'>> & { id?: string; ticker?: string };
+
+/** A bulk-price reading (defaults: NVDA-like US stock). */
+export function aLatestPrice(overrides: LatestPriceOverrides = {}): LatestPrice {
+  const { id, ticker = 'NVDA', ...rest } = overrides;
+  return {
+    instrumentId: AssetId.of(id ?? idFor(ticker)),
+    last: 240.1,
+    kind: 'close',
+    at: new Date('2026-10-06T17:15:00Z'),
+    open: 242.1,
+    previousClose: 238.9,
+    bid: null,
+    ask: null,
+    ...rest,
+  };
+}
+
+/** Close points from `[ISO time, close]` pairs. */
+export function closes(...points: Array<[string, number]>): ClosePoint[] {
+  return points.map(([time, close]) => ({ time: new Date(time), close }));
+}
+
 export function anOrderBook(overrides: Partial<OrderBook> = {}): OrderBook {
   return {
     bids: [
@@ -159,6 +184,10 @@ export class FakeMarketDataRepository implements MarketDataRepository {
   quotes: Partial<Record<Market, Quote[]>> = {};
   indicators: Partial<Record<Market, Quote[]>> = {};
   candles: Candle[] = [];
+  /** Bulk latest prices, served for the ids asked. */
+  latestPrices: LatestPrice[] = [];
+  /** Close series per span (same series for every instrument). */
+  closeSeries: Partial<Record<CloseSpan, ClosePoint[]>> = {};
   orderBook: OrderBook = anOrderBook();
   trades: TapeTrade[] = [];
   session: MarketSession = aMarketSession();
@@ -176,6 +205,8 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     getInstrument: [] as AssetId[],
     getMarketQuotes: [] as Market[],
     getCandles: [] as CandleCall[],
+    getLatestPrices: [] as string[][],
+    getCloses: [] as Array<{ id: AssetId; market: Market; span: CloseSpan }>,
     getOrderBook: [] as AssetId[],
     getRecentTrades: [] as Array<{ id: AssetId; limit: number; before?: string }>,
     getMarketSession: [] as Array<{ market: Market; board?: string | null }>,
@@ -217,6 +248,18 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     this.calls.getCandles.push({ id, resolution, from, to });
     this.fail('getCandles');
     return this.candles;
+  }
+
+  async getLatestPrices(ids: readonly AssetId[]): Promise<LatestPrice[]> {
+    this.calls.getLatestPrices.push(ids.map((id) => id.value));
+    this.fail('getLatestPrices');
+    return this.latestPrices.filter((p) => ids.some((id) => id.equals(p.instrumentId)));
+  }
+
+  async getCloses(id: AssetId, market: Market, span: CloseSpan): Promise<ClosePoint[]> {
+    this.calls.getCloses.push({ id, market, span });
+    this.fail('getCloses');
+    return this.closeSeries[span] ?? [];
   }
 
   async getOrderBook(id: AssetId): Promise<OrderBook> {
@@ -304,6 +347,19 @@ export function aScreener(overrides: ScreenerOverrides): Screener {
     unsupported: [],
     ...overrides,
   };
+}
+
+/** A US instrument (NVDA-like) for multi-market tests. */
+export function aUsInstrument(overrides: InstrumentOverrides = {}): Instrument {
+  return anInstrument({
+    ticker: 'NVDA',
+    name: 'NVIDIA Corporation Common Stock',
+    market: 'us',
+    currency: 'USD',
+    sector: 'Semiconductors & Semiconductor Equipment',
+    board: 'stocks',
+    ...overrides,
+  });
 }
 
 /** A fake repository listing one Egyptian instrument per ticker. */

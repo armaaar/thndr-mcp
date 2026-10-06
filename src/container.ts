@@ -123,13 +123,13 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   };
 
   // Market Data
-  const marketRepository = new ThndrMarketDataRepository(api, krakend);
+  const marketRepository = new ThndrMarketDataRepository(api, krakend, appGateway);
   const resolver = new InstrumentResolver(marketRepository);
   const quotes = new MarketQuotesCache(marketRepository, clock);
   const indices = new IndexMembership(marketRepository, quotes, clock);
   const market: MarketDataDependencies = {
     repository: marketRepository,
-    research: new ThndrResearchRepository(api, web),
+    research: new ThndrResearchRepository(api, web, appGateway),
     resolver,
     quotes,
     indices,

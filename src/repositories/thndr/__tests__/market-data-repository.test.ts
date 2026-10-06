@@ -9,6 +9,7 @@ const ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 const OTHER = 'b0a4c53e-b12f-4e93-b94b-759b8eeaef14';
 const API = 'https://prod.thndr.app';
 const KRAKEND = 'https://prod.thndr.app/krakend-thndr-x';
+const GATEWAY = 'https://prod.thndr.app/krakend-thndr-app';
 
 const tokens = { getAccessToken: async () => 'TOKEN', invalidate: () => {} };
 
@@ -22,7 +23,7 @@ function setup(...responders: Responder[]) {
       runtimeVersion: '3.8.3',
       correlationId: () => 'cid',
     });
-  return { fetch, gateway: new ThndrMarketDataRepository(client(API), client(KRAKEND)) };
+  return { fetch, gateway: new ThndrMarketDataRepository(client(API), client(KRAKEND), client(GATEWAY)) };
 }
 
 function url(raw: string | undefined) {

@@ -76,7 +76,7 @@ export class GetIndexConstituents extends Query<typeof input, IndexConstituents>
   readonly name = 'get_index_constituents';
   readonly title = 'Index constituents';
   readonly description =
-    'Without `index`: the indices of the market (EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV, Shariah, ' +
+    'Egypt only. Without `index`: the indices of the market (EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV, Shariah, ' +
     'Tamayuz…) with level, change % and member count. With `index`: its member instruments with sector, last ' +
     'price, change %, traded value/volume and market cap, sorted by `sortBy`. Thndr gives no index weights.';
   readonly context = 'market-data';

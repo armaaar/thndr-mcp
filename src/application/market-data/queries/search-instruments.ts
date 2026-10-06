@@ -16,7 +16,7 @@ export class SearchInstruments extends Query<typeof input, { results: Instrument
   readonly name = 'search_instruments';
   readonly title = 'Search instruments';
   readonly description =
-    'Search stocks, ETFs, funds and indices by ticker or company name (English or Arabic). Returns tickers and ' +
+    'All markets: search stocks, ETFs, funds and indices by ticker or company name (English or Arabic). Returns tickers and ' +
     'Thndr asset ids. Call this first when you only know a company name.';
   readonly context = 'market-data';
   readonly input = input;
