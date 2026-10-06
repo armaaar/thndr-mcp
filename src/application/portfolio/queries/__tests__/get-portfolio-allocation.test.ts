@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { aQuote, idFor } from '../../../../__tests__/support/fake-market-data';
+import { anInstrument, aQuote, aUsInstrument, idFor } from '../../../../__tests__/support/fake-market-data';
 import { position, setupPortfolio, summary } from '../../../../__tests__/support/fake-portfolio';
 import { createAccountSummary } from '../../../../domain/portfolio/account-summary';
 import { AssetId } from '../../../../domain/shared-kernel/asset-id';
@@ -132,7 +132,93 @@ describe('GetPortfolioAllocation', () => {
       })),
     });
     const out = await new GetPortfolioAllocation(deps).run({ market: 'us' });
-    expect(md.getMarketQuotes).toHaveBeenCalledWith('us');
+    expect(md.getMarketQuotes).not.toHaveBeenCalled();
     expect(out).toMatchObject({ market: 'us', holdings: [], bySector: [], byIndex: [], basis: 0 });
+  });
+
+  /** A portfolio of `market` whose positions are the given instruments (id set), 10 per unit of weight. */
+  function foreign(market: 'us' | 'uae' | 'simulator', ...held: Array<[string, number, string | null]>) {
+    const listed = held.map(([ticker, , sector]) =>
+      ticker === 'COMI'
+        ? anInstrument({ ticker, sector })
+        : aUsInstrument({ ticker, sector, market: market === 'simulator' ? 'us' : market }),
+    );
+    const getAccount = vi.fn(async () => ({
+      summary: createAccountSummary({ ...summary, portfolioValue: 100 }),
+      positions: held.map(([ticker, value]) =>
+        position(ticker, value, { instrumentId: AssetId.of(idFor(ticker)) }),
+      ),
+    }));
+    const { deps, md } = setupPortfolio({ getAccount });
+    vi.mocked(md.getInstrument).mockImplementation(async (id: AssetId) => {
+      const found = listed.find((i) => i.id.equals(id));
+      if (!found) throw new Error('lookup failed');
+      return found;
+    });
+    return { deps, md, getAccount };
+  }
+
+  it.each(['us', 'uae'] as const)(
+    'never asks for a snapshot or index membership in %s: sectors come from instrument details',
+    async (market) => {
+      const { deps, md, getAccount } = foreign(
+        market,
+        ['NVDA', 60, 'Semiconductors & Semiconductor Equipment'],
+        ['AAPL', 40, null],
+      );
+      const out = await new GetPortfolioAllocation(deps).run({ market });
+      expect(getAccount).toHaveBeenCalledWith(market);
+      expect(md.getMarketQuotes).not.toHaveBeenCalled();
+      expect(md.getIndexConstituents).not.toHaveBeenCalled();
+      expect(vi.mocked(md.getInstrument).mock.calls.map(([id]) => id.value)).toEqual([
+        idFor('NVDA'),
+        idFor('AAPL'),
+      ]);
+      expect(out.holdings.map((h) => [h.ticker, h.sector, h.indices])).toEqual([
+        ['NVDA', 'Semiconductors & Semiconductor Equipment', []],
+        ['AAPL', 'Unclassified', []],
+      ]);
+      expect(out.byIndex).toEqual([]);
+      expect(out.notes.join(' ')).toMatch(/index membership only for Egypt/);
+      expect(out.notes.join(' ')).toMatch(/2 holding\(s\) absent from a market snapshot/);
+    },
+  );
+
+  it('reads Egypt’s snapshot and indices for the simulator, and details for listings outside it', async () => {
+    const { deps, md } = foreign('simulator', ['COMI', 70, null], ['NVDA', 30, 'Semiconductors']);
+    vi.mocked(md.getMarketQuotes).mockResolvedValue([
+      aQuote({ ticker: 'COMI', sector: 'Banks' }),
+      aQuote({ ticker: 'EGX30', board: 'INDX', sector: null }),
+    ]);
+    vi.mocked(md.getIndexConstituents).mockResolvedValue([AssetId.of(idFor('COMI'))]);
+    const out = await new GetPortfolioAllocation(deps).run({ market: 'simulator' });
+    expect(vi.mocked(md.getMarketQuotes).mock.calls).toEqual([['egypt']]);
+    expect(vi.mocked(md.getInstrument).mock.calls.map(([id]) => id.value)).toEqual([idFor('NVDA')]);
+    expect(out.holdings.map((h) => [h.ticker, h.sector, h.indices])).toEqual([
+      ['COMI', 'Banks', ['EGX30']],
+      ['NVDA', 'Semiconductors', []],
+    ]);
+    expect(out.byIndex.map((b) => b.name)).toEqual(['EGX30', 'Not in any index']);
+  });
+
+  it('caps the detail lookups, heaviest first, and reports skipped and failed ones', async () => {
+    const held = Array.from({ length: 32 }, (_, i): [string, number, string | null] => [
+      `US${i}`,
+      32 - i,
+      'Tech',
+    ]);
+    const { deps, md } = foreign('us', ...held);
+    vi.mocked(md.getInstrument).mockImplementation(async (id: AssetId) => {
+      if (id.value === idFor('US0')) throw new Error('boom');
+      return aUsInstrument({ ticker: 'US1', id: id.value, sector: 'Tech' });
+    });
+    const out = await new GetPortfolioAllocation(deps).run({ market: 'us' });
+    expect(md.getInstrument).toHaveBeenCalledTimes(30);
+    expect(out.holdings.find((h) => h.ticker === 'US0')?.sector).toBe('Unclassified');
+    expect(out.holdings.find((h) => h.ticker === 'US31')?.sector).toBe('Unclassified');
+    expect(out.holdings.find((h) => h.ticker === 'US5')?.sector).toBe('Tech');
+    const note = out.notes.find((n) => n.includes('at most 30')) ?? '';
+    expect(note).toMatch(/2 lighter holding\(s\) were not looked up/);
+    expect(note).toMatch(/1 lookup\(s\) failed/);
   });
 });
