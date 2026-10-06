@@ -22,7 +22,7 @@ orders and never moves funds. Trade in the Thndr app.
 
 ## Requirements
 
-- Node.js ≥ 20
+- Node.js ≥ 20 (`.nvmrc` pins 22 for development: `nvm use`)
 - A Thndr account with the **Thndr mobile app logged in on your phone** (needed to approve logins)
 - Access to ThndrX (it currently requires a *Thndr Trader* subscription)
 
