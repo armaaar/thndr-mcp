@@ -64,9 +64,9 @@ Any other MCP client that runs local stdio servers works the same way: command `
 
 ### Pin a version
 
-`github:armaaar/thndr-mcp` follows the `main` branch. To pin a release, use its tag — `github:armaaar/thndr-mcp#v0.1.0`
-— or the prebuilt package attached to every [GitHub Release](https://github.com/armaaar/thndr-mcp/releases), which
-starts faster because nothing is built:
+`github:armaaar/thndr-mcp` follows the `main` branch. To pin a [release](https://github.com/armaaar/thndr-mcp/releases),
+use its tag — e.g. `github:armaaar/thndr-mcp#v0.1.0` — or the prebuilt package attached to every release, which starts
+faster because nothing is built:
 
 ```bash
 claude mcp add thndr -- npx -y https://github.com/armaaar/thndr-mcp/releases/download/v0.1.0/thndr-mcp-0.1.0.tgz

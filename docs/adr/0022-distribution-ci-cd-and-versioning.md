@@ -17,7 +17,9 @@ redesign. Commits already follow Conventional Commits (CLAUDE.md).
   carries the prebuilt package (`thndr-mcp-X.Y.Z.tgz` plus its SHA-256), which `npx` can run directly without a build.
 - **Versioning.** Semantic Versioning, starting at `0.1.0`. `package.json` is the source of truth; `src/version.ts`
   (shown by the CLI and the MCP server) is updated with it and a test fails if they differ. While `0.x`, `feat` and
-  breaking changes bump the minor and `fix`/`perf` the patch.
+  breaking changes bump the minor and `fix`/`perf` the patch; `docs`, `chore`, `test`, `refactor` and `ci` commits
+  release nothing. The first release, `0.1.0`, is release-please's first release PR (`initial-version`), so the tag
+  and its package exist like every later release.
 - **Releases by pull request.** release-please (`.github/workflows/release.yml`, `release-please-config.json`,
   `.release-please-manifest.json`) keeps a release PR with the next version and the generated `CHANGELOG.md`. A human
   merges it to release; that creates tag `vX.Y.Z` and the GitHub Release, then the publish job re-runs the checks on
@@ -25,10 +27,12 @@ redesign. Commits already follow Conventional Commits (CLAUDE.md).
 - **npm later.** The publish job's `npm publish --provenance --access public` step runs only when an `NPM_TOKEN`
   secret exists; adding the secret enables npm publishing with no other change.
 - **CI** (`.github/workflows/ci.yml`) on every pull request and push to `main`: `npm run check` (typecheck, lint, tests
-  with the 95 % coverage gate) and the build on Node 20 and 22, then a smoke test that packs the package, installs the
-  tarball in a fresh project and runs `thndr help` and `thndr-mcp`. CI uses no secrets and never calls Thndr.
+  with the 95 % coverage gate) and the build on Node 22 and 24 (vitest 5 needs Node 22+), then a smoke test on Node 20
+  and 22 — the supported runtimes — that packs the package, installs the tarball in a fresh project, runs `thndr help`
+  and checks `thndr-mcp` reports itself ready. CI uses no secrets and never calls Thndr. Release PRs, opened with the
+  workflow token, do not trigger CI; the publish job re-runs the checks on the tag.
 - **Dependabot** proposes weekly dependency and action updates as `chore(deps)` / `chore(ci)` commits, which do not
-  bump the version.
+  bump the version; minor and patch npm updates are grouped, majors come one per pull request.
 
 ## Consequences
 
