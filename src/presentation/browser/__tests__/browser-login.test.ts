@@ -234,15 +234,15 @@ describe('startBrowserLogin', () => {
   });
 
   it('closes the page after the login ended, including connections still open', async () => {
-    const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 50 });
+    const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 300 });
     const url = new URL(`${session.url}state`);
     // A connection in the middle of a request when the page closes (a polling tab racing the close): close() alone
     // would keep serving it, and a kept-alive connection could keep reaching the page.
     const socket = connect(Number(url.port), url.hostname);
+    socket.on('error', () => {});
     await new Promise((resolve) => socket.once('connect', resolve));
     socket.write(`GET ${url.pathname} HTTP/1.1\r\nHost: ${url.host}\r\n`);
     const closed = new Promise((resolve) => socket.once('close', resolve));
-    socket.on('error', () => {});
     await session.result;
     await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow(), { timeout: 3_000 });
     socket.write('\r\n');
