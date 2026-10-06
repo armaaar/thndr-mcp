@@ -10,6 +10,8 @@ export interface AppConfig {
   sessionFile: string;
   logLevel: LogLevel;
   userAgent: string;
+  /** Device name in the login approval deep link (shown as a QR code, so keep it short). */
+  deviceName: string;
 }
 
 /** `x-thndrx-runtime-version` of the ThndrX build the adapters were verified against (`npm run sync:api`). */
@@ -26,5 +28,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     userAgent:
       env.THNDR_USER_AGENT ||
       'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36 thndr-mcp',
+    deviceName: env.THNDR_DEVICE_NAME || 'thndr-mcp',
   };
 }

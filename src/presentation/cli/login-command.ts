@@ -17,6 +17,7 @@ export function terminalDialog(io: PromptIo): LoginDialog {
     },
     confirmApproval: async (approval) => {
       io.print(approval.message);
+      io.print(approval.qr);
       io.print(`Deep link (open on your phone): ${approval.deepLink}`);
       return true; // the CLI simply starts polling for the approval
     },

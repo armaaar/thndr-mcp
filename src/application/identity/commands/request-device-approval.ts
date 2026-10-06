@@ -15,7 +15,9 @@ export class RequestDeviceApproval extends Command<typeof input, ApprovalInstruc
   readonly context = 'identity';
   readonly input = input;
 
-  constructor(private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'userAgent'>) {
+  constructor(
+    private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'deviceName'>,
+  ) {
     super();
   }
 

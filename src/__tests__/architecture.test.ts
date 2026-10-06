@@ -69,7 +69,8 @@ const ALLOWED_PACKAGES: Record<Layer, (pkg: string) => boolean> = {
   application: (p) => p === 'zod',
   repositories: () => false,
   'data-sources': (p) => p.startsWith('node:') || p.startsWith('@firebase/'),
-  presentation: (p) => p === 'zod' || p.startsWith('node:') || p.startsWith('@modelcontextprotocol/'),
+  presentation: (p) =>
+    p === 'zod' || p === 'qrcode' || p.startsWith('node:') || p.startsWith('@modelcontextprotocol/'),
 };
 
 /** Context map: which bounded contexts each context may depend on (besides itself and the shared kernel). */

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { APPROVAL, APPROVED, identityUseCases } from '../../../__tests__/support/fake-login';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
+import { renderQr } from '../../presenters/qr';
 import { EXIT_FAILURE, EXIT_OK } from '../cli';
 import { runLoginCommand } from '../login-command';
 
@@ -34,6 +35,7 @@ describe('runLoginCommand', () => {
     expect(t.printed).toEqual([
       'Code sent to m***@example.com.',
       APPROVAL.message,
+      renderQr(APPROVAL.deepLink),
       `Deep link (open on your phone): ${APPROVAL.deepLink}`,
       '✔ Logged in. Session valid until 2026-03-01T16:00:00.000Z.',
     ]);
@@ -52,6 +54,7 @@ describe('runLoginCommand', () => {
     expect(t.printed).toEqual([
       'Already identified with Thndr. Requesting a new approval on your phone…',
       APPROVAL.message,
+      renderQr(APPROVAL.deepLink),
       `Deep link (open on your phone): ${APPROVAL.deepLink}`,
       '✔ Welcome back. Session valid until the server ends it.',
     ]);

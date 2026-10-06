@@ -18,7 +18,9 @@ export class VerifyLoginCode extends Command<typeof input, ApprovalInstructions>
   readonly context = 'identity';
   readonly input = input;
 
-  constructor(private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'userAgent'>) {
+  constructor(
+    private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'deviceName'>,
+  ) {
     super();
   }
 

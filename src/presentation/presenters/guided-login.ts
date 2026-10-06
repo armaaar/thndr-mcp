@@ -1,11 +1,14 @@
 import type { UseCase } from '../../application/use-case';
 import { runAndPresent } from './outcome';
+import { renderQr } from './qr';
 import type { View } from './view';
 
 /** What the user must do on their phone to approve the login. */
 export interface ApprovalPrompt {
   message: string;
   deepLink: string;
+  /** The deep link as a scannable QR code (Unicode half blocks). */
+  qr: string;
 }
 
 /**
@@ -72,9 +75,11 @@ export async function runGuidedLogin(
       if (!code) return cancelled;
       instructions = await run('login_verify_code', { code });
     }
+    const deepLink = String(instructions.deepLink);
     const approval = {
       message: forPerson(String(instructions.message)),
-      deepLink: String(instructions.deepLink),
+      deepLink,
+      qr: renderQr(deepLink),
     };
     if (!(await dialog.confirmApproval(approval))) return cancelled;
 

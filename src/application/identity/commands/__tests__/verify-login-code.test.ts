@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approvalRequest, loginDeps, USER_AGENT } from '../../../../__tests__/support/identity-fakes';
+import { approvalRequest, DEVICE_NAME, loginDeps } from '../../../../__tests__/support/identity-fakes';
 import { Email } from '../../../../domain/identity/email';
 import { BusinessRuleViolation, ValidationError } from '../../../../domain/shared-kernel/errors';
 import { InvalidInputError } from '../../../use-case';
@@ -33,10 +33,11 @@ describe('VerifyLoginCode', () => {
     expect(result).toEqual({
       humanId: '4242',
       requestId: 'req-1',
-      deepLink: approvalRequest.deepLink(USER_AGENT),
+      deepLink: approvalRequest.deepLink(DEVICE_NAME),
       message:
-        'Open the Thndr app on your phone and approve the new login request (code 4242), or open the deep ' +
-        'link on the phone. Then call login_complete.',
+        'Approve the new login in the Thndr app on your phone (request 4242): scan the QR code of the deep link with the ' +
+        'phone camera or the Thndr app, or open the deep link on the phone. Thndr sends no notification for it. ' +
+        'Then call login_complete.',
     });
     expect(d.flow.current.stage).toBe('AWAITING_APPROVAL');
     expect(d.flow.current.email?.value).toBe('a@example.com');

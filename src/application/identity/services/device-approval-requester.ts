@@ -8,7 +8,7 @@ import type { LoginDependencies } from '../dependencies';
  */
 export class DeviceApprovalRequester {
   constructor(
-    private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'userAgent'>,
+    private readonly deps: Pick<LoginDependencies, 'gateway' | 'identity' | 'flow' | 'deviceName'>,
   ) {}
 
   async request(): Promise<ApprovalInstructions> {
@@ -20,6 +20,6 @@ export class DeviceApprovalRequester {
     }
     const request = await this.deps.gateway.createApprovalRequest(idToken);
     await this.deps.flow.save((await this.deps.flow.load()).awaitingApproval(request));
-    return approvalInstructions(request, this.deps.userAgent);
+    return approvalInstructions(request, this.deps.deviceName);
   }
 }

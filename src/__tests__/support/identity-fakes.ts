@@ -91,7 +91,7 @@ export function fakeLogger() {
   return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } satisfies Logger;
 }
 
-export const USER_AGENT = 'thndr-mcp/0.1.0';
+export const DEVICE_NAME = 'thndr-mcp';
 
 /** Login use-case dependencies built from fakes; `sleep` advances the mutable clock. */
 export function loginDeps(
@@ -109,7 +109,7 @@ export function loginDeps(
     flow: new InMemoryLoginFlowRepository(),
     clock,
     sleep: vi.fn(async (ms: number) => clock.advance(ms)),
-    userAgent: USER_AGENT,
+    deviceName: DEVICE_NAME,
     ...(overrides.pollIntervalMs === undefined ? {} : { pollIntervalMs: overrides.pollIntervalMs }),
   } satisfies LoginDependencies;
 }

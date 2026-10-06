@@ -103,7 +103,7 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     sessions,
     flow: new FileLoginFlowRepository(sessionFile),
     clock,
-    userAgent: config.userAgent,
+    deviceName: config.deviceName,
   };
 
   // Market Data

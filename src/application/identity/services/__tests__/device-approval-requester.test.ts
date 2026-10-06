@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   approvalRequest,
+  DEVICE_NAME,
   fakeIdentity,
   loginDeps,
-  USER_AGENT,
 } from '../../../../__tests__/support/identity-fakes';
 import { DeviceApprovalRequester } from '../device-approval-requester';
 
@@ -14,7 +14,7 @@ describe('DeviceApprovalRequester', () => {
     expect(deps.gateway.createApprovalRequest).toHaveBeenCalledWith('id-token');
     expect(deps.flow.current.requireAwaitingApproval()).toBe(approvalRequest);
     expect(instructions).toMatchObject({ requestId: approvalRequest.id, humanId: approvalRequest.humanId });
-    expect(instructions.deepLink).toBe(approvalRequest.deepLink(USER_AGENT));
+    expect(instructions.deepLink).toBe(approvalRequest.deepLink(DEVICE_NAME));
   });
 
   it('refuses when nobody is identified with Firebase', async () => {

@@ -9,15 +9,16 @@ export type ApprovalInstructions = {
 
 export function approvalInstructions(
   request: DeviceApprovalRequest,
-  userAgent: string,
+  deviceName: string,
 ): ApprovalInstructions {
   return {
     humanId: request.humanId,
     requestId: request.id,
-    deepLink: request.deepLink(userAgent),
+    deepLink: request.deepLink(deviceName),
     message:
-      'Open the Thndr app on your phone and approve the new login request' +
-      (request.humanId ? ` (code ${request.humanId})` : '') +
-      ', or open the deep link on the phone. Then call login_complete.',
+      'Approve the new login in the Thndr app on your phone' +
+      (request.humanId ? ` (request ${request.humanId})` : '') +
+      ': scan the QR code of the deep link with the phone camera or the Thndr app, or open the deep link on the ' +
+      'phone. Thndr sends no notification for it. Then call login_complete.',
   };
 }

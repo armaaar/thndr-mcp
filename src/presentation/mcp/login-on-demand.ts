@@ -53,7 +53,7 @@ export function elicitationDialog(server: Server, logger?: Logger, call: LoginCa
     askCode: (sent) => askText(`${sent} Enter the 6-digit code.`, 'code', 'Verification code'),
     confirmApproval: async (approval) =>
       (await ask(
-        `${approval.message}\nOn your phone you can also open: ${approval.deepLink}\nAccept once you have approved it.`,
+        `${approval.message}\n\n${approval.qr}\nDeep link: ${approval.deepLink}\n\nAccept once you have approved it.`,
         { type: 'object', properties: {} },
       )) !== null,
     notify: (line) => {

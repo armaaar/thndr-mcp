@@ -13,6 +13,7 @@ describe('loadConfig', () => {
     });
     expect(c.sessionFile).toMatch(/thndr-mcp[/\\]session\.json$/);
     expect(c.userAgent).toContain('thndr-mcp');
+    expect(c.deviceName).toBe('thndr-mcp');
   });
 
   it('honours overrides', () => {
@@ -24,6 +25,7 @@ describe('loadConfig', () => {
       THNDR_SESSION_FILE: '/tmp/s.json',
       THNDR_LOG_LEVEL: 'debug',
       THNDR_USER_AGENT: 'ua',
+      THNDR_DEVICE_NAME: 'my-laptop',
     });
     expect(c).toEqual({
       apiBaseUrl: 'https://a',
@@ -33,6 +35,7 @@ describe('loadConfig', () => {
       sessionFile: '/tmp/s.json',
       logLevel: 'debug',
       userAgent: 'ua',
+      deviceName: 'my-laptop',
     });
   });
 });

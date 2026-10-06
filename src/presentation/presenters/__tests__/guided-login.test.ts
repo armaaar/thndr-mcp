@@ -22,7 +22,7 @@ describe('runGuidedLogin', () => {
       message: '✔ Logged in. Session valid until 2026-03-01T16:00:00.000Z.',
     });
     expect(d.askCode).toHaveBeenCalledWith('Code sent to m***@example.com.');
-    expect(d.confirmApproval).toHaveBeenCalledWith(APPROVAL);
+    expect(d.confirmApproval).toHaveBeenCalledWith({ ...APPROVAL, qr: expect.stringContaining('█') });
     expect(spies.login_start).toHaveBeenCalledWith({ email: 'me@example.com' });
     expect(spies.login_verify_code).toHaveBeenCalledWith({ code: '123456' });
   });
@@ -92,7 +92,7 @@ describe('forPerson', () => {
     const d = dialog();
     expect(await runGuidedLogin(useCases, d)).toEqual({ ok: false, message: 'Expired.' });
     expect(d.askCode).toHaveBeenCalledWith('Code sent to m***@example.com.');
-    expect(d.confirmApproval).toHaveBeenCalledWith(APPROVAL);
+    expect(d.confirmApproval).toHaveBeenCalledWith({ ...APPROVAL, qr: expect.stringContaining('█') });
   });
 
   it('is applied to failed steps', async () => {
