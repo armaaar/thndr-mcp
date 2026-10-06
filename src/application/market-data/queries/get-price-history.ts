@@ -18,6 +18,7 @@ import { type Market, marketSupports, parseMarket } from '../../../domain/shared
 import { dateInput, marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
+import { dataMarket } from '../services/snapshot-market';
 
 const input = {
   symbol: symbolInput,
@@ -101,9 +102,10 @@ export class GetPriceHistory extends Query<typeof input, PriceHistory> {
       from: window.from.toISOString(),
       to: window.to.toISOString(),
     };
-    if (!marketSupports(instrument.market, 'candles')) {
+    const home = dataMarket(instrument.market);
+    if (!marketSupports(home, 'candles')) {
       const closeSpan = spanCovering(window.from, now);
-      const series = await this.deps.repository.getCloses(instrument.id, instrument.market, closeSpan);
+      const series = await this.deps.repository.getCloses(instrument.id, home, closeSpan);
       // A range keeps the points inside it; `bars` keeps the latest N up to `to` (a span may start before the
       // estimated window, e.g. the last session of `1d` on a weekend).
       const upToEnd = [...series]

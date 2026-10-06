@@ -23,7 +23,7 @@ export class GetMarketStatus extends Query<typeof input, MarketStatus> {
   readonly description =
     "Egypt, US and UAE (not the simulator): whether the market is open now, today's session open/close times and " +
     'the main index levels (EGX30, EGX70…). EGX regular session: Sunday–Thursday 10:00–14:30 Africa/Cairo; US: ' +
-    '13:30–20:00 UTC.';
+    '09:30–16:00 America/New_York.';
   readonly context = 'market-data';
   readonly input = input;
 

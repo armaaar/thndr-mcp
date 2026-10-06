@@ -21,8 +21,9 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Markets:** market data follows the **instrument's own market** (a simulator search answers with Egyptian and US
   listings). Egypt has the whole-market snapshot (marketwatch), OHLC candles, the order book, financials and indices;
   the other markets have quotes from the mobile gateway's bulk latest price and closing-price history only. A use case
-  never calls marketwatch for the US or the UAE (Thndr answers 400); the simulator reads Egypt's
-  (`snapshotMarket`, `src/application/market-data/services/snapshot-market.ts`). Each section below states its
+  never calls marketwatch for the US or the UAE (Thndr answers 400); the simulator, and any instrument reporting the
+  `simulator` market, reads Egypt's data (`dataMarket` / `snapshotMarket`,
+  `src/application/market-data/services/snapshot-market.ts`). Each section below states its
   markets; guarded Egypt-only use cases answer `FEATURE_DISABLED` elsewhere without calling Thndr.
 - **Common error flows:**
   - No session → `NOT_AUTHENTICATED`; refresh credential rejected → `SESSION_EXPIRED` (re-approve).
@@ -90,7 +91,9 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   - 0 or > 50 symbols → `INVALID_INPUT`.
   - Any unresolvable symbol → `NOT_FOUND` for the whole call.
   - Resolved but without a snapshot row or a bulk price → listed in `missing`.
-  - Bulk price section failing inside a 200 (`error_asset_price_v2`) → `UPSTREAM_ERROR`.
+  - Bulk price section failing inside a 200 (`error_asset_price_v2`) → `UPSTREAM_ERROR`; only the day snapshot
+    failing (`error_asset_day_snapshot_v2`) → the prices without open/previous close (change null). When the bulk
+    price was only a fallback for Egyptian rows missing from the snapshot, its failure leaves them in `missing`.
 - **Output:** `quotes` (Egypt: last, previousClose, open/high/low, change, changePercent, bid/ask and sizes, volume,
   value, trades, lower/upper price limit, 52-week high/low, P/E, EPS, dividend yield, listed shares, market cap,
   5/30/90-day average volume, last trade price and volume, board, suspended, lastTradeAt; elsewhere the thin quote
@@ -384,7 +387,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   4. Keep the first `limit` articles; truncate content longer than `contentChars` (adds `…` and
      `contentTruncated: true`).
 - **Alternative/error flows:** a page past the last one → empty `items`, `hasMore: false`. Common errors.
-- **Output:** `ticker` (or null), `market` (`us` for US market news, else null), `locale`, `page`, `total` (Thndr's
+- **Output:** `ticker` (or null), `market` (`us` for US market news, else null), `locale` (null for US market news:
+  that feed takes no locale), `page`, `total` (Thndr's
   count across pages, duplicates included),
   `hasMore` (another page exists, or `limit` left articles of this page out), `duplicatesRemoved`, `items`
   (`[{id, title, content?, contentTruncated?, source, link, publishedAt, market, tickers}]`). Many EGX disclosures

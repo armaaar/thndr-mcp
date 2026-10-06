@@ -65,6 +65,26 @@ describe('ThndrMarketDataRepository — prices outside the marketwatch', () => {
     });
   });
 
+  it('degrades to the price section when only the day snapshot fails', async () => {
+    const { repo } = setup(() =>
+      json({
+        price: { results: [{ asset_id: US, price: { last: { value: 240.1, price_field: 'close' } } }] },
+        error_asset_day_snapshot_v2: { http_status_code: 500, http_body: '{"detail":{"msg":"down"}}' },
+      }),
+    );
+    const [only] = await repo.getLatestPrices([AssetId.of(US)]);
+    expect(only).toMatchObject({ last: 240.1, previousClose: null, open: null });
+  });
+
+  it('still fails on a day-snapshot error without a price section', async () => {
+    const { repo } = setup(() =>
+      json({
+        error_asset_day_snapshot_v2: { http_status_code: 500, http_body: '{"detail":{"msg":"down"}}' },
+      }),
+    );
+    await expect(repo.getLatestPrices([AssetId.of(US)])).rejects.toThrow(/down/);
+  });
+
   describe('getCloses', () => {
     it('reads the charts of one asset with the instrument market (adsm for the UAE)', async () => {
       const { fetch, repo } = setup(() =>

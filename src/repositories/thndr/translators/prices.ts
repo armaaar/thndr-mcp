@@ -28,7 +28,8 @@ export const WIRE_CLOSE_OPTION: Readonly<Record<CloseSpan, string>> = {
  */
 export function parseGatewayTimestamp(raw: unknown): Date | null {
   const n = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : raw;
-  if (typeof n === 'number' && Number.isFinite(n) && n > 1e15) return new Date(Math.floor(n / 1e6));
+  // Nanoseconds since 1970 exceed 1e17 from 1973 on; microseconds stay below it until the year 5138.
+  if (typeof n === 'number' && Number.isFinite(n) && n > 1e17) return new Date(Math.floor(n / 1e6));
   return parseTimestamp(n);
 }
 

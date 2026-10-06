@@ -2,6 +2,7 @@ import type { Instrument, Quote } from '../../../domain/market-data/instrument';
 import { quoteFromLatestPrice } from '../../../domain/market-data/latest-price';
 import type { MarketDataRepository } from '../../../domain/market-data/repository';
 import type { Market } from '../../../domain/shared-kernel/market';
+import { FeatureDisabledError, UpstreamError } from '../../errors';
 import type { MarketQuotesCache } from './market-quotes-cache';
 import { snapshotMarket } from './snapshot-market';
 
@@ -37,9 +38,17 @@ export async function quoteInstruments(
   }
   const rest = instruments.filter((i) => !found.has(i.id.value));
   if (rest.length === 0) return found;
-  const prices = new Map(
-    (await deps.repository.getLatestPrices(rest.map((i) => i.id))).map((p) => [p.instrumentId.value, p]),
-  );
+  let latest: Awaited<ReturnType<MarketDataRepository['getLatestPrices']>>;
+  try {
+    latest = await deps.repository.getLatestPrices(rest.map((i) => i.id));
+  } catch (error) {
+    // Only snapshot rows were missing: the bulk price was a bonus, so they stay missing instead of failing the call.
+    const fallbackOnly = rest.every((i) => snapshotMarket(i.market) !== null);
+    if (fallbackOnly && (error instanceof UpstreamError || error instanceof FeatureDisabledError))
+      return found;
+    throw error;
+  }
+  const prices = new Map(latest.map((p) => [p.instrumentId.value, p]));
   for (const instrument of rest) {
     const price = prices.get(instrument.id.value);
     if (price)
@@ -53,6 +62,7 @@ export async function quoteInstruments(
 
 /** Explains the null fields of quotes built from the bulk latest price. */
 export const LATEST_PRICE_NOTE =
-  'Quotes outside Egypt come from Thndr’s bulk latest price: only last, open, previous close, change and change % ' +
+  'Quotes outside Egypt (and Egyptian instruments missing from the marketwatch) come from Thndr’s bulk latest ' +
+  'price: only last, open, previous close, change and change % ' +
   '(from the previous close), bid/ask when Thndr has them and the price time (lastTradeAt) are known; the other ' +
   'fields are null.';

@@ -121,8 +121,12 @@ Turns what a user types into an `Instrument`:
   allocation). Only for markets with indices (Egypt): callers never ask for the others.
 
 ### `quoteInstruments` and `snapshotMarket`
-- `snapshotMarket(market)` (`services/snapshot-market.ts`): Egypt → Egypt, simulator → Egypt, US/UAE → none. Every
-  marketwatch read goes through it, so the US and UAE never get a 400 from marketwatch.
+- `dataMarket(market)` (`services/snapshot-market.ts`): the market whose instrument data serves an instrument — its
+  own, except `simulator` → Egypt (the simulator trades Egypt's listings; an instrument reports `simulator` when
+  Thndr's payload says so or a simulator search hit omits its market). History, performance, details and peers route
+  through it, so one instrument is treated alike by every tool.
+- `snapshotMarket(market)`: `dataMarket` when it has a marketwatch — Egypt for Egypt and the simulator, none for the
+  US/UAE. Every marketwatch read goes through it, so the US and UAE never get a 400 from marketwatch.
 - `quoteInstruments(deps, instruments)` (`services/instrument-quotes.ts`): quotes keyed by asset id, each instrument
   from its **own** market's source — its snapshot market's marketwatch row, else (and for Egyptian rows missing from
   the snapshot) the bulk latest price, one call for all. Used by `get_price_snapshot` and `get_peers`.

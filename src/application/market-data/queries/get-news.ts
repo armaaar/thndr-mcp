@@ -61,7 +61,8 @@ export interface NewsView {
   ticker: string | null;
   /** The market of market-wide news when Thndr has a feed for it (US); null for an instrument or the mixed feed. */
   market: string | null;
-  locale: NewsLocale;
+  /** The language asked for; null for a market feed, which takes no locale (US news is in English). */
+  locale: NewsLocale | null;
   page: number;
   /** Articles matching the query across all pages, as Thndr counts them. */
   total: number | null;
@@ -104,7 +105,7 @@ export class GetNews extends Query<typeof input, NewsView> {
     return {
       ticker: instrument?.ticker.value ?? null,
       market: ownFeed,
-      locale,
+      locale: ownFeed ? null : locale,
       page,
       total: result.total,
       hasMore: result.hasMore || unique.length > limit,

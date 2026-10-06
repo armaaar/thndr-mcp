@@ -108,8 +108,13 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
       const data = await this.gateway.get<GatewayPriceResponseDto>(path, {
         query: { asset_id: unique.slice(i, i + PRICE_BATCH) },
       });
-      assertNoKrakendError(data, `GET ${path}`);
-      out.push(...toLatestPrices(data));
+      // The day snapshot only adds open/previous close: without it the price section is still a usable answer.
+      const usable =
+        data && typeof data === 'object' && Array.isArray(data.price?.results)
+          ? (({ error_asset_day_snapshot_v2: _ignored, ...rest }) => rest)(data as Record<string, unknown>)
+          : data;
+      assertNoKrakendError(usable, `GET ${path}`);
+      out.push(...toLatestPrices(usable as GatewayPriceResponseDto));
     }
     return out;
   }

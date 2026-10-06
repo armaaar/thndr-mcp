@@ -200,4 +200,15 @@ describe('GetPricePerformance', () => {
       expect(out.returns.find((r) => r.period === '1M')?.returnPercent).not.toBeNull();
     });
   });
+
+  it('treats an instrument whose market is the simulator itself as Egyptian data (candles)', async () => {
+    const deps = setupMarketData(
+      new FakeMarketDataRepository({ instruments: [aUsInstrument({ ticker: 'COMI', market: 'simulator' })] }),
+      NOW,
+    );
+    const out = await new GetPricePerformance(deps).run({ symbol: 'COMI', market: 'simulator' });
+    expect(deps.repository.calls.getCandles).toHaveLength(1);
+    expect(deps.repository.calls.getCloses).toEqual([]);
+    expect(out.history.resolution).toBe('1d');
+  });
 });

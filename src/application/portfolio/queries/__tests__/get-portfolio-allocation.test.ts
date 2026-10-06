@@ -3,6 +3,7 @@ import { anInstrument, aQuote, aUsInstrument, idFor } from '../../../../__tests_
 import { position, setupPortfolio, summary } from '../../../../__tests__/support/fake-portfolio';
 import { createAccountSummary } from '../../../../domain/portfolio/account-summary';
 import { AssetId } from '../../../../domain/shared-kernel/asset-id';
+import { NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
 import { GetPortfolioAllocation } from '../get-portfolio-allocation';
 
 const EGX30 = idFor('EGX30');
@@ -152,7 +153,7 @@ describe('GetPortfolioAllocation', () => {
     const { deps, md } = setupPortfolio({ getAccount });
     vi.mocked(md.getInstrument).mockImplementation(async (id: AssetId) => {
       const found = listed.find((i) => i.id.equals(id));
-      if (!found) throw new Error('lookup failed');
+      if (!found) throw new NotFoundError('no such asset');
       return found;
     });
     return { deps, md, getAccount };
@@ -209,7 +210,7 @@ describe('GetPortfolioAllocation', () => {
     ]);
     const { deps, md } = foreign('us', ...held);
     vi.mocked(md.getInstrument).mockImplementation(async (id: AssetId) => {
-      if (id.value === idFor('US0')) throw new Error('boom');
+      if (id.value === idFor('US0')) throw new UpstreamError('Thndr API error 503', 503);
       return aUsInstrument({ ticker: 'US1', id: id.value, sector: 'Tech' });
     });
     const out = await new GetPortfolioAllocation(deps).run({ market: 'us' });
@@ -220,5 +221,13 @@ describe('GetPortfolioAllocation', () => {
     const note = out.notes.find((n) => n.includes('at most 30')) ?? '';
     expect(note).toMatch(/2 lighter holding\(s\) were not looked up/);
     expect(note).toMatch(/1 lookup\(s\) failed/);
+  });
+
+  it('lets a session error from a detail lookup fail the call', async () => {
+    const { deps, md } = foreign('us', ['NVDA', 100, 'Semis']);
+    vi.mocked(md.getInstrument).mockRejectedValue(new NotAuthenticatedError());
+    await expect(new GetPortfolioAllocation(deps).run({ market: 'us' })).rejects.toMatchObject({
+      code: 'NOT_AUTHENTICATED',
+    });
   });
 });

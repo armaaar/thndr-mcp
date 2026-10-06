@@ -462,8 +462,8 @@ No market gating found; data likely Egypt-only [I].
   `market` "adsm".
 - **Financials** (`x.thndr.app/api/financials`) 404 for NVDA and FAB. **Recommendations** ("similar stocks") work for
   `market=us`.
-- **Market status** works for egypt/us/uae (US hours 13:30–20:00 UTC); the simulator has no hours (422) and a null
-  status.
+- **Market status** works for egypt/us/uae (US hours answered 13:30–20:00 UTC on 2026-10-06, i.e. 09:30–16:00
+  New York daylight time); the simulator has no hours (422) and a null status.
 
 ---
 

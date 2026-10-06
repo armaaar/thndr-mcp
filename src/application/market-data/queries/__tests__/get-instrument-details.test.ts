@@ -87,4 +87,13 @@ describe('GetInstrumentDetails', () => {
     expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
     expect(out.indices).toEqual([]);
   });
+
+  it('reads Egypt’s index membership for an instrument whose market is the simulator itself', async () => {
+    const repository = withInstruments();
+    repository.instruments = [anInstrument({ ticker: 'COMI', market: 'simulator' })];
+    const deps = setupMarketData(repository);
+    const out = await new GetInstrumentDetails(deps).run({ symbol: 'COMI', market: 'simulator' });
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
+    expect(out.indices).toEqual([]);
+  });
 });

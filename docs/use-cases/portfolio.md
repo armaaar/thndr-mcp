@@ -222,7 +222,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   5. Group (domain `groupAllocation`): by asset class, by sector (no sector → `Funds (no sector)` for funds/ETFs,
      else `Unclassified`), and by index (no index → `Not in any index`) where the market has indices.
 - **Alternative/error flows:** common errors (the account, snapshot or membership read failing fails the call; a
-  detail lookup failing only leaves that holding unclassified). No holdings → empty lists.
+  detail lookup failing with a Thndr error or not-found only leaves that holding unclassified; a session error still
+  fails the call). No holdings → empty lists.
 - **Output:** `market`, `currency`, `portfolioValue`, `basis` (denominator of every weight), `totalMarketValue`,
   `holdings` (ticker, instrumentId, assetClass, sector, indices, marketValue, weightPercent), `byAssetClass`
   (assetClass, positions, marketValue, weightPercent), `bySector` and `byIndex` (name, positions, marketValue,

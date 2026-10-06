@@ -5,7 +5,7 @@ import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 import { LATEST_PRICE_NOTE, quoteInstruments } from '../services/instrument-quotes';
-import { snapshotMarket } from '../services/snapshot-market';
+import { dataMarket, snapshotMarket } from '../services/snapshot-market';
 
 const input = {
   symbol: symbolInput,
@@ -142,7 +142,7 @@ export class GetPeers extends Query<typeof input, Peers> {
   /** Similar stocks with their bulk latest prices; no same-sector list without the market snapshot. */
   private async withoutSnapshot(market: Market, instrument: Instrument, limit: number): Promise<Peers> {
     const similar = (
-      await this.deps.repository.getSimilarInstruments(instrument.id, instrument.market, limit)
+      await this.deps.repository.getSimilarInstruments(instrument.id, dataMarket(instrument.market), limit)
     )
       .filter((peer) => !peer.id.equals(instrument.id))
       .slice(0, limit);

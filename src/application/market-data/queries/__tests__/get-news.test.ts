@@ -149,4 +149,9 @@ describe('GetNews', () => {
     await new GetNews(deps).run({ symbol: 'COMI' });
     expect(deps.research.calls.getNews[1]).not.toHaveProperty('market');
   });
+
+  it('reports no locale for the US market feed, which takes none', async () => {
+    const out = await new GetNews(setup()).run({ market: 'us', locale: 'ar' });
+    expect(out.locale).toBeNull();
+  });
 });

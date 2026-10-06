@@ -10,6 +10,7 @@ import {
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
 import { ValidationError } from '../../../../domain/shared-kernel/errors';
+import { UpstreamError } from '../../../errors';
 import { GetPriceSnapshot } from '../get-price-snapshot';
 
 describe('GetPriceSnapshot', () => {
@@ -139,5 +140,27 @@ describe('GetPriceSnapshot', () => {
     const out = await new GetPriceSnapshot(setupMarketData(repository)).run({ symbols: ['COMI'] });
     expect(out.notes).toBeUndefined();
     expect(repository.calls.getLatestPrices).toEqual([]);
+  });
+
+  it('lists Egyptian rows missing from the snapshot as missing when the bulk-price fallback fails', async () => {
+    const repository = withInstruments('COMI', 'BMM');
+    repository.quotes.egypt = [aQuote({ ticker: 'COMI' })];
+    repository.failures.getLatestPrices = new UpstreamError('Thndr API error 403', 403, 'FEATURE_DISABLED');
+    const out = await new GetPriceSnapshot(setupMarketData(repository)).run({ symbols: ['COMI', 'BMM'] });
+    expect(out.quotes.map((q) => q.ticker.value)).toEqual(['COMI']);
+    expect(out.missing).toEqual(['BMM']);
+  });
+
+  it('fails when the bulk price fails for instruments it is the only source of', async () => {
+    const repository = new FakeMarketDataRepository({ instruments: [aUsInstrument()] });
+    repository.failures.getLatestPrices = new UpstreamError('Thndr API error 500', 500);
+    await expect(
+      new GetPriceSnapshot(setupMarketData(repository)).run({ symbols: ['NVDA'], market: 'us' }),
+    ).rejects.toMatchObject({ code: 'UPSTREAM_ERROR' });
+    const egypt = withInstruments('BMM');
+    egypt.failures.getLatestPrices = new TypeError('bug');
+    await expect(new GetPriceSnapshot(setupMarketData(egypt)).run({ symbols: ['BMM'] })).rejects.toThrow(
+      'bug',
+    );
   });
 });

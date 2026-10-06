@@ -13,6 +13,7 @@ import {
 } from '../../../domain/portfolio/position';
 import type { AssetClass, Market } from '../../../domain/shared-kernel/market';
 import { MARKET_PROFILES, marketSupports, parseMarket } from '../../../domain/shared-kernel/market';
+import { FeatureDisabledError, NotFoundError, UpstreamError } from '../../errors';
 import { marketInput } from '../../inputs';
 import { snapshotMarket } from '../../market-data/services/snapshot-market';
 import { type InputOf, Query } from '../../use-case';
@@ -167,7 +168,16 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
           const id = (p.instrumentId as NonNullable<PositionWeight['instrumentId']>).value;
           try {
             sectors.set(id, (await this.deps.resolver.resolve(id, market)).sector);
-          } catch {
+          } catch (error) {
+            // A missing or failing listing only costs its sector; session and programming errors still surface.
+            if (
+              !(
+                error instanceof UpstreamError ||
+                error instanceof NotFoundError ||
+                error instanceof FeatureDisabledError
+              )
+            )
+              throw error;
             failed++;
           }
         }),

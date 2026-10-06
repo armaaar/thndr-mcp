@@ -3,6 +3,7 @@ import { marketSupports, parseMarket } from '../../../domain/shared-kernel/marke
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
+import { dataMarket } from '../services/snapshot-market';
 
 const input = { symbol: symbolInput, market: marketInput };
 
@@ -32,11 +33,12 @@ export class GetInstrumentDetails extends Query<typeof input, InstrumentDetails>
     const market = parseMarket(params.market);
     const resolved = await this.deps.resolver.resolve(params.symbol, market);
     // Index membership exists only for markets with indices (Egypt); never ask Thndr for the others.
-    const withIndices = marketSupports(resolved.market, 'indices');
+    const home = dataMarket(resolved.market);
+    const withIndices = marketSupports(home, 'indices');
     const [instrument, membership] = await Promise.all([
       this.deps.repository.getInstrument(resolved.id),
       // Membership only enriches the answer: tolerate failures.
-      withIndices ? this.deps.indices.membership(resolved.market).catch(() => null) : Promise.resolve(null),
+      withIndices ? this.deps.indices.membership(home).catch(() => null) : Promise.resolve(null),
     ]);
     const indices = membership ? (membership.get(instrument.id.value) ?? []) : null;
     return { ...instrument, indices };

@@ -26,6 +26,7 @@ import { FeatureDisabledError, NotFoundError, UpstreamError } from '../../errors
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
+import { dataMarket } from '../services/snapshot-market';
 
 const input = { symbol: symbolInput, market: marketInput };
 
@@ -158,11 +159,10 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
   private async series(
     instrument: Instrument,
   ): Promise<{ stats: PricePerformance; sources?: CloseSource[] }> {
-    if (!marketSupports(instrument.market, 'candles')) {
+    const home = dataMarket(instrument.market);
+    if (!marketSupports(home, 'candles')) {
       const all = await Promise.all(
-        CLOSE_SPANS_USED.map((span) =>
-          this.deps.repository.getCloses(instrument.id, instrument.market, span),
-        ),
+        CLOSE_SPANS_USED.map((span) => this.deps.repository.getCloses(instrument.id, home, span)),
       );
       const sources = CLOSE_SPANS_USED.map((span, i): CloseSource => {
         const points = all[i] as ClosePoint[];

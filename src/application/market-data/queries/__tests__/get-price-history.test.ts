@@ -226,4 +226,18 @@ describe('GetPriceHistory', () => {
       expect(deps.repository.calls.getCandles).toHaveLength(1);
     });
   });
+
+  describe('GetPriceHistory — an instrument whose market is the simulator itself', () => {
+    it('is Egyptian data: candles, never closes', async () => {
+      const deps = setupMarketData(
+        new FakeMarketDataRepository({
+          instruments: [anInstrument({ ticker: 'COMI', market: 'simulator' })],
+        }),
+        NOW,
+      );
+      const out = await new GetPriceHistory(deps).run({ symbol: 'COMI', market: 'simulator' });
+      expect(out).toMatchObject({ kind: 'candles', market: 'simulator' });
+      expect(deps.repository.calls.getCloses).toEqual([]);
+    });
+  });
 });
