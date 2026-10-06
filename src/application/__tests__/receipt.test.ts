@@ -21,11 +21,11 @@ interface WatchlistModel {
 }
 
 // @ts-expect-error a nested object is a read model, not a receipt
-type Nested = NoInputCommand<{ watchlist: { id: string } }>;
+type Nested = Command<Record<string, never>, { watchlist: { id: string } }>;
 // @ts-expect-error an array of objects is not a receipt
-type ArrayOfObjects = NoInputCommand<{ items: Array<{ id: string }> }>;
+type ArrayOfObjects = Command<Record<string, never>, { items: Array<{ id: string }> }>;
 // @ts-expect-error an interface has no index signature, so it cannot be a receipt
-type FromInterface = NoInputCommand<WatchlistModel>;
+type FromInterface = Command<Record<string, never>, WatchlistModel>;
 
 describe('Receipt', () => {
   it('accepts a flat acknowledgement', async () => {
