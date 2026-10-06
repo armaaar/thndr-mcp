@@ -23,13 +23,16 @@ export const WIRE_CLOSE_OPTION: Readonly<Record<CloseSpan, string>> = {
 };
 
 /**
- * The gateway stamps prices in epoch **nanoseconds** (e.g. 1791286273092667000); seconds, milliseconds and ISO
- * strings are tolerated too.
+ * The gateway stamps prices in epoch **nanoseconds** (e.g. 1791286273092667000); microseconds, seconds, milliseconds
+ * and ISO strings are tolerated too.
  */
 export function parseGatewayTimestamp(raw: unknown): Date | null {
   const n = typeof raw === 'string' && /^\d+$/.test(raw) ? Number(raw) : raw;
-  // Nanoseconds since 1970 exceed 1e17 from 1973 on; microseconds stay below it until the year 5138.
-  if (typeof n === 'number' && Number.isFinite(n) && n > 1e17) return new Date(Math.floor(n / 1e6));
+  if (typeof n === 'number' && Number.isFinite(n)) {
+    // Nanoseconds exceed 1e17 from 1973 on; microseconds lie between 1e14 (1973) and 1e17 (year 5138).
+    if (n > 1e17) return new Date(Math.floor(n / 1e6));
+    if (n > 1e14) return new Date(Math.floor(n / 1e3));
+  }
   return parseTimestamp(n);
 }
 

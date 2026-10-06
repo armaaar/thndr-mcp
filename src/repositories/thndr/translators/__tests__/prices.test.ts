@@ -100,7 +100,7 @@ describe('price translators', () => {
     expect(parseGatewayTimestamp('2026-10-06T17:15:00Z')?.toISOString()).toBe('2026-10-06T17:15:00.000Z');
     expect(parseGatewayTimestamp(null)).toBeNull();
     // Microseconds are not mistaken for nanoseconds.
-    expect(parseGatewayTimestamp(1791306900000000)?.getUTCFullYear()).toBeGreaterThan(2026);
+    expect(parseGatewayTimestamp(1791306900000000)?.toISOString()).toBe('2026-10-06T17:15:00.000Z');
   });
 
   it('joins the price and day-snapshot sections per asset', () => {
