@@ -1,5 +1,5 @@
 import { type BoundedContext, Command, type UseCase } from '../../application/use-case';
-import { SHORT_DISCLAIMER } from '../presenters/disclaimer';
+import { terminalDisclaimer } from '../presenters/disclaimer';
 import { describeInput, type FieldSpec } from './args';
 import { CLI_POSITIONALS, commandName } from './positionals';
 
@@ -33,7 +33,7 @@ export function renderOverview(useCases: readonly UseCase[], version: string): s
   lines.push(
     'Run `thndr <command> --help` for the arguments of a command. Add --json for machine-readable output.',
     '',
-    SHORT_DISCLAIMER,
+    terminalDisclaimer(),
   );
   return lines.join('\n');
 }

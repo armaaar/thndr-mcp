@@ -14,10 +14,11 @@ import re
 import sys
 
 PATH = re.compile(
-    r"""["'`](/?(?:[a-z0-9-]+-service|krakend-thndr-x|portfolio|price-alerts|securities|feed|trading-journals|"""
-    r"""savings|notifications|api|users-service|auth|thndrx|payment-service|funding-service)/[A-Za-z0-9_./{}$:-]*)"""
+    r"""["'`](/?(?:[a-z0-9-]+-service|[a-z][a-z0-9-]*/v[0-9]+|krakend-thndr-[a-z]+|api/post|charts|feed|"""
+    r"""portfolio|price-alerts|securities|trading-journals|savings|notifications|thndrx|auth)"""
+    r"""(?:/[A-Za-z0-9_.{}$:-]*)*)["'`]"""
 )
-MARKETS = re.compile(r"""["'`](egypt|us|adsm|abudhabi|simulator|EGID|ALPACA|ALPACA_UAE|NOPL|INDX)["'`]""")
+MARKETS = re.compile(r"""["'`](egypt|us|adsm|abudhabi|simulator|tdwl|EGID|ALPACA|ALPACA_UAE|ADX_UAE|NOPL|INDX)["'`]""")
 
 
 def sources(directory: pathlib.Path) -> list[pathlib.Path]:

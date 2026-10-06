@@ -4,7 +4,8 @@ Thanks for helping with thndr-mcp, an unofficial community project (see [DISCLAI
 
 - **License.** Contributions are accepted under the project license, the [Apache License 2.0](LICENSE) (section 5):
   by submitting a change you license it under the same terms.
-- **No Thndr code or private data.** Never commit Thndr's source code, decompiled bundles or app packages, tokens,
+- **No Thndr apps or private data.** Never commit Thndr's bundles, decompiled code or app packages (quote only the
+  short excerpts `docs/api` needs to describe an endpoint), tokens,
   refresh tokens, cookies, session files or personal account data. Fixtures must be synthetic or redacted.
 - **Money stays out of scope.** thndr-mcp is currently read-only for money: no tool may place, modify or cancel orders
   or move funds without a new ADR that supersedes [ADR 0006](docs/adr/0006-trading-safety.md). Write endpoints may be

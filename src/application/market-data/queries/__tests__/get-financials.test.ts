@@ -8,7 +8,7 @@ import {
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
 import { FakeResearchRepository, someFinancials } from '../../../../__tests__/support/fake-research';
-import { NotAuthenticatedError, UpstreamError } from '../../../errors';
+import { FeatureDisabledError, NotAuthenticatedError, UpstreamError } from '../../../errors';
 import { GetFinancials } from '../get-financials';
 
 const comi = () =>
@@ -270,6 +270,10 @@ describe('GetFinancials', () => {
       expect(out.sectorComparison?.valuationPrice).toMatchObject({ basis: 'currentPrice', price: 10 });
       expect(out.notes?.[1]).toContain('could not be loaded');
 
+      deps.repository.failures.getCandles = new FeatureDisabledError('Feature disabled for user');
+      const disabled = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(disabled.sectorComparison?.valuationPrice).toMatchObject({ basis: 'currentPrice' });
+
       deps.repository.failures.getCandles = new NotAuthenticatedError();
       await expect(
         new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true }),
@@ -286,6 +290,11 @@ describe('GetFinancials', () => {
       expect(out.sectorComparison).toBeNull();
       expect(out.notes).toEqual([expect.stringContaining('429')]);
       expect(out.metrics.revenues?.latest).toEqual({ period: 'TTM Q2 26', value: 120 });
+
+      deps.research.failures.getFinancialsBatch = new FeatureDisabledError('Feature disabled for user');
+      expect(
+        (await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true })).sectorComparison,
+      ).toBeNull();
 
       deps.research.failures.getFinancialsBatch = new NotAuthenticatedError();
       await expect(

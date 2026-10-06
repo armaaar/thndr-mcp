@@ -1,5 +1,5 @@
 ---
-name: sync-thndr-api
+name: sync-thndr-web-api
 description: Re-sync thndr-mcp with the latest ThndrX (x.thndr.app) deployment — download the public bundle, diff the reverse-engineered API surface, bump the x-thndrx-runtime-version, and update docs/api, DTOs, translators and tests together. Use whenever Thndr endpoints start failing (unexpected 4xx/5xx, missing fields, MAPPING errors), when the user says Thndr/ThndrX "changed", "updated", "broke", asks to "sync", "refresh" or "re-check" the Thndr API, or before a release of thndr-mcp.
 ---
 

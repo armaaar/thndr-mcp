@@ -10,7 +10,7 @@ import type { YearlyReturn } from '../../../domain/market-data/research';
 import type { AssetId } from '../../../domain/shared-kernel/asset-id';
 import { roundTo } from '../../../domain/shared-kernel/guards';
 import { parseMarket } from '../../../domain/shared-kernel/market';
-import { NotFoundError, UpstreamError } from '../../errors';
+import { FeatureDisabledError, NotFoundError, UpstreamError } from '../../errors';
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
@@ -119,7 +119,11 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
     try {
       return { value: await this.deps.research.getYearlyReturn(id) };
     } catch (error) {
-      if (error instanceof UpstreamError || error instanceof NotFoundError)
+      if (
+        error instanceof UpstreamError ||
+        error instanceof NotFoundError ||
+        error instanceof FeatureDisabledError
+      )
         return { value: null, failed: error.message };
       throw error;
     }

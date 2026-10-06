@@ -16,8 +16,7 @@ import { type LoginCall, LoginOnDemand, type LoginOnDemandOptions } from './logi
 
 export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Exchange broker), built on the private API of ThndrX.
 - ${SHORT_DISCLAIMER}
-- Present results as information, not personalised investment advice or recommendations to buy, sell or hold; point
-  users to the Thndr app for authoritative figures.
+- Present results as information, not personalised investment advice or recommendations to buy, sell or hold.
 - Currently read-only for money: it can analyse markets, the account, positions, orders and activity, and manage
   watchlists and price alerts, but it cannot place, modify or cancel orders or move funds. Users trade in the Thndr
   app.

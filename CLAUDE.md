@@ -16,7 +16,7 @@ Thndr has no public API; we reverse-engineered the API used by its official web 
 | Typecheck / lint / tests | `npm run typecheck` / `npm run lint` / `npm test` |
 | Coverage (gate > 95%)    | `npm run coverage`            |
 | **All gates**            | `npm run check`               |
-| Re-sync the Thndr API    | `npm run sync:api` / `npm run capture:fixtures` (tools live in the `sync-thndr-api` skill) |
+| Re-sync the Thndr API    | web: `npm run sync:api` / `npm run capture:fixtures` (`sync-thndr-web-api` skill); mobile app: `npm run sync:mobile` (`sync-thndr-mobile-api` skill) |
 
 ## Architecture (5-layer Clean Architecture + CQS + context map — ADR 0015, use-case classes — ADR 0012)
 
@@ -75,6 +75,9 @@ any without a superseding ADR.
 - Run `npm run check` before committing.
 - **Independent review**: after a meaningful change, ask the `qa-reviewer` agent (`.claude/agents/qa-reviewer.md`)
   to review. The author of a change never approves their own work.
+- **API research**: to learn or re-check Thndr's private API from its clients, delegate to the `thndr-api-researcher`
+  agent (`.claude/agents/thndr-api-researcher.md`); it follows the `sync-thndr-web-api` / `sync-thndr-mobile-api`
+  skills, documents findings (writes too, ADR 0019) and never edits code or calls the live API.
 - Any new architectural decision → new ADR in `docs/adr/` (copy `template.md`) and add it to the index.
 - When the Thndr API changes, run `npm run sync:api`, diff `docs/api/endpoints.generated.md`, update
   `docs/api/*.md`, DTOs/translators, fixtures and tests together.

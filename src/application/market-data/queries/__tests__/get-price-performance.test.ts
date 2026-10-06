@@ -5,7 +5,7 @@ import {
   setupMarketData,
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
-import { NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
+import { FeatureDisabledError, NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
 import { GetPricePerformance } from '../get-price-performance';
 
 const NOW = new Date('2026-10-06T12:00:00Z');
@@ -88,6 +88,9 @@ describe('GetPricePerformance', () => {
     expect(out.notes).toEqual([expect.stringContaining('503')]);
 
     deps.research.failures.getYearlyReturn = new NotFoundError('Asset not found');
+    expect((await new GetPricePerformance(deps).run({ symbol: 'COMI' })).thndrOneYearReturn).toBeNull();
+
+    deps.research.failures.getYearlyReturn = new FeatureDisabledError('Feature disabled for user');
     expect((await new GetPricePerformance(deps).run({ symbol: 'COMI' })).thndrOneYearReturn).toBeNull();
 
     deps.research.failures.getYearlyReturn = new NotAuthenticatedError();

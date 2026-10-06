@@ -28,10 +28,11 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run coverage",
-    "sync:api": "tsx .claude/skills/sync-thndr-api/scripts/sync-thndr-bundle.ts",
-    "capture:fixtures": "tsx .claude/skills/sync-thndr-api/scripts/capture-fixtures.ts",
+    "sync:api": "tsx .claude/skills/sync-thndr-web-api/scripts/sync-thndr-bundle.ts",
+    "capture:fixtures": "tsx .claude/skills/sync-thndr-web-api/scripts/capture-fixtures.ts",
     "cli": "tsx src/presentation/cli/main.ts",
-    "find:call-sites": "tsx .claude/skills/sync-thndr-api/scripts/find-call-sites.ts"
+    "find:call-sites": "tsx .claude/skills/sync-thndr-web-api/scripts/find-call-sites.ts",
+    "sync:mobile": "bash .claude/skills/sync-thndr-mobile-api/scripts/fetch-apk.sh && bash .claude/skills/sync-thndr-mobile-api/scripts/decompile.sh"
   },
   "dependencies": {
     "@firebase/app": "^0.16.2",

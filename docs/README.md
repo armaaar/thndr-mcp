@@ -65,6 +65,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [auth.md](api/auth.md) | Firebase identity, device-approval 2FA, full-access token exchange, refresh and logout. |
 | [market-data.md](api/market-data.md) | Assets, marketwatch, charts/candles, market depth, trades book, watchlists, screeners, price alerts, notifications. |
 | [trading-and-portfolio.md](api/trading-and-portfolio.md) | Wallet and portfolio, positions, orders, realized returns, trading journal, account activity, market status. |
+| [mobile-app.md](api/mobile-app.md) | The Thndr Android app's API per market (Egypt, US, UAE): markets a user has, mobile gateway, quotes, charts, account, new read-only features, cross-check with ours, write operations (documented, not implemented). |
 | [endpoints.generated.md](api/endpoints.generated.md) | Generated list of base URLs and paths found in the ThndrX bundle (`npm run sync:api`); do not edit. |
 
 ## Context map

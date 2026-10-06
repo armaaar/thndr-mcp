@@ -22,7 +22,7 @@ import {
 } from '../../../domain/market-data/sector-comparison';
 import { roundTo } from '../../../domain/shared-kernel/guards';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
-import { UpstreamError } from '../../errors';
+import { FeatureDisabledError, UpstreamError } from '../../errors';
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
@@ -215,7 +215,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
         mode,
       );
     } catch (error) {
-      if (!(error instanceof UpstreamError)) throw error;
+      if (!(error instanceof UpstreamError || error instanceof FeatureDisabledError)) throw error;
       return {
         sectorComparison: null,
         notes: [
@@ -272,7 +272,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
     try {
       return await this.deps.repository.getCandles(instrument.id, '1d', from, to);
     } catch (error) {
-      if (error instanceof UpstreamError) return null;
+      if (error instanceof UpstreamError || error instanceof FeatureDisabledError) return null;
       throw error;
     }
   }

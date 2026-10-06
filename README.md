@@ -1,7 +1,8 @@
 # thndr-mcp
 
-> **Unofficial and not affiliated with Thndr. Not financial advice. Provided "AS IS", at your own risk — the
-> maintainers accept no responsibility for financial decisions, losses or any other liability arising from its use.**
+> **Unofficial and not affiliated with Thndr. Not financial advice. Provided "AS IS", at your own risk — to the maximum
+> extent permitted by law, the maintainers accept no responsibility for financial decisions, losses or any other
+> liability arising from its use.**
 > Read the [Disclaimer](#disclaimer) before using it.
 
 An **unofficial, community** toolkit for [Thndr](https://thndr.app), the Egyptian Exchange (EGX) broker, with two
@@ -181,7 +182,8 @@ breach your broker's terms.
 
 **Interoperability.** The API was learned by observing Thndr's own web and mobile apps, used with the maintainers' own
 accounts, solely so that independently written software can work with Thndr. thndr-mcp accesses only your own
-account, with your own credentials. This repository contains no Thndr source code.
+account, with your own credentials. This repository contains no copy of Thndr's apps; `docs/api` quotes only short
+excerpts of client code where they are needed to describe the interface.
 
 **Privacy.** thndr-mcp runs on your computer and sends nothing to the maintainers. It talks to Thndr and its service
 providers. Data you ask an AI assistant to analyse goes to that assistant's provider under the provider's terms. Your

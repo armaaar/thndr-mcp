@@ -243,6 +243,10 @@ Driver logic (request interceptor `m`, error handler `_`):
 - Token status machine: `NULL` → redirect `/auth/2fa`; `VALID` → attach bearer; `ABOUT_TO_EXPIRE` → fire background early refresh then proceed; `EXPIRED` → blocking refresh then retry (or logout).
 - A connection probe `GET /api/ping` runs before a refresh; failure → `NETWORK_ERROR` (no logout).
 - 401/403 responses → attempt refresh then **retry the original request** with the new bearer.
+- **thndr-mcp exception** (live 2026-10-06): a 403 whose body is `{"detail": {"msg": "Feature disabled for user", "type":
+  "FEATURE_DISABLED_FOR_USER"}}` is final — Thndr sends it for features a market does not offer (e.g. order book or
+  bulk prices for US stocks). Refreshing would not help, and repeated refreshes hit the refresh rate limit (429 on
+  `/auth/refresh`), so thndr-mcp reports it as `FEATURE_DISABLED` without refreshing.
 - Cross-tab single-flight via a Web Lock named `"thndrx:auth-refresh"`.
 - Early-refresh retries on 429 with 60 s fixed backoff, max total wait 180 s.
 

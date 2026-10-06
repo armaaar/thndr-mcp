@@ -25,7 +25,9 @@ describe('renderLoginPage', () => {
     const disclaimer =
       /<p class="notice" id="disclaimer">([\s\S]*?)<\/p>/.exec(page)?.[1]?.replace(/\s+/g, ' ') ?? '';
     expect(disclaimer).toContain('<strong>Not financial advice.</strong>');
-    expect(disclaimer).toContain('The maintainers accept no liability for losses or decisions made with it');
+    expect(disclaimer).toContain(
+      'To the extent the law allows, the maintainers accept no liability for losses',
+    );
     expect(notice).toContain(
       'your email and code go only to thndr-mcp on this machine, which sends them straight to Thndr.',
     );

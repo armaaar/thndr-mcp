@@ -49,7 +49,8 @@ export interface HttpResponse<T> {
 /**
  * Minimal browser-equivalent HTTP client for Thndr endpoints (ADR 0004). Mirrors the ThndrX axios interceptors:
  * bearer token, `x-thndrx-runtime-version` and `X-Language` headers, one retry after a 401/403 with a refreshed
- * token. A rate-limited read (GET answered 429) is retried once after a short wait.
+ * token — except a FEATURE_DISABLED_FOR_USER 403, which is final (docs/api/auth.md §3). A rate-limited read (GET
+ * answered 429) is retried once after a short wait.
  */
 export class ThndrHttpClient {
   private readonly fetchFn: FetchFn;
