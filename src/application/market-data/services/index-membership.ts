@@ -88,15 +88,31 @@ export class IndexMembership {
 
   private async load(market: Market): Promise<MarketIndex[]> {
     const rows = (await this.quotes.get(market)).filter((quote) => quote.board === 'INDX');
+    const names = rows.length > 0 ? await this.indicatorNames(market) : new Map<string, string>();
     return Promise.all(
       rows.map(async (row) =>
         Object.freeze({
           id: row.instrumentId,
           ticker: row.ticker,
-          name: row.name,
+          name: row.name ?? names.get(row.instrumentId.value) ?? null,
           members: Object.freeze(await this.repository.getIndexConstituents(row.instrumentId)),
         }),
       ),
     );
+  }
+
+  /**
+   * Index names: marketwatch rows of indices carry no name, the market indicators do (e.g. `EGX33 (Sharia)`). They
+   * only label the answer, so a failure leaves the names empty.
+   */
+  private async indicatorNames(market: Market): Promise<Map<string, string>> {
+    try {
+      const indicators = await this.repository.getMarketIndicators(market);
+      return new Map(
+        indicators.flatMap((q) => (q.name ? [[q.instrumentId.value, q.name] as [string, string]] : [])),
+      );
+    } catch {
+      return new Map();
+    }
   }
 }

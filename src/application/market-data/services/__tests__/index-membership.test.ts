@@ -14,7 +14,7 @@ function setup(clock: Clock = fixedClock()) {
     quotes: {
       egypt: [
         aQuote({ ticker: 'EGX30', board: 'INDX', name: 'EGX 30' }),
-        aQuote({ ticker: 'EGX30CAPPED', board: 'INDX' }),
+        aQuote({ ticker: 'EGX30CAPPED', board: 'INDX', name: null }),
         aQuote({ ticker: 'EGX70-EWI', board: 'INDX' }),
         aQuote({ ticker: 'SHARIAH', board: 'INDX' }),
         aQuote({ ticker: 'COMI' }),
@@ -22,6 +22,12 @@ function setup(clock: Clock = fixedClock()) {
       ],
     },
   });
+  repository.indicators = {
+    egypt: [
+      aQuote({ ticker: 'EGX30CAPPED', board: 'INDX', name: 'EGX30 Capped' }),
+      aQuote({ ticker: 'SHARIAH', board: 'INDX', name: null }),
+    ],
+  };
   repository.constituents = {
     [idFor('EGX30')]: [idFor('COMI'), idFor('HRHO')],
     [idFor('EGX30CAPPED')]: [idFor('COMI')],
@@ -38,11 +44,19 @@ describe('IndexMembership', () => {
     const all = await indices.indices('egypt');
     expect(all.map((i) => [i.ticker.value, i.name, i.members.map((m) => m.value)])).toEqual([
       ['EGX30', 'EGX 30', [idFor('COMI'), idFor('HRHO')]],
-      ['EGX30CAPPED', 'EGX30CAPPED Corp', [idFor('COMI')]],
+      ['EGX30CAPPED', 'EGX30 Capped', [idFor('COMI')]],
       ['EGX70-EWI', 'EGX70-EWI Corp', []],
       ['SHARIAH', 'SHARIAH Corp', [idFor('HRHO')]],
     ]);
     expect(Object.isFrozen(all[0])).toBe(true);
+  });
+
+  it('leaves names it cannot find empty, also when the market indicators fail', async () => {
+    const { repository, indices } = setup();
+    repository.failures.getMarketIndicators = new Error('down');
+    const all = await indices.indices('egypt');
+    expect(all.find((i) => i.ticker.value === 'EGX30CAPPED')?.name).toBeNull();
+    expect(all.find((i) => i.ticker.value === 'EGX30')?.name).toBe('EGX 30');
   });
 
   it('finds an index exactly, ignoring case and separators, or by a unique prefix', async () => {
