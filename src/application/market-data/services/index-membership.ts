@@ -20,14 +20,14 @@ function normalize(symbol: string): string {
   return symbol.toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
+/** How long an incomplete answer (an index without members) is kept before it is reloaded. */
+const INCOMPLETE_TTL_MS = 5 * 60_000;
+
 /**
  * Which instruments belong to which index. ThndrX lists the indices as marketwatch rows on the `INDX` board and reads
  * each index's members from `constituents` on its asset details (docs/api/market-data.md §1.2). Membership only
  * changes at index rebalances, so it is cached per market for `ttlMs` (6 hours by default).
  */
-/** How long an incomplete answer (an index without members) is kept before it is reloaded. */
-const INCOMPLETE_TTL_MS = 5 * 60_000;
-
 export class IndexMembership {
   private readonly entries = new Map<Market, { at: number; ttl: number; indices: Promise<MarketIndex[]> }>();
 

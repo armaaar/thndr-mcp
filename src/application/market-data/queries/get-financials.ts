@@ -52,7 +52,7 @@ const input = {
       'Thndr metric keys, e.g. revenues, net_income, eps, total_assets, roe_%, net_margin_%, revenue_growth_1y, ' +
         'customer_deposits (banks); ["all"] for every metric Thndr reports. Default: a compact core set. Thndr ' +
         'serves no valuation multiples (pe_ratio, pb_ratio, ev_ebitda…): use compareToSector for P/E, P/B, P/S, ' +
-        'PEG, EV/EBITDA. Does not affect the sector comparison, which always covers ThndrX’s full metric set.',
+        'PEG, EV/EBITDA. Does not affect the sector comparison, which always covers every metric ThndrX compares.',
     ),
   periods: z
     .number()
@@ -121,7 +121,7 @@ const COMPARISON_METHOD =
   'reversed when lower is better; a price-based value priced differently from its own sample entry can land ' +
   'slightly outside 1–100, as in ThndrX); each category rating is the rounded mean percentile of its rated ' +
   'metrics, banded on the unrounded mean: green > 80, lightGreen ≥ 60, yellow ≥ 40, orange ≥ 20, red < 20. The ' +
-  'comparison always covers ThndrX’s full metric set, whatever `metrics` asks for; `source` names the Thndr key or ' +
+  'comparison always covers every metric ThndrX compares, whatever `metrics` asks for; `source` names the Thndr key or ' +
   'formula behind each value.';
 
 const CURRENT_PRICE_NOTES: Record<NonNullable<ValuationPrice['reason']>, string> = {

@@ -279,7 +279,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   `["all"]` for every metric Thndr reports; Thndr serves no valuation multiples such as `pe_ratio`, `pb_ratio` or
   `ev_ebitda` — ThndrX derives them in the browser, and so does the sector comparison), `periods` (most recent N,
   1–40, default 8; sent as `dataPointCount`), `compareToSector` (default false). `metrics` does not affect the
-  comparison, which always covers ThndrX's full metric set.
+  comparison, which always covers every metric ThndrX compares.
 - **Main flow:**
   1. Resolve the symbol; fetch the company's financials for `mode` and `periods`.
   2. Keep the requested metrics (those the company lacks go to `unavailable`), each with its last `periods` points

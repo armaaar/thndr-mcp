@@ -1018,6 +1018,9 @@ Percent keys (`_%` and growth rates) are already in percent.
    says so (`valuationPrice.reason = "beforeHistory"`, a note) instead of leaving the multiples empty. Thndr serves
    about 5 years of daily candles, so this only happens for a company whose latest reported period ended earlier
    than that. Candles that fail to load (an upstream error) also fall back to the current price, with a note.
+   A second deviation: when the sector batch has no entry for the company itself, its single-company statements are
+   used (ThndrX uses `{}` and shows nothing). The per-share section (EPS from net income / listed shares, BVPS) has no
+   sector figures or rating in ThndrX and is not part of the comparison.
 3. For each metric, the sector sample keeps only truthy values (zero and missing values are dropped). The statistics
    are the median (the mean of the two middle values for an even count), the minimum and the maximum.
 4. The percentile of the company's value in the ascending sample: `rank` = 1 + the count of values below it, `ties` =
