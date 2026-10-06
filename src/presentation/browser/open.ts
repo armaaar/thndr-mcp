@@ -7,7 +7,7 @@ export function openCommand(
   env: NodeJS.ProcessEnv = process.env,
 ): [string, string[]] {
   if (platform === 'darwin') return ['open', [url]];
-  if (platform === 'win32') return ['cmd', ['/c', 'start', '""', url]];
+  if (platform === 'win32') return ['rundll32', ['url.dll,FileProtocolHandler', url]];
   if (env.WSL_DISTRO_NAME) return ['explorer.exe', [url]];
   return ['xdg-open', [url]];
 }

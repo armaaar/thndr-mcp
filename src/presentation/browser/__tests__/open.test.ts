@@ -10,7 +10,7 @@ describe('openCommand', () => {
 
   it.each([
     ['darwin', {}, ['open', [url]]],
-    ['win32', {}, ['cmd', ['/c', 'start', '""', url]]],
+    ['win32', {}, ['rundll32', ['url.dll,FileProtocolHandler', url]]],
     ['linux', { WSL_DISTRO_NAME: 'Ubuntu' }, ['explorer.exe', [url]]],
     ['linux', {}, ['xdg-open', [url]]],
   ] as const)('on %s %o uses %o', (platform, env, expected) => {

@@ -18,7 +18,7 @@ export function approvalInstructions(
     message:
       'Approve the new login in the Thndr app on your phone' +
       (request.humanId ? ` (request ${request.humanId})` : '') +
-      ': scan the QR code of the deep link with the phone camera or the Thndr app, or open the deep link on the ' +
-      'phone. Thndr sends no notification for it. Then call login_complete.',
+      ': open the deep link on the phone, or scan it as a QR code with the phone camera or the Thndr app. Thndr ' +
+      'sends no notification for it. Then call login_complete.',
   };
 }

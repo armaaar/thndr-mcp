@@ -46,6 +46,8 @@ export interface LoginOnDemandOptions {
 export class LoginOnDemand {
   /** The running login, set synchronously so that concurrent calls join it instead of starting another. */
   private inFlight: Promise<RunningLogin> | null = null;
+  /** The previous login's background work, which must stop before a new login starts. */
+  private settling: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly server: Server,
@@ -59,6 +61,7 @@ export class LoginOnDemand {
   }
 
   async login(call: LoginCall = {}): Promise<GuidedLoginResult> {
+    const starter = this.inFlight === null;
     let running: RunningLogin;
     try {
       this.inFlight ??= this.begin();
@@ -69,27 +72,31 @@ export class LoginOnDemand {
     }
     const { session } = running;
     const notice = `Log in to Thndr in your browser: ${session.url}`;
-    this.options.logger?.info(`login: ${notice}`);
+    this.options.logger?.debug(`login: ${notice}`); // the URL carries the page token: not at info level
 
     const done = new AbortController();
-    const prompt = this.prompt(
-      session,
-      AbortSignal.any([done.signal, ...(call.signal ? [call.signal] : [])]),
-    );
-    const report = () => call.progress?.(notice).catch(() => undefined);
-    void report();
+    const stop = AbortSignal.any([done.signal, ...(call.signal ? [call.signal] : [])]);
+    // Only the call that started the login prompts: joined calls must not stack prompts, nor cancel it by declining.
+    const prompt = starter ? this.prompt(session, stop) : Promise.resolve();
+    const report = () => {
+      if (!stop.aborted) void call.progress?.(notice).catch(() => undefined);
+    };
+    report();
     const ticker = setInterval(report, PROGRESS_EVERY_MS);
+    stop.addEventListener('abort', () => clearInterval(ticker), { once: true });
     try {
       return await running.result;
     } finally {
-      clearInterval(ticker);
       done.abort();
       await prompt;
     }
   }
 
   private async begin(): Promise<RunningLogin> {
+    // A cancelled login finishes its current step in the background; never run two against the same login flow.
+    await this.settling;
     const session = await this.options.start(this.useCases);
+    this.settling = session.settled;
     const result = session.result
       .catch((error: unknown) => this.failed(error))
       .finally(() => {

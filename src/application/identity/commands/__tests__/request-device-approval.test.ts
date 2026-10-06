@@ -29,9 +29,9 @@ describe('RequestDeviceApproval', () => {
     const d = loginDeps({ gateway: fakeGateway({ createApprovalRequest: async () => request }) });
     const result = await new RequestDeviceApproval(d).execute();
     expect(result.message).toBe(
-      'Approve the new login in the Thndr app on your phone: scan the QR code of the deep link with the ' +
-        'phone camera or the Thndr app, or open the deep link on the phone. Thndr sends no notification for it. ' +
-        'Then call login_complete.',
+      'Approve the new login in the Thndr app on your phone: open the deep link on the phone, or scan ' +
+        'it as a QR code with the phone camera or the Thndr app. Thndr sends no notification for it. Then call ' +
+        'login_complete.',
     );
     expect(d.flow.current.requireAwaitingApproval()).toBe(request);
   });

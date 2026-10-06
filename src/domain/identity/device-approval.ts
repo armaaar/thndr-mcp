@@ -45,8 +45,12 @@ export class DeviceApprovalRequest {
   }
 
   /** Deep link the Thndr mobile app understands (same as the QR code ThndrX renders). */
-  deepLink(userAgent: string): string {
-    const params = new URLSearchParams({ human_id: this.humanId, user_agent: userAgent, requestId: this.id });
+  deepLink(deviceName: string): string {
+    const params = new URLSearchParams({
+      human_id: this.humanId,
+      user_agent: deviceName,
+      requestId: this.id,
+    });
     return `thndr://goToRoute?routeName=HUMAN_ID&${params.toString()}`;
   }
 }

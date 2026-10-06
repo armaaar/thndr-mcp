@@ -31,7 +31,7 @@ export async function runLoginCommand(
   io: PromptIo,
   attempts = 5,
 ): Promise<number> {
-  const result = await runGuidedLogin(useCases, terminalDialog(io), attempts);
+  const result = await runGuidedLogin(useCases, terminalDialog(io), { attempts });
   io.print(result.message);
   return result.ok ? EXIT_OK : EXIT_FAILURE;
 }

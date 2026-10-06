@@ -24,7 +24,12 @@ function browser() {
   const result = new Promise<GuidedLoginResult>((resolve) => {
     finish = resolve;
   });
-  const session: BrowserLoginSession = { url: URL_, result, cancel: vi.fn(() => finish(CANCELLED)) };
+  const session: BrowserLoginSession = {
+    url: URL_,
+    result,
+    settled: result.then(() => undefined),
+    cancel: vi.fn(() => finish(CANCELLED)),
+  };
   const start = vi.fn(async (_useCases: readonly UseCase[]) => session);
   const open = vi.fn();
   return { session, start, open, finish: (r: GuidedLoginResult) => finish(r) };
@@ -91,7 +96,8 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
     expect(t.start).toHaveBeenCalledOnce();
     expect(t.handler).toHaveBeenCalledTimes(2);
     expect(progress[0]).toBe(`Log in to Thndr in your browser: ${URL_}`);
-    expect(t.logger.info).toHaveBeenCalledWith(`login: Log in to Thndr in your browser: ${URL_}`);
+    expect(t.logger.debug).toHaveBeenCalledWith(`login: Log in to Thndr in your browser: ${URL_}`);
+    expect(t.logger.info).not.toHaveBeenCalledWith(expect.stringContaining(URL_));
   });
 
   it('keeps reporting progress while it waits', async () => {
@@ -264,12 +270,22 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
   it('reports a browser login whose result rejects as a failed login', async () => {
     const logger = fakeLogger();
     const t = await setup({ logger });
-    t.start.mockResolvedValueOnce({ url: URL_, result: Promise.reject('broken'), cancel: vi.fn() });
+    t.start.mockResolvedValueOnce({
+      url: URL_,
+      result: Promise.reject('broken'),
+      settled: Promise.resolve(),
+      cancel: vi.fn(),
+    });
     const result = await t.client.call('get_account_positions');
     expect(result.json).toMatchObject({ login: 'Login failed — broken' });
     expect(logger.warn).toHaveBeenCalledWith('login: browser login failed', expect.anything());
 
-    t.start.mockResolvedValueOnce({ url: URL_, result: Promise.reject(new Error('gone')), cancel: vi.fn() });
+    t.start.mockResolvedValueOnce({
+      url: URL_,
+      result: Promise.reject(new Error('gone')),
+      settled: Promise.resolve(),
+      cancel: vi.fn(),
+    });
     expect((await t.client.call('get_account_positions')).json).toMatchObject({
       login: 'Login failed — gone',
     });
@@ -288,6 +304,67 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
 
     t.logIn();
     expect((await t.client.call('get_account_positions')).isError).toBeFalsy();
+  });
+
+  it('prompts only from the call that started the login', async () => {
+    const asked: Params[] = [];
+    const t = await setup({
+      elicit: (params) => {
+        asked.push(params);
+        return new Promise<ElicitResult>(() => {});
+      },
+    });
+    const calls = [t.client.call('get_account_positions'), t.client.call('get_account_positions')];
+    await vi.waitFor(() => expect(asked).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(asked).toHaveLength(1);
+    t.logIn();
+    expect((await Promise.all(calls)).every((r) => !r.isError)).toBe(true);
+  });
+
+  it('starts a new login only after the previous one stopped in the background', async () => {
+    const t = await setup();
+    let stopped: () => void = () => {};
+    const first = {
+      url: URL_,
+      result: Promise.resolve(CANCELLED),
+      settled: new Promise<void>((resolve) => {
+        stopped = resolve;
+      }),
+      cancel: vi.fn(),
+    };
+    t.start.mockResolvedValueOnce(first);
+    expect((await t.client.call('get_account_positions')).json).toMatchObject({ login: 'Login cancelled.' });
+
+    const second = t.client.call('get_account_positions');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(t.start).toHaveBeenCalledTimes(1); // still waiting for the first login to stop
+    stopped();
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalledTimes(2));
+    t.logIn();
+    expect((await second).isError).toBeFalsy();
+  });
+
+  it('stops reporting progress once the client cancelled the call', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const t = await setup();
+      const progress: Array<string | undefined> = [];
+      const controller = new AbortController();
+      const call = t.client.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+        signal: controller.signal,
+        onprogress: (p) => progress.push(p.message),
+      });
+      await vi.waitFor(() => expect(progress).toHaveLength(1));
+      controller.abort();
+      await expect(call).rejects.toThrow();
+      vi.advanceTimersByTime(60_000);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(progress).toHaveLength(1);
+      t.logIn();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('never starts a login from the identity tools themselves', async () => {

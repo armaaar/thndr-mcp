@@ -29,9 +29,20 @@ export interface LoginDialog {
 
 export type GuidedLoginResult = { ok: boolean; message: string };
 
+export interface GuidedLoginOptions {
+  /** How many times to wait for the phone approval (default 5). */
+  attempts?: number;
+  /** How long each wait lasts, in seconds (default 60). Shorter waits notice a cancellation sooner. */
+  waitSeconds?: number;
+  /** Stops the login between steps (the browser page's Cancel, or its expiry). */
+  signal?: AbortSignal;
+}
+
 type Fields = Record<string, View>;
 
 class LoginStepError extends Error {}
+
+class LoginCancelled extends Error {}
 
 /**
  * Use-case messages also guide an agent ("Call login_complete again."); a person in the guided login does not call
@@ -52,9 +63,11 @@ export function forPerson(message: string): string {
 export async function runGuidedLogin(
   useCases: readonly UseCase[],
   dialog: LoginDialog,
-  attempts = 5,
+  options: GuidedLoginOptions = {},
 ): Promise<GuidedLoginResult> {
+  const { attempts = 5, waitSeconds = 60, signal } = options;
   const run = async (name: string, input: Record<string, unknown> = {}): Promise<Fields> => {
+    if (signal?.aborted) throw new LoginCancelled();
     const useCase = useCases.find((u) => u.name === name);
     if (!useCase) throw new Error(`Use case ${name} is not registered`);
     const outcome = await runAndPresent(useCase, input);
@@ -87,7 +100,7 @@ export async function runGuidedLogin(
     if (!(await dialog.confirmApproval(approval))) return cancelled;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
-      const result = await run('login_complete', { timeoutSeconds: 60 });
+      const result = await run('login_complete', { timeoutSeconds: waitSeconds });
       if (result.authenticated === true) {
         return {
           ok: true,
@@ -101,6 +114,7 @@ export async function runGuidedLogin(
     }
     return { ok: false, message: 'Gave up waiting for approval.' };
   } catch (error) {
+    if (error instanceof LoginCancelled) return cancelled;
     if (!(error instanceof LoginStepError)) throw error;
     return { ok: false, message: `Login failed — ${error.message}` };
   }

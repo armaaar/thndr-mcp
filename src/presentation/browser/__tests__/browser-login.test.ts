@@ -164,6 +164,40 @@ describe('startBrowserLogin', () => {
     expect(await state(session)).toEqual({ step: 'done', ok: false, message: 'Login cancelled.' });
   });
 
+  it('stops polling Thndr for the approval once cancelled', async () => {
+    const { session, spies } = await start({
+      auth_status: () => ({ identified: true }),
+      login_complete: () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({ authenticated: false, status: 'pending', message: 'Still waiting…' }),
+            5,
+          ),
+        ),
+    });
+    await vi.waitFor(() => expect(spies.login_complete).toHaveBeenCalled());
+    session.cancel();
+    await session.settled;
+
+    expect(spies.login_complete.mock.calls.length).toBeLessThan(5); // not the 30 waits of an uncancelled login
+    expect(spies.login_complete).toHaveBeenCalledWith({ timeoutSeconds: 10 });
+  });
+
+  it('never shows the QR code after a cancel that landed during a step', async () => {
+    let verified: (value: unknown) => void = () => {};
+    const { session, spies } = await start({
+      auth_status: () => ({ identified: true }),
+      login_request_approval: () => new Promise((resolve) => (verified = resolve)),
+    });
+    await vi.waitFor(() => expect(spies.login_request_approval).toHaveBeenCalled());
+    session.cancel();
+    verified(APPROVAL);
+    await session.settled;
+
+    expect(await state(session)).toEqual({ step: 'done', ok: false, message: 'Login cancelled.' });
+    expect(spies.login_complete).not.toHaveBeenCalled();
+  });
+
   it('cancels a pending question and the retry offer', async () => {
     const first = await start();
     await until(first.session, 'email');

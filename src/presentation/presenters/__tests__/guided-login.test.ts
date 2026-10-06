@@ -48,6 +48,37 @@ describe('runGuidedLogin', () => {
     expect(spies.login_complete).not.toHaveBeenCalled();
   });
 
+  it('stops between steps once its signal is aborted', async () => {
+    const controller = new AbortController();
+    const { useCases, spies } = identityUseCases({
+      login_start: () => {
+        controller.abort();
+        return { message: 'Code sent.' };
+      },
+    });
+    expect(await runGuidedLogin(useCases, dialog(), { signal: controller.signal })).toEqual({
+      ok: false,
+      message: 'Login cancelled.',
+    });
+    expect(spies.login_verify_code).not.toHaveBeenCalled();
+  });
+
+  it('waits for the approval as many times and as long as asked', async () => {
+    const { useCases, spies } = identityUseCases({
+      auth_status: () => ({ identified: true }),
+      login_complete: () => ({ authenticated: false, status: 'pending', message: 'Pending.' }),
+    });
+    expect(await runGuidedLogin(useCases, dialog(), { attempts: 3, waitSeconds: 10 })).toEqual({
+      ok: false,
+      message: 'Gave up waiting for approval.',
+    });
+    expect(spies.login_complete.mock.calls).toEqual([
+      [{ timeoutSeconds: 10 }],
+      [{ timeoutSeconds: 10 }],
+      [{ timeoutSeconds: 10 }],
+    ]);
+  });
+
   it('reports pending approvals through notify', async () => {
     const responses = [{ authenticated: false, status: 'pending', message: 'Still waiting…' }];
     const { useCases } = identityUseCases({

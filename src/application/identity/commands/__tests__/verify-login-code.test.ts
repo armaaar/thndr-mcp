@@ -35,9 +35,9 @@ describe('VerifyLoginCode', () => {
       requestId: 'req-1',
       deepLink: approvalRequest.deepLink(DEVICE_NAME),
       message:
-        'Approve the new login in the Thndr app on your phone (request 4242): scan the QR code of the deep link with the ' +
-        'phone camera or the Thndr app, or open the deep link on the phone. Thndr sends no notification for it. ' +
-        'Then call login_complete.',
+        'Approve the new login in the Thndr app on your phone (request 4242): open the deep link on the phone, or scan ' +
+        'it as a QR code with the phone camera or the Thndr app. Thndr sends no notification for it. Then call ' +
+        'login_complete.',
     });
     expect(d.flow.current.stage).toBe('AWAITING_APPROVAL');
     expect(d.flow.current.email?.value).toBe('a@example.com');

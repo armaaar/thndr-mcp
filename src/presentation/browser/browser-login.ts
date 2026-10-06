@@ -18,8 +18,10 @@ export type BrowserLoginState =
 /** A running browser login: where it is, and how it ends. */
 export interface BrowserLoginSession {
   url: string;
-  /** Resolves once the user is logged in, or with the last failure when the user cancels or the page expires. */
+  /** Resolves once the user is logged in, or with "Login cancelled." as soon as the user cancels or the page expires. */
   result: Promise<GuidedLoginResult>;
+  /** Resolves once the guided login behind the page has stopped (a cancelled one finishes its current step first). */
+  settled: Promise<void>;
   cancel(): void;
 }
 
@@ -65,6 +67,7 @@ export async function startBrowserLogin(
   let pending: { field: 'email' | 'code'; resolve: (value: string | null) => void } | null = null;
   let retry: (() => void) | null = null;
   let cancelled = false;
+  const aborter = new AbortController();
   let onCancel: () => void = () => {};
   const cancellation = new Promise<GuidedLoginResult>((resolve) => {
     onCancel = () => resolve(CANCELLED);
@@ -81,15 +84,17 @@ export async function startBrowserLogin(
     askEmail: () => ask('email', { step: 'email' }),
     askCode: (sent) => ask('code', { step: 'code', sent }),
     confirmApproval: async (approval) => {
+      const qrSvg = await renderQrSvg(approval.deepLink);
+      if (cancelled) return false; // never show a QR code nobody will wait for
       state = {
         step: 'approval',
         request: approval.humanId,
         message: approval.message,
         deepLink: approval.deepLink,
-        qrSvg: await renderQrSvg(approval.deepLink),
+        qrSvg,
         notes: [],
       };
-      return !cancelled; // the page shows the QR code while the guided login waits for the approval
+      return true; // the page shows the QR code while the guided login waits for the approval
     },
     notify: (line) => {
       if (state.step === 'approval') state.notes = [...state.notes, line];
@@ -99,6 +104,7 @@ export async function startBrowserLogin(
   const cancel = () => {
     if (cancelled) return;
     cancelled = true;
+    aborter.abort();
     state = { step: 'done', ok: false, message: CANCELLED.message };
     pending?.resolve(null);
     pending = null;
@@ -110,7 +116,12 @@ export async function startBrowserLogin(
     let last: GuidedLoginResult = CANCELLED;
     while (!cancelled) {
       state = { step: 'working' };
-      last = await runGuidedLogin(useCases, dialog).catch((error: unknown) => {
+      // Short approval waits, so that a cancelled login stops polling Thndr within seconds.
+      last = await runGuidedLogin(useCases, dialog, {
+        signal: aborter.signal,
+        attempts: 30,
+        waitSeconds: 10,
+      }).catch((error: unknown) => {
         logger?.warn('login: browser login failed', { error });
         return {
           ok: false,
@@ -125,7 +136,7 @@ export async function startBrowserLogin(
       retry = null;
     }
     if (!last.ok) return CANCELLED;
-    state = { step: 'done', ok: true, message: last.message };
+    if (!cancelled) state = { step: 'done', ok: true, message: last.message };
     return last;
   })();
   // Cancelling ends the session at once, even while the guided login is still polling for the approval.
@@ -160,7 +171,7 @@ export async function startBrowserLogin(
       const scriptNonce = nonce();
       res.setHeader(
         'content-security-policy',
-        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline'; img-src data:; ` +
+        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline'; ` +
           "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
       );
       return send(res, 200, 'text/html; charset=utf-8', renderLoginPage(scriptNonce));
@@ -210,7 +221,7 @@ export async function startBrowserLogin(
     setTimeout(() => server.close(), lingerMs).unref();
   });
 
-  return { url: `${origin}${base}`, result, cancel };
+  return { url: `${origin}${base}`, result, settled: login.then(() => undefined), cancel };
 }
 
 function send(res: ServerResponse, status: number, type: string, body: string): void {
