@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { NotAuthenticatedError, UpstreamError } from '../../application/errors';
+import { FeatureDisabledError, NotAuthenticatedError, UpstreamError } from '../../application/errors';
 import type { AccessTokenProvider } from '../../application/ports/access-token-provider';
 import type { Logger } from '../../application/ports/logger';
 
@@ -98,6 +98,14 @@ export class ThndrHttpClient {
       response = await this.send(method, path, options, auth);
     }
     if (auth === 'full' && (response.status === 401 || response.status === 403)) {
+      // A 403 that says a feature is disabled (e.g. market depth for a US stock) is final: refreshing the token would
+      // not help, and every refresh counts against Thndr's refresh rate limit.
+      const featureDisabled = response.status === 403 ? await readFeatureDisabled(response) : null;
+      if (featureDisabled) {
+        throw new FeatureDisabledError(
+          `Thndr does not offer this for your account or market (${method} ${path}): ${featureDisabled}`,
+        );
+      }
       this.options.logger?.info('thndr: token rejected, refreshing and retrying once', { method, path });
       this.requireTokenProvider().invalidate();
       await discard(response);
@@ -200,6 +208,20 @@ async function discard(response: Response): Promise<void> {
     await response.body?.cancel();
   } catch {
     // Already consumed or errored: nothing left to release.
+  }
+}
+
+/**
+ * The message of a `FEATURE_DISABLED_FOR_USER` 403 (body `{detail: {msg, type}}`), or null for any other 403. Reads a
+ * clone, so the original body stays available.
+ */
+async function readFeatureDisabled(response: Response): Promise<string | null> {
+  try {
+    const payload = (await response.clone().json()) as { detail?: { type?: unknown; msg?: unknown } };
+    if (payload?.detail?.type !== 'FEATURE_DISABLED_FOR_USER') return null;
+    return typeof payload.detail.msg === 'string' ? payload.detail.msg : 'Feature disabled for the user';
+  } catch {
+    return null;
   }
 }
 
