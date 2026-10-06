@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { pageInput } from '../../inputs';
+import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { pageCountInput } from '../inputs';
-import { clamp } from '../paging';
 import { type NotificationView, toNotificationView } from '../views';
 
 const input = {

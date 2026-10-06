@@ -1,9 +1,9 @@
 import { type Market, parseMarket } from '../../../domain/market-data/market';
 import { marketInput, pageInput, symbolInput } from '../../inputs';
+import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { pageCountInput } from '../inputs';
-import { clamp } from '../paging';
 import { toAlertViews } from '../price-alerts';
 import type { AlertView } from '../views';
 

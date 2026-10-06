@@ -3,8 +3,8 @@
 thndr-mcp lets an LLM agent analyse the EGX market and a Thndr account holder's portfolio, safely and read-only
 ([ADR 0006](../adr/0006-trading-safety.md)). The model is split into four bounded contexts plus a small shared
 kernel ([ADR 0003](../adr/0003-ddd-hexagonal-architecture.md)), organised in Evans' four layers
-([ADR 0011](../adr/0011-ddd-layered-architecture.md)). The same operations are offered to agents through an MCP
-server and to humans through the `thndr` CLI ([ADR 0012](../adr/0012-shared-operation-catalog.md)).
+([ADR 0011](../adr/0011-ddd-layered-architecture.md)). The same use cases are offered to agents through an MCP
+server and to humans through the `thndr` CLI ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)).
 
 ## Subdomains
 
@@ -17,12 +17,12 @@ server and to humans through the `thndr` CLI ([ADR 0012](../adr/0012-shared-oper
 
 ## Bounded contexts
 
-| Context | Responsibility | Domain (incl. `repository.ts`) | Application | Catalog | Doc |
-| --- | --- | --- | --- | --- | --- |
-| Identity & Access | Interactive login, device approval, token refresh, session persistence | `src/domain/identity/` | `src/application/identity/` (+ ports `ports/identity.ts`, `ports/access-token-provider.ts`) | `src/interfaces/catalog/identity.ts` | [identity-and-access.md](identity-and-access.md) |
-| Market Data | Instruments, quotes, candles, order book, tape, market session, screening | `src/domain/market-data/` | `src/application/market-data/` | `src/interfaces/catalog/market-data.ts` | [market-data.md](market-data.md) |
-| Portfolio | Account summary, positions, sellable quantity, orders (read-only), returns, journal, activity | `src/domain/portfolio/` | `src/application/portfolio/` | `src/interfaces/catalog/portfolio.ts` | [portfolio.md](portfolio.md) |
-| Engagement | Watchlists, price alerts, notifications | `src/domain/engagement/` | `src/application/engagement/` | `src/interfaces/catalog/engagement.ts` | [engagement.md](engagement.md) |
+| Context | Responsibility | Domain (incl. `repository.ts`) | Application (use cases in `queries/`, `commands/`; shared `services/`) | Doc |
+| --- | --- | --- | --- | --- |
+| Identity & Access | Interactive login, device approval, token refresh, session persistence | `src/domain/identity/` | `src/application/identity/` (+ ports `ports/identity.ts`, `ports/access-token-provider.ts`) | [identity-and-access.md](identity-and-access.md) |
+| Market Data | Instruments, quotes, candles, order book, tape, market session, screening | `src/domain/market-data/` | `src/application/market-data/` | [market-data.md](market-data.md) |
+| Portfolio | Account summary, positions, sellable quantity, orders (read-only), returns, journal, activity | `src/domain/portfolio/` | `src/application/portfolio/` | [portfolio.md](portfolio.md) |
+| Engagement | Watchlists, price alerts, notifications | `src/domain/engagement/` | `src/application/engagement/` | [engagement.md](engagement.md) |
 
 Repository interfaces: `MarketDataRepository`, `PortfolioRepository`, `EngagementRepository`, and for identity
 `SessionRepository` + `LoginFlowRepository` — each in `src/domain/<context>/repository.ts`.
@@ -45,32 +45,35 @@ See the context map in [docs/README.md](../README.md#context-map).
 | --- | --- | --- | --- |
 | Domain | `src/domain/<context>/` | Entities, value objects, aggregates, domain services, **repository interfaces** (`repository.ts`) | Entities + repository contracts |
 | Domain | `src/domain/shared-kernel/` | **Shared kernel**: `Money`, `Ticker`, domain errors, guards | — |
-| Application | `src/application/<context>/` | **Application services** (one class per use case, `execute(input)`) and `InstrumentResolver`, `MarketQuotesCache`, `SessionTokenProvider` | Use cases |
+| Application | `src/application/use-case.ts` | Abstract `UseCase` and its CQRS subclasses `Query` and `Command` ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)) | Use-case boundary |
+| Application | `src/application/<context>/queries/`, `commands/` | **Use cases** (application services): one `Query` or `Command` subclass per file, owning its contract (`name`, `title`, `description`, `context`, zod `input`) and `execute` | Use cases |
+| Application | `src/application/<context>/services/` | Application services shared by the use cases: `InstrumentResolver`, `MarketQuotesCache`, `SessionTokenProvider`, `InstrumentLabeler` | — |
 | Application | `src/application/ports/` | Ports that are not repositories: `Clock`, `Logger`, `AccessTokenProvider`, `ThndrAuthGateway`, `IdentityProvider` | — |
-| Application | `src/application/errors.ts` | Application errors shared by all contexts | — |
+| Application | `src/application/errors.ts`, `inputs.ts` | Application errors and reusable input fields (`marketInput`, `symbolInput`, `dateInput`, `pageInput`) shared by all contexts | — |
 | Infrastructure | `src/infrastructure/repositories/` | Repository implementations: `thndr/*-repository.ts` + `thndr/auth-gateway.ts`, `local/` (session file), `memory/` (tests); **translators** in `thndr/translators/` | Repositories |
 | Infrastructure | `src/infrastructure/data-sources/` | Raw access to external systems in *their* language: `thndr/` (HTTP client, KrakenD guard, wire DTOs), `firebase/` (official SDK), `local/session-file.ts` | Data sources |
 | Infrastructure | `src/infrastructure/logging/` | Redacting stderr logger ([ADR 0009](../adr/0009-stdio-transport-and-logging.md)) | — |
-| Interfaces | `src/interfaces/catalog/` | The **command & query catalog**: one `Operation` per application service, `executeOperation` ([ADR 0012](../adr/0012-shared-operation-catalog.md)) | Controllers |
-| Interfaces | `src/interfaces/presenters/` | `toView` (view models), `presentError`, `renderText` (terminal tables) | Presenters |
-| Interfaces | `src/interfaces/mcp/`, `src/interfaces/cli/` | Delivery mechanisms (driving adapters) and their entrypoints `main.ts` | Apps |
-| — | `src/container.ts` | Composition root (manual DI): builds infrastructure, use cases and the operation list | Main / DI |
+| Presentation | `src/presentation/presenters/` | `toView` (view models), `presentError`, `renderText` (terminal tables), `runAndPresent` | Presenters |
+| Presentation | `src/presentation/mcp/`, `src/presentation/cli/` | Delivery mechanisms (driving adapters) and their entrypoints `main.ts` | Controllers / apps |
+| — | `src/container.ts` | Composition root (manual DI): builds infrastructure and application services, returns the `useCases` list | Main / DI |
 
 ### Dependency rule
 
 ```
-interfaces ──▶ application ──▶ domain
+presentation ──▶ application ──▶ domain
 infrastructure ──▶ application (ports, errors) ──▶ domain
-container.ts wires everything; entrypoints are interfaces/{mcp,cli}/main.ts
+container.ts wires everything; entrypoints are presentation/{mcp,cli}/main.ts
 ```
 
 - `domain` imports nothing outside `domain`: no I/O, no framework, no third-party code.
-- `application` imports only `domain` and `application`. Use cases take their collaborators as a dependency object
+- `application` imports only `domain` and `application` (plus zod, for input contracts only). Use cases take their collaborators as a dependency object
   (`repository` for market data, portfolio and engagement; `gateway` = `ThndrAuthGateway`, `identity`,
   `sessions`, `flow` for identity).
-- `infrastructure` implements domain repositories and application ports; it never imports `interfaces`.
-- `interfaces` imports `application` and `domain` (plus zod and the MCP SDK); never `infrastructure`.
-- Only `src/container.ts` and the entrypoints `src/interfaces/{mcp,cli}/main.ts` reference concrete infrastructure.
+- `infrastructure` implements domain repositories and application ports; it never imports `presentation`.
+- `presentation` imports `application` and `domain` (plus zod and the MCP SDK); never `infrastructure`.
+- Only `src/container.ts` and the entrypoints `src/presentation/{mcp,cli}/main.ts` reference concrete infrastructure.
+- Imports are extensionless (`from './money'`); `tsc` only typechecks and tsup bundles the two binaries
+  ([ADR 0014](../adr/0014-extensionless-imports-and-bundled-build.md)).
 - Value objects are immutable (`Object.freeze`) and validate in their static factory (`X.of(...)`); entity-like
   read models are built by `createX(...)` factories that validate and derive fields.
 - Nothing writes to stdout except the delivery mechanism that owns it (the MCP channel for `thndr-mcp`, command
@@ -89,9 +92,10 @@ Small, stable concepts every context may use. Changes here affect everyone, so k
 
 Application-level errors (`src/application/errors.ts`) are shared across contexts too: `NOT_AUTHENTICATED`,
 `SESSION_EXPIRED`, `NOT_FOUND`, `UPSTREAM_ERROR`, `FEATURE_DISABLED`. The presenter `presentError`
-(`src/interfaces/presenters/error.ts`) turns any `DomainError` or `ApplicationError` into
+(`src/presentation/presenters/error.ts`) turns any `DomainError` or `ApplicationError` into
 `{ error: <code>, message }` (plus `status`/`upstreamCode` for upstream errors); anything else becomes
-`INTERNAL_ERROR`. Input rejected by an operation's zod schema becomes `INVALID_INPUT`. MCP and CLI show the same
+`INTERNAL_ERROR`. Input rejected by a use case's zod contract in `UseCase.run` becomes `INVALID_INPUT` (`InvalidInputError`, in
+`src/application/use-case.ts`). MCP and CLI show the same
 codes.
 
 ## Anti-corruption layer — translators + Thndr data source
@@ -118,16 +122,17 @@ file-backed persistence, [ADR 0010](../adr/0010-prefer-official-sdks.md)),
 `src/infrastructure/repositories/local/` (`FileSessionRepository`, `FileLoginFlowRepository`), and
 `src/infrastructure/logging/` (redacting stderr logger).
 
-## Interfaces layer — one catalog, two delivery mechanisms
+## Use cases and the presentation layer — one list, two delivery mechanisms
 
 | Piece | Role |
 | --- | --- |
-| `catalog/operation.ts` | `Operation` / `defineOperation`: `name` (snake_case MCP tool name; CLI command = kebab-case via `commandName`), `title`, `description`, bounded `context`, CQRS `kind` (`query` \| `command`) with `destructive` / `idempotent` / `local` flags, zod `input`, optional CLI `positionals`, and a `handler` calling exactly one application service. |
-| `catalog/<context>.ts` | `identityOperations()`, `marketDataOperations()`, `portfolioOperations()`, `engagementOperations()`; `catalog/dates.ts` parses date arguments as Cairo market days. |
-| `catalog/execute.ts` | `executeOperation(operation, rawInput)`: strict zod validation → handler → `toView` / `presentError`. The **single execution path** of both apps. |
-| `presenters/` | `view.ts` (`toView`), `error.ts` (`presentError`), `text.ts` (`renderText`, `renderTable` for the CLI). |
-| `mcp/` | `server.ts` registers every operation as an MCP tool; annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) derive from `kind` and flags; results are JSON text plus `structuredContent`. `main.ts` = `thndr-mcp` binary (stdio). |
-| `cli/` | `cli.ts` maps `thndr <command>` to an operation; `args.ts` derives `--kebab-case` flags from the zod schema (arrays repeated or comma-separated) and applies `positionals`; `help.ts` renders help from the descriptions; `login-command.ts` is the guided `thndr login` (a sequence of catalog login operations, no logic of its own). Output: `renderText`, or the exact MCP JSON with `--json`. Exit codes 0 ok, 1 operation error, 2 usage/invalid input. `main.ts` = `thndr` binary. |
+| `application/use-case.ts` | `UseCase` (abstract): `name` (snake_case MCP tool name; CLI command = kebab-case), `title`, `description`, bounded `context`, zod `input` (camelCase fields = `execute` parameters), `local` flag, `execute(input)`, and `run(rawInput)`, which validates strictly (unknown fields rejected, defaults applied, `INVALID_INPUT` on failure) and then calls `execute`. `Query` (`kind = 'query'`) reads; `Command` (`kind = 'command'`) changes state and adds the `destructive` / `idempotent` flags. |
+| `application/<context>/{queries,commands}/<name>.ts` | One use-case class per file (e.g. `GetPriceHistory` in `market-data/queries/get-price-history.ts`). Shared helpers live in `services/` and in small modules next to them (`inputs.ts`, `paging.ts`, `journal-input.ts`). |
+| `container.ts` | `compose(config)` returns `useCases: UseCase[]`, the application's published interface, in the order users see it. |
+| `presentation/presenters/` | `view.ts` (`toView`), `error.ts` (`presentError`), `text.ts` (`renderText`, `renderTable` for the CLI), `outcome.ts` (`runAndPresent(useCase, rawInput)`: `useCase.run` → `toView` / `presentError`). The **single execution path** of both apps. |
+| `presentation/mcp/` | `server.ts`: `registerUseCases` registers every use case as an MCP tool with its own name, title, description and `toolInputSchema` (advertises the strict contract, leaves validation to `UseCase.run`); `annotationsFor` derives `readOnlyHint`, `destructiveHint`, `idempotentHint` (`instanceof Command` + flags) and `openWorldHint` (`!local`). Results are JSON text plus `structuredContent`. `main.ts` = `thndr-mcp` binary (stdio). |
+| `presentation/cli/` | `cli.ts` (`runCli`) maps `thndr <command>` to a use case; `args.ts` derives `--kebab-case` flags from the zod contract (arrays repeated or comma-separated); `positionals.ts` holds `CLI_POSITIONALS` (CLI-only positional arguments, keyed by use-case name), `commandName` and `flagName`; `help.ts` renders help from the contracts; `login-command.ts` is the guided `thndr login` (a sequence of identity use cases through `runAndPresent`, no logic of its own). Output: `renderText`, or the exact MCP JSON with `--json`. Exit codes 0 ok, 1 use-case error, 2 usage/invalid input. `main.ts` = `thndr` binary. |
 
-A new capability is one application service plus one catalog entry; both apps expose it automatically. ADR 0012
-requires a parity test asserting that both expose the same operation set and return identical JSON.
+A new capability is one new `Query` or `Command` subclass registered in `src/container.ts`; both apps expose it
+automatically. `src/presentation/__tests__/parity.test.ts` asserts that both expose the same use cases and return identical
+JSON for identical input.

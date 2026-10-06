@@ -7,9 +7,9 @@ import {
 } from '../../../domain/portfolio/activity';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { marketInput, pageInput } from '../../inputs';
+import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
-import { clamp } from '../paging';
 
 const input = {
   market: marketInput,

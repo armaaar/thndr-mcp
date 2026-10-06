@@ -4,9 +4,9 @@ A **read-only** view of the account holder's Thndr account: cash, positions, wha
 status, realized returns, the trading journal and the account statement. Downstream of [Market Data](market-data.md)
 (uses `InstrumentResolver`).
 
-Code: `src/domain/portfolio/` (repository interface in `repository.ts`), `src/application/portfolio/use-cases.ts`,
-`src/infrastructure/repositories/thndr/portfolio-repository.ts` (+ `data-sources/thndr/dto/portfolio.ts`,
-`repositories/thndr/translators/portfolio.ts`); operations in `src/interfaces/catalog/portfolio.ts`.
+Code: `src/domain/portfolio/` (repository interface in `repository.ts`), `src/application/portfolio/`
+(use-case classes in `queries/`), `src/infrastructure/repositories/thndr/portfolio-repository.ts`
+(+ `data-sources/thndr/dto/portfolio.ts`, `repositories/thndr/translators/portfolio.ts`).
 API: [docs/api/trading-and-portfolio.md](../api/trading-and-portfolio.md). Use cases:
 [use-cases/portfolio.md](../use-cases/portfolio.md).
 

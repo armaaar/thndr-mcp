@@ -19,6 +19,7 @@ four-layer variant of the `clean-ddd-hexagonal` skill (`.claude/skills/clean-ddd
 | Application | `application/use-case.ts` | Abstract `UseCase`, `Query` and `Command` base classes (ADR 0012) |
 | Application | `application/<context>/commands/`, `queries/` | **Use cases** (application services), one class per file |
 | Application | `application/<context>/services/` | Application services the use cases share (`InstrumentResolver`, `MarketQuotesCache`, `SessionTokenProvider`, `InstrumentLabeler`) |
+| Application | `application/<context>/*.ts`, `application/*.ts` | Plain helpers that are not services: shared input fields, view models, constants, `dependencies.ts`; cross-context helpers (`inputs.ts`, `paging.ts`) at the layer root |
 | Application | `application/ports/` | Driven ports that are not repositories: `Clock`, `Logger`, `AccessTokenProvider`, `ThndrAuthGateway`, `IdentityProvider` |
 | Infrastructure | `infrastructure/repositories/` | Repository implementations (`thndr/`, `local/`, `memory/`) and **translators** (`thndr/translators/`), which form the **anti-corruption layer** |
 | Infrastructure | `infrastructure/data-sources/` | Raw access to external systems in *their* language: Thndr HTTP client and wire DTOs, Firebase SDK, session file |

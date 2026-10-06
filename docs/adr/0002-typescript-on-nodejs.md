@@ -1,6 +1,6 @@
 # 0002. TypeScript on Node.js
 
-- Status: Accepted
+- Status: Accepted — module resolution and build refined by [0014](0014-extensionless-imports-and-bundled-build.md)
 - Date: 2026-10-06
 
 ## Context

@@ -66,11 +66,15 @@ Change these in the same commit so they never drift:
 3. `src/infrastructure/repositories/thndr/translators/*.ts` — translation to the domain (anti-corruption layer);
    unknown fields → `null`, never crash.
 4. `src/infrastructure/repositories/thndr/*-repository.ts` and `auth-gateway.ts` — paths/params.
-5. Tests and fixtures under `tests/infrastructure/repositories/thndr/**` (and
-   `tests/infrastructure/data-sources/thndr/**` for HTTP-client or KrakenD changes).
+5. Tests and fixtures in the colocated `__tests__/` folders: `src/infrastructure/repositories/thndr/__tests__/`
+   and `src/infrastructure/repositories/thndr/translators/__tests__/` (and
+   `src/infrastructure/data-sources/thndr/__tests__/` for HTTP-client or KrakenD changes). Use the stubbed fetch in
+   `src/__tests__/support/fake-fetch.ts`; never hit the network.
 
 Domain and application code should rarely change; if it must, the API change altered business meaning — call that
-out and consider an ADR.
+out and consider an ADR. Use-case contracts (`src/application/<context>/{queries,commands}/*.ts`) are the public MCP/CLI
+interface: keep their camelCase input fields stable unless the change is intentional and documented in
+`docs/use-cases/`.
 
 ## 5. Verify against real data (optional, needs a session)
 

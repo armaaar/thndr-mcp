@@ -5,8 +5,9 @@ Thndr with a valid bearer token. Based on [docs/api/auth.md](../api/auth.md),
 [ADR 0007](../adr/0007-authentication-and-session.md) and [ADR 0010](../adr/0010-prefer-official-sdks.md).
 
 Code: `src/domain/identity/` (repository interfaces in `repository.ts`), `src/application/identity/`,
-`src/application/ports/identity.ts`, `src/application/ports/access-token-provider.ts`; operations in
-`src/interfaces/catalog/identity.ts`. Use cases: [use-cases/identity-and-access.md](../use-cases/identity-and-access.md).
+`src/application/ports/identity.ts`, `src/application/ports/access-token-provider.ts`; use-case classes in
+`src/application/identity/queries/` and `commands/`, `SessionTokenProvider` in `src/application/identity/services/`.
+Use cases: [use-cases/identity-and-access.md](../use-cases/identity-and-access.md).
 
 ## Ubiquitous language
 
@@ -116,7 +117,7 @@ does not care about are application ports (`src/application/ports/`), [ADR 0011]
 | `LoginFlowRepository` | domain repository | `load`, `save` | `FileLoginFlowRepository` (`infrastructure/repositories/local/login-flow-repository.ts`), `loginFlow` section of the session file; `InMemoryLoginFlowRepository` (`infrastructure/repositories/memory/login-flow-repository.ts`) for tests |
 | `ThndrAuthGateway` | application port (`ports/identity.ts`) | `sendEmailCode`, `verifyEmailCode`, `createApprovalRequest`, `getApprovalStatus`, `exchangeApproval`, `refreshAccess`, `logout` | `HttpThndrAuthGateway` (`infrastructure/repositories/thndr/auth-gateway.ts`); requests the ThndrX web scope list, platform `thndrx_web` |
 | `IdentityProvider` | application port (`ports/identity.ts`) | `signInWithCustomToken`, `getIdToken`, `signOut` | `FirebaseIdentityProvider` (`infrastructure/data-sources/firebase/`), official `@firebase/auth` SDK with file-backed persistence (`firebase` section of the session file) |
-| `AccessTokenProvider` (consumed by all contexts) | application port | `getAccessToken`, `invalidate` | `SessionTokenProvider` (`application/identity/session-token-provider.ts`) |
+| `AccessTokenProvider` (consumed by all contexts) | application port | `getAccessToken`, `invalidate` | `SessionTokenProvider` (`application/identity/services/session-token-provider.ts`) |
 | `Clock`, `Logger` | application ports | `now()`; `debug/info/warn/error` | `systemClock`; redacting stderr logger |
 
 ### The session file (shared by MCP and CLI)

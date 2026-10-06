@@ -6,7 +6,8 @@ plus screening of the whole-market snapshot. It is upstream of [Portfolio](portf
 
 Code: `src/domain/market-data/` (repository interface in `repository.ts`), `src/application/market-data/`,
 `src/infrastructure/repositories/thndr/market-data-repository.ts` (+ `data-sources/thndr/dto/market-data.ts`,
-`repositories/thndr/translators/market-data.ts`); operations in `src/interfaces/catalog/market-data.ts`.
+`repositories/thndr/translators/market-data.ts`); use-case classes in `src/application/market-data/queries/`,
+shared `InstrumentResolver` and `MarketQuotesCache` in `src/application/market-data/services/`.
 API: [docs/api/market-data.md](../api/market-data.md), market status in
 [docs/api/trading-and-portfolio.md §2](../api/trading-and-portfolio.md). Use cases:
 [use-cases/market-data.md](../use-cases/market-data.md).

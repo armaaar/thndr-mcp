@@ -4,8 +4,8 @@ thndr-mcp is a community, **unofficial**, read-only (with respect to money) MCP 
 [Thndr](https://thndr.app) broker on the Egyptian Exchange (EGX). It is built with Domain-Driven Design in Evans'
 four layers ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md), refined by
 [ADR 0011](adr/0011-ddd-layered-architecture.md)). Both delivery mechanisms — the `thndr-mcp` MCP server and the
-`thndr` CLI — are generated from one command & query catalog and run the same operations
-([ADR 0012](adr/0012-shared-operation-catalog.md)), sharing one session file
+`thndr` CLI — are generated from the same list of use-case classes (`Query` / `Command`) and run them through one
+shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sharing one session file
 ([ADR 0013](adr/0013-persisted-login-flow-and-shared-session.md)).
 
 ## Architecture Decision Records — [`adr/`](adr/README.md)
@@ -13,8 +13,8 @@ four layers ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md), refined by
 | ADR | Summary |
 | --- | --- |
 | [0001](adr/0001-record-architecture-decisions.md) | Decisions are recorded as numbered, immutable ADRs. |
-| [0002](adr/0002-typescript-on-nodejs.md) | Strict TypeScript on Node.js ≥ 20, MCP SDK + zod, Vitest, Biome. |
-| [0003](adr/0003-ddd-hexagonal-architecture.md) | DDD layers (domain / application / infrastructure / interface) and the four bounded contexts; layout refined by 0011. |
+| [0002](adr/0002-typescript-on-nodejs.md) | Strict TypeScript on Node.js ≥ 20, MCP SDK + zod, Vitest, Biome; build refined by 0014. |
+| [0003](adr/0003-ddd-hexagonal-architecture.md) | DDD layers and the four bounded contexts; layout refined by 0011, use-case shape by 0012. |
 | [0004](adr/0004-reverse-engineer-thndrx-web-client.md) | The ThndrX web client (`x.thndr.app`) is the source of truth for the API. |
 | [0005](adr/0005-testing-strategy.md) | No real network in tests; ≥ 95 % coverage gate. |
 | [0006](adr/0006-trading-safety.md) | Read-only scope: no order entry, no fund movement. |
@@ -22,15 +22,16 @@ four layers ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md), refined by
 | [0008](adr/0008-ibkr-mcp-as-reference.md) | Tool names mirror the Interactive Brokers MCP where possible. |
 | [0009](adr/0009-stdio-transport-and-logging.md) | stdio transport; logs go to stderr, redacted. |
 | [0010](adr/0010-prefer-official-sdks.md) | Official SDKs (Firebase Auth, MCP) over hand-rolled HTTP. |
-| [0011](adr/0011-ddd-layered-architecture.md) | DDD layered layout: domain (with repository interfaces, shared kernel), application, infrastructure (repositories + translators, data sources), interfaces (catalog, presenters, MCP, CLI); `container.ts`. |
-| [0012](adr/0012-shared-operation-catalog.md) | One operation catalog for MCP and CLI; single `executeOperation` path; CLI commands are kebab-case tool names. |
+| [0011](adr/0011-ddd-layered-architecture.md) | DDD layered layout: domain (with repository interfaces, shared kernel), application (use cases, services, ports), infrastructure (repositories + translators, data sources), presentation (presenters, MCP, CLI); `container.ts`. |
+| [0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md) | Use cases are self-describing `Query` / `Command` classes listed by `container.ts`; MCP and CLI are generated from them and share `runAndPresent`; camelCase arguments, kebab-case CLI commands and flags. |
 | [0013](adr/0013-persisted-login-flow-and-shared-session.md) | `LoginFlowRepository` persists the pending login; uncached session file shared by MCP and CLI. |
+| [0014](adr/0014-extensionless-imports-and-bundled-build.md) | Extensionless imports; `tsc` only typechecks; tsup bundles `dist/thndr-mcp.js` and `dist/thndr.js`. |
 
 ## Domains — [`domains/`](domains/README.md)
 
 | Document | Summary |
 | --- | --- |
-| [Strategic design](domains/README.md) | Subdomains, bounded contexts, layers and dependency rule, shared kernel, anti-corruption layer, interfaces (catalog, presenters, MCP, CLI). |
+| [Strategic design](domains/README.md) | Subdomains, bounded contexts, layers and dependency rule, shared kernel, anti-corruption layer, presentation (presenters, MCP, CLI). |
 | [Identity & Access](domains/identity-and-access.md) | Login flow (persisted), device approval, tokens, the session shared by MCP and CLI. |
 | [Market Data](domains/market-data.md) | Instruments, quotes, candles, order book, tape, market session, screening. |
 | [Portfolio](domains/portfolio.md) | Cash, positions, orders (history), returns, trading journal, account activity. |
@@ -40,11 +41,11 @@ four layers ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md), refined by
 
 | Document | Summary |
 | --- | --- |
-| [Operation catalogue](use-cases/README.md) | Every operation: MCP tool + CLI command → use case → bounded context → Thndr endpoint → IBKR equivalent. |
+| [Use-case index](use-cases/README.md) | Every use case: MCP tool + CLI command → use-case class → bounded context → Thndr endpoint → IBKR equivalent. |
 | [Identity & Access](use-cases/identity-and-access.md) | `auth_status`, the 3-step login (and guided `thndr login`), re-approval, session import, logout. |
 | [Market Data](use-cases/market-data.md) | Search, details, snapshot, history, depth, tape, market status, screener. |
 | [Portfolio](use-cases/portfolio.md) | Account summary, positions, orders, returns, journal, metrics, activity. |
-| [Engagement](use-cases/engagement.md) | Watchlist, price-alert and notification operations. |
+| [Engagement](use-cases/engagement.md) | Watchlist, price-alert and notification use cases. |
 
 ## Reverse-engineered Thndr API — [`api/`](api/)
 
@@ -64,9 +65,9 @@ flowchart LR
 
     subgraph Server["thndr-mcp"]
         direction LR
-        MCP["MCP server<br/>src/interfaces/mcp"]
-        CLI["CLI thndr<br/>src/interfaces/cli"]
-        CAT["Operation catalog<br/>src/interfaces/catalog<br/>executeOperation"]
+        MCP["MCP server<br/>src/presentation/mcp"]
+        CLI["CLI thndr<br/>src/presentation/cli"]
+        CAT["Use cases (Query / Command)<br/>container.ts useCases<br/>runAndPresent"]
         IA["Identity & Access<br/>(generic)<br/>AccessTokenProvider"]
         MD["Market Data<br/>(core)<br/>InstrumentResolver"]
         PF["Portfolio<br/>(core)"]
@@ -107,6 +108,7 @@ flowchart LR
 - Every Thndr HTTP call obtains its bearer token through Identity's `AccessTokenProvider` port
   (implemented by `SessionTokenProvider`).
 - Thndr's wire formats never cross the anti-corruption layer; the domain only sees its own model.
-- The MCP server and the CLI are thin adapters over the same catalog: every operation is validated, executed and
-  presented by `executeOperation`, so the two cannot drift. They also share the session file, so logging in through
+- The MCP server and the CLI are thin adapters over the same `useCases` list built by `src/container.ts`: every use
+  case validates its own input in `UseCase.run`, and both apps execute and present it through `runAndPresent`, so the
+  two cannot drift. They also share the session file, so logging in through
   either one logs in both.

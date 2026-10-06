@@ -7,8 +7,8 @@ is changed by adding a new ADR that supersedes the old one.
 | #    | Title                                                                    | Status   |
 | ---- | ------------------------------------------------------------------------ | -------- |
 | 0001 | [Record architecture decisions](0001-record-architecture-decisions.md)   | Accepted |
-| 0002 | [TypeScript on Node.js](0002-typescript-on-nodejs.md)                    | Accepted |
-| 0003 | [Domain-Driven Design with hexagonal architecture](0003-ddd-hexagonal-architecture.md) | Accepted, layout refined by 0011 |
+| 0002 | [TypeScript on Node.js](0002-typescript-on-nodejs.md)                    | Accepted, build refined by 0014 |
+| 0003 | [Domain-Driven Design with hexagonal architecture](0003-ddd-hexagonal-architecture.md) | Accepted, layout refined by 0011, use cases by 0012 |
 | 0004 | [Reverse-engineer the ThndrX web client](0004-reverse-engineer-thndrx-web-client.md) | Accepted |
 | 0005 | [Testing strategy and >95% coverage gate](0005-testing-strategy.md)      | Accepted |
 | 0006 | [Read-only trading scope](0006-trading-safety.md) | Accepted |

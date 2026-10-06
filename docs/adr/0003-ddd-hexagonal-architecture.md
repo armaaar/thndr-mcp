@@ -1,6 +1,7 @@
 # 0003. Domain-Driven Design with hexagonal architecture
 
-- Status: Accepted — directory layout and naming refined by [0011](0011-ddd-layered-architecture.md)
+- Status: Accepted — directory layout and naming refined by [0011](0011-ddd-layered-architecture.md), use-case
+  shape (self-describing `Query` / `Command` classes) by [0012](0012-use-case-classes-shared-by-mcp-and-cli.md)
 - Date: 2026-10-06
 
 ## Context

@@ -7,7 +7,8 @@ Thndr stores asset ids, and Market Data translates between the two.
 
 Code: `src/domain/engagement/` (repository interface in `repository.ts`), `src/application/engagement/`,
 `src/infrastructure/repositories/thndr/engagement-repository.ts` (+ `data-sources/thndr/dto/engagement.ts`,
-`repositories/thndr/translators/engagement.ts`); operations in `src/interfaces/catalog/engagement.ts`.
+`repositories/thndr/translators/engagement.ts`); use-case classes in `src/application/engagement/queries/` and
+`commands/`, shared `InstrumentLabeler` in `src/application/engagement/services/`.
 API: [docs/api/market-data.md](../api/market-data.md) §4 (watchlists), §5.2 (price alerts) and the misc part §5
 (notifications). Use cases: [use-cases/engagement.md](../use-cases/engagement.md).
 
@@ -65,7 +66,7 @@ use cases as the `repository` dependency: `listWatchlists`, `getWatchlist`, `cre
 `renameWatchlist`, `deleteWatchlist`, `addToWatchlist`, `removeFromWatchlist`, `listPriceAlerts`,
 `listAlertsForInstrument`, `createPriceAlert` (returns `null` when Thndr's reply does not describe the alert),
 `deletePriceAlert` (idempotent), `listNotifications`, `hasUnreadNotifications`, `markNotificationsRead`,
-`markAllNotificationsRead`. The in-memory test double is `tests/support/fake-engagement.ts`.
+`markAllNotificationsRead`. The in-memory test double is `src/__tests__/support/fake-engagement.ts`.
 
 ## Anti-corruption notes
 

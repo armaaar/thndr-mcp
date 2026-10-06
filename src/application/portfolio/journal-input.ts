@@ -5,9 +5,9 @@ import { journalRange } from '../../domain/portfolio/journal';
 import type { JournalQuery } from '../../domain/portfolio/repository';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 import { dateInput, marketInput, pageInput } from '../inputs';
+import { clamp } from '../paging';
 import type { Clock } from '../ports/clock';
 import type { InputOf } from '../use-case';
-import { clamp } from './paging';
 
 /** Input contract shared by the trading-journal queries. */
 export const journalInput = {

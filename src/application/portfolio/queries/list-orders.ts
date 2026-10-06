@@ -2,9 +2,9 @@ import { z } from 'zod';
 import { type Market, parseMarket } from '../../../domain/market-data/market';
 import { ORDER_STATUS_FILTERS, type Order, parseOrderStatusFilter } from '../../../domain/portfolio/order';
 import { marketInput } from '../../inputs';
+import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
-import { clamp } from '../paging';
 
 const input = {
   market: marketInput,

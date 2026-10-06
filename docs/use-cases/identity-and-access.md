@@ -1,7 +1,8 @@
 # Identity & Access use cases
 
-Code: `src/application/identity/login.ts`, `session-token-provider.ts`; operations (MCP tools and CLI commands) in
-`src/interfaces/catalog/identity.ts`. Domain: [domains/identity-and-access.md](../domains/identity-and-access.md).
+Code: one class per use case in `src/application/identity/queries/` and `commands/`; `SessionTokenProvider` in
+`src/application/identity/services/`. MCP tools and CLI commands are generated from these classes; CLI positionals
+come from `src/presentation/cli/positionals.ts`, the guided `thndr login` from `src/presentation/cli/login-command.ts`. Domain: [domains/identity-and-access.md](../domains/identity-and-access.md).
 API: [api/auth.md](../api/auth.md).
 
 **Actor** for every use case: the LLM agent (MCP) or the account holder at a terminal (CLI `thndr`), acting on
@@ -16,10 +17,10 @@ The pending login (`LoginFlow`) and the session are persisted in the same owner-
 - Each login step can run in a separate process: `thndr login-start`, `thndr login-verify-code` and
   `thndr login-complete` are three CLI invocations, and an MCP login survives a server restart between steps.
 - Logging in (or out) through the MCP server or the CLI affects both: they read the same file, uncached.
-- `thndr login` is a **CLI-only guided composite** of the same operations (`auth_status` → `login_start` →
+- `thndr login` is a **CLI-only guided composite** of the same use cases (`auth_status` → `login_start` →
   `login_verify_code`, or `login_request_approval` when already identified → `login_complete`, retried up to 5 times
-  with a 60 s timeout). It prompts for the email and code and runs every step through `executeOperation`; it adds no
-  logic ([ADR 0012](../adr/0012-shared-operation-catalog.md)).
+  with a 60 s timeout). It prompts for the email and code and runs every step through `runAndPresent`; it adds no
+  logic ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)).
 
 ```sh
 thndr login                          # guided: prompts for email, code, then waits for phone approval
@@ -60,7 +61,7 @@ sequenceDiagram
     S-->>A: {humanId, deepLink, requestId, message}  (flow: AWAITING_APPROVAL)
     A->>U: "Approve the login in the Thndr app (code humanId)"
 
-    A->>S: login_complete(timeout_seconds=60)
+    A->>S: login_complete(timeoutSeconds=60)
     U->>P: Approve request
     loop every 1 s until approved or timeout
         S->>T: POST prod /auth-service/tokens/request/{id}/status
@@ -76,6 +77,7 @@ sequenceDiagram
 
 ## Check session status — `auth_status` (`GetAuthStatus`)
 
+- **Use case:** `GetAuthStatus` (`Query`) in `src/application/identity/queries/get-auth-status.ts`
 - **Invoke:** MCP `auth_status` · CLI `thndr auth-status`
 - **Goal:** know whether the server is logged in and which login step is pending.
 - **Preconditions:** none.
@@ -92,6 +94,7 @@ sequenceDiagram
 
 ## Start login — `login_start` (`StartLogin`)
 
+- **Use case:** `StartLogin` (`Command`) in `src/application/identity/commands/start-login.ts`
 - **Invoke:** MCP `login_start {"email": "you@example.com"}` · CLI `thndr login-start you@example.com` (or
   `--email`)
 - **Goal:** have Thndr email a one-time code (step 1 of 3).
@@ -109,6 +112,7 @@ sequenceDiagram
 
 ## Verify the code — `login_verify_code` (`VerifyLoginCode`)
 
+- **Use case:** `VerifyLoginCode` (`Command`) in `src/application/identity/commands/verify-login-code.ts`
 - **Invoke:** MCP `login_verify_code {"code": "123456"}` · CLI `thndr login-verify-code 123456` (or `--code`)
 - **Goal:** prove the email, establish the Firebase identity and create the phone approval (step 2 of 3).
 - **Preconditions:** persisted flow is `CODE_SENT` (from a `login_start` in this or any earlier process).
@@ -129,6 +133,7 @@ sequenceDiagram
 
 ## Request phone approval — `login_request_approval` (`RequestDeviceApproval`)
 
+- **Use case:** `RequestDeviceApproval` (`Command`) in `src/application/identity/commands/request-device-approval.ts`
 - **Invoke:** MCP `login_request_approval` · CLI `thndr login-request-approval`
 - **Goal:** create a new device approval without an email code (re-approval after `SESSION_EXPIRED`).
 - **Preconditions:** a Firebase identity exists (from an earlier `login_verify_code`).
@@ -145,10 +150,11 @@ sequenceDiagram
 
 ## Complete login — `login_complete` (`CompleteLogin`)
 
-- **Invoke:** MCP `login_complete {"timeout_seconds": 60}` · CLI `thndr login-complete [--timeout-seconds 60]`
+- **Use case:** `CompleteLogin` (`Command`) in `src/application/identity/commands/complete-login.ts`
+- **Invoke:** MCP `login_complete {"timeoutSeconds": 60}` · CLI `thndr login-complete [--timeout-seconds 60]`
 - **Goal:** wait for the phone approval and store the session (step 3 of 3).
 - **Preconditions:** persisted flow is `AWAITING_APPROVAL`; user has the Thndr app logged in on their phone.
-- **Input:** `timeout_seconds` (0–300, default 60).
+- **Input:** `timeoutSeconds` (0–300, default 60).
 - **Main flow:**
   1. Get the Firebase ID token.
   2. Poll the request status every second until it is no longer `pending`/`unknown`.
@@ -167,17 +173,18 @@ sequenceDiagram
 
 ## Import a browser session — `login_import_session` (`ImportSession`)
 
-- **Invoke:** MCP `login_import_session {"cookie_header": "…"}` · CLI `thndr login-import-session '<cookie header>'`
+- **Use case:** `ImportSession` (`Command`) in `src/application/identity/commands/import-session.ts`
+- **Invoke:** MCP `login_import_session {"cookieHeader": "…"}` · CLI `thndr login-import-session '<cookie header>'`
   (or `--cookie-header`)
 - **Goal:** log in when the account uses Google/Apple sign-in (no email OTP possible headlessly).
 - **Preconditions:** the user is logged in at `https://x.thndr.app` in a browser.
-- **Input:** `cookie_header` — the `Cookie` request header of any `x.thndr.app/api` request.
+- **Input:** `cookieHeader` — the `Cookie` request header of any `x.thndr.app/api` request.
 - **Main flow:**
   1. Parse the header into a refresh credential.
   2. Refresh once with it to obtain a full-access token (and any rotated cookies).
   3. Merge cookies, save the session.
 - **Alternative/error flows:**
-  - Empty header or no `name=value` pairs → `VALIDATION_ERROR`.
+  - Header shorter than 3 characters → `INVALID_INPUT`; no `name=value` pairs → `VALIDATION_ERROR`.
   - Cookies rejected (`INVALID/MISSING/EXPIRED_REFRESH_TOKEN` or 401) → `SESSION_EXPIRED`.
   - Other Thndr error → `UPSTREAM_ERROR`.
 - **Output:** `authenticated: true`, `accessTokenExpiresAt`.
@@ -185,10 +192,11 @@ sequenceDiagram
 
 ## Log out — `logout` (`Logout`)
 
+- **Use case:** `Logout` (`Command`) in `src/application/identity/commands/logout.ts`
 - **Invoke:** MCP `logout` · CLI `thndr logout [--forget-identity]`
 - **Goal:** end the session and delete stored tokens.
 - **Preconditions:** none (idempotent).
-- **Input:** `forget_identity` (default `false`; `true` also signs out of Firebase, so the next login needs an
+- **Input:** `forgetIdentity` (default `false`; `true` also signs out of Firebase, so the next login needs an
   email code).
 - **Main flow:**
   1. If a session exists, call Thndr logout (best effort; failures ignored) and clear the session file.
@@ -200,7 +208,7 @@ sequenceDiagram
 
 ## Supply an access token (internal) — `SessionTokenProvider`
 
-Not an operation (neither an MCP tool nor a CLI command): used by every authenticated Thndr call (`AccessTokenProvider` port).
+Not a use case (neither an MCP tool nor a CLI command) but an application service: used by every authenticated Thndr call (`AccessTokenProvider` port).
 
 1. No session → `NOT_AUTHENTICATED`.
 2. Cached token `VALID` → use it.

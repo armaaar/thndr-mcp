@@ -26,7 +26,8 @@ src/domain/shared-kernel/             Shared Kernel: Money, Ticker, domain error
 src/application/use-case.ts           abstract UseCase → Query | Command (contract + execute + run)
 src/application/<context>/queries/    one Query use case per file
 src/application/<context>/commands/   one Command use case per file
-src/application/<context>/services/   application services shared by the use cases
+src/application/<context>/services/   application services shared by the use cases (plain helpers — inputs, views, constants,
+                                      dependencies.ts — sit at the context root; cross-context helpers at application/)
 src/application/ports/                non-repository ports: Clock, Logger, AccessTokenProvider, ThndrAuthGateway, IdentityProvider
 src/infrastructure/repositories/      repository implementations (thndr/, local/, memory/) + thndr/translators (anti-corruption layer)
 src/infrastructure/data-sources/      raw external access: thndr/ (HTTP client, wire DTOs), firebase/, local/ (session file)
