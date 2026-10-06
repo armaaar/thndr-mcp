@@ -4,17 +4,18 @@
  */
 /*
  * Thndr's brand (its logo, app and App Store listing): bright yellow #ffff00 with black, rounded cards, pill buttons,
- * green for gains. Light: a yellow page, a white card and black pill buttons. Dark: a near-black page, a dark card and
- * yellow pill buttons. Every text colour meets WCAG AA on the surface it sits on.
+ * green for gains. Light: an off-white page, a white card and yellow pill buttons. Dark: a near-black page, a dark
+ * card and yellow pill buttons. Every text colour meets WCAG AA on the surface it sits on.
  */
 const LIGHT =
-  'color-scheme: light; --page: #ffff00; --page-text: #000; --page-muted: #333; --card: #fff; --text: #000; ' +
-  '--muted: #6c6c6c; --field: #f5f5f5; --field-border: #8b8b8b; --primary: #000; --on-primary: #fff; ' +
-  '--accent: #000; --pill: #ffff00; --on-pill: #000; --error: #a81e47; --green: #1e6325; --outline: #e5e5e5; ' +
-  '--glow: 0 8px 24px rgba(0, 0, 0, 0.12);';
+  'color-scheme: light; --page: #f6f6f1; --page-text: #000; --page-muted: #555; --card: #fff; --text: #000; ' +
+  '--muted: #6c6c6c; --field: #fafafa; --field-border: #7a7a7a; --primary: #ffff00; --on-primary: #000; ' +
+  '--primary-edge: #d6d600; --accent: #000; --pill: #ffff00; --on-pill: #000; --error: #a81e47; --green: #1e6325; ' +
+  '--outline: #e5e5e5; --glow: 0 8px 32px rgba(0, 0, 0, 0.08);';
 const DARK =
   'color-scheme: dark; --page: #0a0a0a; --page-text: #fff; --page-muted: #9a9a9a; --card: #1a1a1a; --text: #fff; ' +
   '--muted: #9a9a9a; --field: #0f0f0f; --field-border: #6c6c6c; --primary: #ffff00; --on-primary: #000; ' +
+  '--primary-edge: #ffff00; ' +
   '--accent: #ffff00; --pill: #ffff00; --on-pill: #000; --error: #ff3d5a; --green: #75cc43; --outline: #2a2a2a; ' +
   '--glow: 0 0 28px rgba(255, 255, 0, 0.3);';
 
@@ -36,10 +37,9 @@ export function renderLoginPage(nonce: string): string {
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--page);
     color: var(--page-text); font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px;
-    flex-wrap: wrap; }
+  header { display: flex; align-items: center; gap: 16px; padding: 20px 24px; }
+  header .unofficial { margin-inline-start: auto; }
   .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
-  .header-end { display: flex; align-items: center; gap: 16px; }
   .unofficial { color: var(--page-muted); font-size: 13px; }
   button.theme { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 50%;
     background: transparent; color: var(--page-text); border: 1.5px solid var(--page-text); font-size: 16px; line-height: 1; }
@@ -57,11 +57,12 @@ export function renderLoginPage(nonce: string): string {
   input::placeholder { color: var(--muted); }
   input:focus { border-color: var(--accent); box-shadow: 0 0 0 1.5px var(--accent); }
   input.code { letter-spacing: 0.5em; font-size: 26px; font-weight: 500; text-align: center; }
-  button { font: inherit; font-weight: 700; height: 52px; padding: 0 20px; border-radius: 999px; border: 0;
-    background: var(--primary); color: var(--on-primary); cursor: pointer; transition: opacity 0.2s; }
+  button { font: inherit; font-weight: 700; height: 52px; padding: 0 20px; border-radius: 999px;
+    border: 1px solid var(--primary-edge); background: var(--primary); color: var(--on-primary); cursor: pointer;
+    transition: opacity 0.2s; }
   button:hover { opacity: 0.85; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  button.link { background: none; color: var(--muted); height: auto; padding: 8px; margin-top: 20px; font-weight: 500;
+  button.link { background: none; border: 0; color: var(--muted); height: auto; padding: 8px; margin-top: 20px; font-weight: 500;
     font-size: 14px; }
   button.link:hover { color: var(--text); opacity: 1; }
   .qr { background: #fff; border-radius: 16px; padding: 14px; display: inline-block; margin: 24px 0 16px;
@@ -83,15 +84,27 @@ export function renderLoginPage(nonce: string): string {
   a { color: var(--muted); font-size: 12px; word-break: break-all; }
   footer { padding: 16px 24px 24px; color: var(--page-muted); font-size: 12px; text-align: center; }
   [hidden] { display: none !important; }
+  @media (max-width: 520px) {
+    header { flex-wrap: wrap; padding: 14px 16px; row-gap: 4px; }
+    header .theme { order: 2; margin-inline-start: auto; width: 34px; height: 34px; }
+    header .unofficial { order: 3; width: 100%; margin: 0; font-size: 12px; }
+    .wordmark { font-size: 20px; }
+    main { place-items: start center; padding: 8px 12px 16px; }
+    .card { padding: 28px 20px; border-radius: 20px; }
+    h1 { font-size: 24px; }
+    .muted { font-size: 14px; }
+    form { margin-top: 22px; }
+    input.code { font-size: 22px; letter-spacing: 0.35em; }
+    .qr svg { width: min(216px, 62vw); height: min(216px, 62vw); }
+    footer { padding: 12px 16px 20px; }
+  }
 </style>
 </head>
 <body>
 <header>
   <div class="wordmark">thndr-mcp</div>
-  <div class="header-end">
-    <div class="unofficial">Unofficial community tool · not affiliated with Thndr</div>
-    <button class="theme" id="theme" type="button"></button>
-  </div>
+  <div class="unofficial">Unofficial community tool · not affiliated with Thndr</div>
+  <button class="theme" id="theme" type="button"></button>
 </header>
 <main>
 <div class="card">
@@ -209,8 +222,17 @@ export function renderLoginPage(nonce: string): string {
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeButton);
   paintThemeButton();
 
-  $('email-form').addEventListener('submit', (e) => { e.preventDefault(); post('email', { email: $('email-input').value }); });
-  $('code-form').addEventListener('submit', (e) => { e.preventDefault(); post('code', { code: $('code-input').value }); });
+  // Emails and codes never contain whitespace: drop what a copy/paste brings along, as the user types.
+  for (const id of ['email-input', 'code-input']) {
+    $(id).addEventListener('input', (e) => {
+      const input = e.target;
+      const clean = input.value.replace(/\\s+/g, '');
+      if (clean !== input.value) input.value = clean;
+    });
+  }
+
+  $('email-form').addEventListener('submit', (e) => { e.preventDefault(); post('email', { email: $('email-input').value.trim() }); });
+  $('code-form').addEventListener('submit', (e) => { e.preventDefault(); post('code', { code: $('code-input').value.replace(/\\s+/g, '') }); });
   $('retry').addEventListener('click', () => post('retry'));
   $('cancel').addEventListener('click', () => post('cancel'));
   poll();

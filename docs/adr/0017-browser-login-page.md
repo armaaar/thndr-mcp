@@ -44,8 +44,8 @@ We will run the whole login in a **local browser page**:
   `login_*` tools stay as the fallback for machines without a browser.
 - The page follows **Thndr's brand** as shown by its logo, app and App Store listing: bright yellow `#ffff00` with
   black, rounded cards and pill buttons, green for success (ThndrX's web stylesheet uses an indigo accent, but the brand
-  colour is yellow). Light: a yellow page, a white card and black pill buttons; dark: a near-black page, a dark card and
-  yellow pill buttons; every text colour meets WCAG AA. It follows the system theme until a header button pins light or
+  colour is yellow). Light: an off-white page, a white card and yellow pill buttons; dark: a near-black page, a dark card
+  and yellow pill buttons; it adapts to phone screens; pasted whitespace is stripped from the email and code fields; every text colour meets WCAG AA. It follows the system theme until a header button pins light or
   dark for that page (nothing is stored: each login runs on a new port). Typography is DM Sans, as on ThndrX. It is
   labelled "thndr-mcp — unofficial community tool, not affiliated with Thndr" and uses no Thndr logo, so it never
   passes itself off as Thndr's own login page. DM Sans comes from Google Fonts (the CSP allows only

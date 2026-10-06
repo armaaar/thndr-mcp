@@ -38,4 +38,16 @@ describe('renderLoginPage', () => {
     );
     expect(page).toContain("'Switch to light mode' : 'Switch to dark mode'");
   });
+
+  it('strips whitespace pasted into the email and code fields', () => {
+    expect(page).toContain("for (const id of ['email-input', 'code-input'])");
+    expect(page).toContain(String.raw`const clean = input.value.replace(/\s+/g, '');`);
+    expect(page).toContain("post('email', { email: $('email-input').value.trim() })");
+    expect(page).toContain(String.raw`post('code', { code: $('code-input').value.replace(/\s+/g, '') })`);
+  });
+
+  it('adapts to phone screens', () => {
+    expect(page).toContain('<meta name="viewport" content="width=device-width, initial-scale=1">');
+    expect(page).toContain('@media (max-width: 520px)');
+  });
 });
