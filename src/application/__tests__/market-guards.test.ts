@@ -7,6 +7,7 @@ import {
   setupMarketData,
 } from '../../__tests__/support/fake-market-data';
 import { setupPortfolio } from '../../__tests__/support/fake-portfolio';
+import { someFinancials } from '../../__tests__/support/fake-research';
 import { CreateAlert } from '../engagement/commands/create-alert';
 import { CreateWatchlist } from '../engagement/commands/create-watchlist';
 import { UpdateAlert } from '../engagement/commands/update-alert';
@@ -81,6 +82,8 @@ describe('per-market guards fail before calling Thndr', () => {
       ticker: 'SIMX',
     });
     expect(await new GetRecentTrades(deps).run({ symbol: id })).toMatchObject({ ticker: 'SIMX' });
+    deps.research.financials = { SIMX: someFinancials({ revenues: [['TTM Q2 26', 1]] }) };
+    expect(await new GetFinancials(deps).run({ symbol: id })).toMatchObject({ ticker: 'SIMX' });
   });
 
   it('Portfolio tools', async () => {
