@@ -2,14 +2,21 @@
  * The browser login page (ADR 0017): one self-contained document that polls `state` and posts the user's answers.
  * Every value from the server is inserted as text, except the QR code SVG, which the server renders itself.
  */
-const DARK =
-  'color-scheme: dark; --surface-a: #070707; --gradient-highlight: #0d0d0f; --surface-b: #171717; ' +
-  '--surface-c: #2d2d2d; --outline: #2a2a2a; --field-border: #6c6c6c; --text-primary: #fff; --text-inverse: #000; ' +
-  '--text-secondary: #9a9a9a; --brand: #8899ff; --error: #ff3d5a; --green: #75cc43;';
+/*
+ * Thndr's brand (its logo, app and App Store listing): bright yellow #ffff00 with black, rounded cards, pill buttons,
+ * green for gains. Light: a yellow page, a white card and black pill buttons. Dark: a near-black page, a dark card and
+ * yellow pill buttons. Every text colour meets WCAG AA on the surface it sits on.
+ */
 const LIGHT =
-  'color-scheme: light; --surface-a: #fff; --gradient-highlight: #fff; --surface-b: #ececec; --surface-c: #f7f7f7; ' +
-  '--outline: #ddd; --field-border: #8b8b8b; --text-primary: #07080d; --text-inverse: #fff; ' +
-  '--text-secondary: #6c6c6c; --brand: #4656e8; --error: #a81e47; --green: #1e6325;';
+  'color-scheme: light; --page: #ffff00; --page-text: #000; --page-muted: #333; --card: #fff; --text: #000; ' +
+  '--muted: #6c6c6c; --field: #f5f5f5; --field-border: #8b8b8b; --primary: #000; --on-primary: #fff; ' +
+  '--accent: #000; --pill: #ffff00; --on-pill: #000; --error: #a81e47; --green: #1e6325; --outline: #e5e5e5; ' +
+  '--glow: 0 8px 24px rgba(0, 0, 0, 0.12);';
+const DARK =
+  'color-scheme: dark; --page: #0a0a0a; --page-text: #fff; --page-muted: #9a9a9a; --card: #1a1a1a; --text: #fff; ' +
+  '--muted: #9a9a9a; --field: #0f0f0f; --field-border: #6c6c6c; --primary: #ffff00; --on-primary: #000; ' +
+  '--accent: #ffff00; --pill: #ffff00; --on-pill: #000; --error: #ff3d5a; --green: #75cc43; --outline: #2a2a2a; ' +
+  '--glow: 0 0 28px rgba(255, 255, 0, 0.3);';
 
 export function renderLoginPage(nonce: string): string {
   return `<!doctype html>
@@ -22,63 +29,59 @@ export function renderLoginPage(nonce: string): string {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,800&display=swap">
 <style>
-  /*
-   * ThndrX design system (x.thndr.app): its CSS colour tokens and Ant Design theme — square corners (borderRadius 0),
-   * transparent outlined inputs, primary buttons in the text colour (white on dark, black on light), DM Sans, the
-   * diagonal "thndrx-bg" gradient, indigo brand only as an accent.
-   */
   /* Theme: the system's by default; the header button pins one with data-theme on <html>. */
   :root { ${DARK} }
   :root[data-theme="light"] { ${LIGHT} }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { ${LIGHT} } }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; color: var(--text-primary);
-    background: linear-gradient(to top right, var(--surface-a), var(--gradient-highlight));
-    font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 24px;
-    border-bottom: 1px solid var(--outline); flex-wrap: wrap; }
-  .wordmark { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--page);
+    color: var(--page-text); font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px 24px;
+    flex-wrap: wrap; }
+  .wordmark { font-weight: 800; font-size: 22px; letter-spacing: -0.02em; }
   .header-end { display: flex; align-items: center; gap: 16px; }
-  .unofficial { color: var(--text-secondary); font-size: 13px; }
-  button.theme { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; background: transparent;
-    color: var(--text-primary); border: 1px solid var(--field-border); font-size: 16px; line-height: 1; }
-  button.theme:hover { border-color: var(--text-primary); opacity: 1; }
-  main { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
-  .content { width: 100%; max-width: 400px; text-align: center; }
-  h1 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 8px; }
-  .muted { color: var(--text-secondary); font-size: 15px; margin: 0; }
-  form { display: grid; gap: 16px; margin-top: 32px; text-align: start; }
-  label { color: var(--text-secondary); font-size: 14px; }
+  .unofficial { color: var(--page-muted); font-size: 13px; }
+  button.theme { width: 38px; height: 38px; padding: 0; display: grid; place-items: center; border-radius: 50%;
+    background: transparent; color: var(--page-text); border: 1.5px solid var(--page-text); font-size: 16px; line-height: 1; }
+  button.theme:hover { opacity: 0.7; }
+  main { flex: 1; display: grid; place-items: center; padding: 16px; }
+  .card { width: 100%; max-width: 440px; background: var(--card); color: var(--text); border-radius: 24px;
+    padding: 36px 32px; text-align: center; box-shadow: var(--glow); }
+  h1 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .muted { color: var(--muted); font-size: 15px; margin: 0; }
+  form { display: grid; gap: 16px; margin-top: 28px; text-align: start; }
+  label { color: var(--muted); font-size: 14px; }
   .field { display: grid; gap: 6px; }
-  input { font: inherit; height: 48px; padding: 0 14px; border-radius: 0; border: 1px solid var(--field-border);
-    background: transparent; color: var(--text-primary); outline: none; transition: border-color 0.2s; }
-  input::placeholder { color: var(--text-secondary); }
-  input:focus { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  input { font: inherit; height: 52px; padding: 0 16px; border-radius: 12px; border: 1.5px solid var(--field-border);
+    background: var(--field); color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+  input::placeholder { color: var(--muted); }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 1.5px var(--accent); }
   input.code { letter-spacing: 0.5em; font-size: 26px; font-weight: 500; text-align: center; }
-  button { font: inherit; font-weight: 500; height: 48px; padding: 0 16px; border-radius: 0; border: 1px solid var(--text-primary);
-    background: var(--text-primary); color: var(--text-inverse); cursor: pointer; transition: opacity 0.2s; }
-  button:hover { opacity: 0.88; }
-  button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-  button.link { background: none; border: 0; color: var(--text-secondary); height: auto; padding: 8px; margin-top: 24px;
+  button { font: inherit; font-weight: 700; height: 52px; padding: 0 20px; border-radius: 999px; border: 0;
+    background: var(--primary); color: var(--on-primary); cursor: pointer; transition: opacity 0.2s; }
+  button:hover { opacity: 0.85; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button.link { background: none; color: var(--muted); height: auto; padding: 8px; margin-top: 20px; font-weight: 500;
     font-size: 14px; }
-  button.link:hover { color: var(--text-primary); opacity: 1; }
-  .qr { background: #fff; border-radius: 0.375rem; padding: 12px; display: inline-block; margin: 28px 0 16px;
-    box-shadow: 0 0 20px rgba(141, 150, 255, 0.5); }
-  .qr svg { width: 220px; height: 220px; display: block; }
-  .request { display: inline-block; background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand);
-    border-radius: 999px; padding: 4px 14px; font-weight: 500; font-size: 15px; margin-bottom: 12px; }
-  .status { display: inline-flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 15px; margin: 0; }
-  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--brand);
-    box-shadow: 0 0 10px var(--brand); animation: pulse 1.2s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: 0.3; } }
+  button.link:hover { color: var(--text); opacity: 1; }
+  .qr { background: #fff; border-radius: 16px; padding: 14px; display: inline-block; margin: 24px 0 16px;
+    border: 1px solid var(--outline); box-shadow: var(--glow); }
+  .qr svg { width: 216px; height: 216px; display: block; }
+  .request { display: inline-block; background: var(--pill); color: var(--on-pill); border-radius: 999px;
+    padding: 4px 16px; font-weight: 700; font-size: 15px; margin-bottom: 12px; }
+  .status { display: inline-flex; align-items: center; gap: 10px; color: var(--muted); font-size: 15px; margin: 0; }
+  .status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+    animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.25; } }
   @media (prefers-reduced-motion: reduce) { .status::before { animation: none; } }
   .error { color: var(--error); font-size: 14px; min-height: 1.5em; margin: 16px 0 0; }
-  .ok { color: var(--green); font-weight: 500; font-size: 18px; }
-  .done-icon { width: 56px; height: 56px; margin: 0 auto 16px; display: grid; place-items: center; font-size: 28px;
-    color: var(--green); border: 1px solid var(--green); }
+  .error:empty { min-height: 0; margin: 0; }
+  .ok { color: var(--green); font-weight: 700; font-size: 17px; }
+  .done-icon { width: 60px; height: 60px; margin: 8px auto 16px; display: grid; place-items: center; font-size: 30px;
+    font-weight: 700; border-radius: 50%; background: var(--pill); color: var(--on-pill); }
   .done-icon:empty { display: none; }
-  a { color: var(--text-secondary); font-size: 12px; word-break: break-all; }
-  footer { padding: 16px 24px; color: var(--text-secondary); font-size: 12px; text-align: center; }
+  a { color: var(--muted); font-size: 12px; word-break: break-all; }
+  footer { padding: 16px 24px 24px; color: var(--page-muted); font-size: 12px; text-align: center; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -91,7 +94,7 @@ export function renderLoginPage(nonce: string): string {
   </div>
 </header>
 <main>
-<div class="content">
+<div class="card">
   <h1 id="heading">Log in to Thndr</h1>
 
   <section id="working"><p class="status">Working…</p></section>
