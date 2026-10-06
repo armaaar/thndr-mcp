@@ -9,7 +9,8 @@ thndr-mcp talks to Thndr's **private** API, reverse-engineered from ThndrX's pub
 Thndr redeploys without notice, so this workflow re-derives what changed and updates the anti-corruption layer
 (Thndr data source `src/data-sources/thndr/**` and repositories + translators
 `src/repositories/thndr/**`) in one coherent change. Scope stays **read-only** (ADR 0006): if new order-entry or
-fund-movement endpoints appear, note them in the diff summary but do not document or implement them.
+fund-movement endpoints appear, document them under a "Write operations (documented, not implemented — ADR 0006)"
+heading (ADR 0019) but do not implement them.
 
 ## Bundled tools
 

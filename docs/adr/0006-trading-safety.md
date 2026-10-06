@@ -1,6 +1,6 @@
 # 0006. Read-only trading scope
 
-- Status: Accepted
+- Status: Accepted (documentation rule amended by [0019](0019-document-write-operations.md))
 - Date: 2026-10-06
 
 ## Context
@@ -15,7 +15,8 @@ thndr-mcp is **read-only with respect to money**. It exposes account, portfolio,
 journal and market-data tools, plus non-financial list management (watchlists, price alerts). It does **not**
 expose tools that place, modify or cancel orders, or move funds. Users act on insights in the official Thndr app.
 
-Order-entry endpoints seen during reverse engineering are deliberately left undocumented and unimplemented.
+Order-entry endpoints seen during reverse engineering are unimplemented. (They were left undocumented too; since
+[ADR 0019](0019-document-write-operations.md) they are documented in clearly marked sections, still unimplemented.)
 
 ## Accepted risk
 
