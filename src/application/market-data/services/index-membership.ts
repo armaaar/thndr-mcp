@@ -43,25 +43,34 @@ export class IndexMembership {
     const indices = this.load(market);
     const fresh = { at: now, indices };
     this.entries.set(market, fresh);
-    // Evict failures, and an empty list (a snapshot without index rows) so the next call retries — but never evict
-    // a newer entry that replaced this one.
+    // Evict failures and incomplete answers — no index rows, or an index without members — so the next call retries,
+    // but never evict a newer entry that replaced this one.
     const evict = () => {
       if (this.entries.get(market) === fresh) this.entries.delete(market);
     };
     indices.then((list) => {
-      if (list.length === 0) evict();
+      if (list.length === 0 || list.some((index) => index.members.length === 0)) evict();
     }, evict);
     return indices;
   }
 
   /**
-   * The index named `symbol`: an exact match ignoring case and separators (`EGX70 EWI` = `egx70-ewi`), else the only
-   * index whose symbol starts with it (`EGX70` → `EGX70-EWI`, `sharia` → `SHARIAH`).
+   * The index named `symbol`: an exact match of its symbol or name ignoring case and separators (`EGX70 EWI` =
+   * `egx70-ewi`; `EGX33 (Sharia)` = `egx33sharia`, or its leading word when it has a digit, `EGX33`), else the only index whose symbol
+   * starts with it (`EGX70` → `EGX70-EWI`, `sharia` → `SHARIAH`).
    */
   async find(symbol: string, market: Market): Promise<MarketIndex> {
     const indices = await this.indices(market);
     const wanted = normalize(symbol);
-    const exact = indices.find((index) => normalize(index.ticker.value) === wanted);
+    // The name's first word counts only when it has a digit (`EGX33`), so `EGX` stays ambiguous.
+    const names = (index: MarketIndex) => {
+      if (!index.name) return [];
+      const first = normalize(index.name.split(/[\s(]/)[0] ?? '');
+      return [normalize(index.name), ...(/\d/.test(first) ? [first] : [])];
+    };
+    const exact =
+      indices.find((index) => normalize(index.ticker.value) === wanted) ??
+      (wanted ? indices.find((index) => names(index).includes(wanted)) : undefined);
     if (exact) return exact;
     const prefixed = wanted
       ? indices.filter((index) => normalize(index.ticker.value).startsWith(wanted))
@@ -89,16 +98,19 @@ export class IndexMembership {
   private async load(market: Market): Promise<MarketIndex[]> {
     const rows = (await this.quotes.get(market)).filter((quote) => quote.board === 'INDX');
     const names = rows.length > 0 ? await this.indicatorNames(market) : new Map<string, string>();
-    return Promise.all(
-      rows.map(async (row) =>
+    // One index at a time: a cold load would otherwise burst ~8 calls at once, and Thndr rate-limits bursts (429).
+    const indices: MarketIndex[] = [];
+    for (const row of rows) {
+      indices.push(
         Object.freeze({
           id: row.instrumentId,
           ticker: row.ticker,
           name: row.name ?? names.get(row.instrumentId.value) ?? null,
           members: Object.freeze(await this.repository.getIndexConstituents(row.instrumentId)),
         }),
-      ),
-    );
+      );
+    }
+    return indices;
   }
 
   /**

@@ -286,7 +286,10 @@ SHARIAH, TAMAYUZ) are part of the snapshot: `currency` 0 (points), `eng_name`/`a
 (`" "`), `reuters` may contain spaces (`"EGX70 EWI"`), filler values (`last_trade_date` `1900-01-01…`,
 `listed_shares`/`pe_ratio`/`bid_price`/`ask_price` 0, `low_price_limit` > `high_price_limit`) and huge
 `total_value`/`total_volume` (the whole index's turnover). thndr-mcp keeps them (sanitised symbol, e.g. `EGX70-EWI`)
-for index levels and membership, but never returns them from `screen_market` or `get_peers`. A row whose
+for index levels and membership, but never returns them from `screen_market` or `get_peers`, and reports their filler
+stock fields as unknown (null). Index rows carry **no name**; the market indicators (§8.2) do, with the same asset ids
+(live 2026-10-06: `SHARIAH` → "EGX33 (Sharia)", `EGX70 EWI` → "EGX70", `EGX30` → "EGX30"), so `IndexMembership`
+names indices from there. A row whose
 `last_trade_price` is 0 has not traded yet today: `last_change` is then `-previous_close` and `last_change_prc` 0
 (e.g. an OTC row).
 
@@ -551,7 +554,10 @@ The filter editor (`chunks_6227…js`) offers the keys `reuters`, `price`, `tota
 `src/domain/market-data/screener.ts`; key mapping in `repositories/thndr/translators/screener.ts`). Two deliberate
 differences: index rows are excluded by board (`market_id === "INDX"`), and filters it cannot evaluate (an unmapped
 key such as `ref_price`, a `DateRange`, an unparsable `StringArray`) make `screen_market` fail with a message naming
-them instead of passing silently.
+them instead of passing silently. Smaller differences: `screen_market` hides suspended instruments unless
+`includeSuspended` is set (so a preset can return fewer rows than ThndrX); a field Thndr omits is null in our quotes
+and counts as 0 in a range (ThndrX reads `Number(undefined)` = NaN and fails the row — no such row was seen live);
+and a saved screener runs only on the market it was saved for.
 
 **Built-in "recommended screeners"** (client-only presets, module 22462 in `chunks_2409…js:47-180`; English names from
 the `screeners.recommendedScreeners.*` strings) [C]. All filters are `NumberRange` unless stated:

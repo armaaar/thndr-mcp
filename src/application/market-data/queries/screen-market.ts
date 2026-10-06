@@ -97,7 +97,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
     const [all, members, screeners] = await Promise.all([
       this.deps.quotes.get(market),
       criteria.index === undefined ? null : this.deps.indices.find(criteria.index, market),
-      this.screeners(criteria),
+      this.screeners(criteria, market),
     ]);
     const memberIds = members ? new Set(members.members.map((id) => id.value)) : null;
     const filters = screeners.flatMap((screener) => screener.filters);
@@ -149,7 +149,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
   }
 
   /** The preset and the saved screener asked for; a screener with filters we cannot evaluate is refused. */
-  private async screeners(criteria: ScreenCriteria): Promise<Screener[]> {
+  private async screeners(criteria: ScreenCriteria, market: Market): Promise<Screener[]> {
     const out: Screener[] = [];
     if (criteria.preset !== undefined) {
       const preset = SCREENER_PRESETS.find((p) => p.id === criteria.preset);
@@ -158,6 +158,11 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
     }
     if (criteria.screenerId !== undefined) {
       const saved = await this.deps.repository.getScreener(criteria.screenerId);
+      if (saved.market !== null && saved.market !== market) {
+        throw new ValidationError(
+          `Screener "${saved.name}" was saved for the ${saved.market} market; run it with market "${saved.market}".`,
+        );
+      }
       if (saved.unsupported.length > 0) {
         throw new ValidationError(
           `Screener "${saved.name}" has filters thndr-mcp cannot evaluate: ${saved.unsupported.join('; ')}.`,

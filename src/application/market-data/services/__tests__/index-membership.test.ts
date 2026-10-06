@@ -25,13 +25,13 @@ function setup(clock: Clock = fixedClock()) {
   repository.indicators = {
     egypt: [
       aQuote({ ticker: 'EGX30CAPPED', board: 'INDX', name: 'EGX30 Capped' }),
-      aQuote({ ticker: 'SHARIAH', board: 'INDX', name: null }),
+      aQuote({ ticker: 'SHARIAH', board: 'INDX', name: 'EGX33 (Sharia)' }),
     ],
   };
   repository.constituents = {
     [idFor('EGX30')]: [idFor('COMI'), idFor('HRHO')],
     [idFor('EGX30CAPPED')]: [idFor('COMI')],
-    [idFor('EGX70-EWI')]: [],
+    [idFor('EGX70-EWI')]: [idFor('HRHO')],
     [idFor('SHARIAH')]: [idFor('HRHO')],
   };
   const quotes = new MarketQuotesCache(repository, clock);
@@ -45,7 +45,7 @@ describe('IndexMembership', () => {
     expect(all.map((i) => [i.ticker.value, i.name, i.members.map((m) => m.value)])).toEqual([
       ['EGX30', 'EGX 30', [idFor('COMI'), idFor('HRHO')]],
       ['EGX30CAPPED', 'EGX30 Capped', [idFor('COMI')]],
-      ['EGX70-EWI', 'EGX70-EWI Corp', []],
+      ['EGX70-EWI', 'EGX70-EWI Corp', [idFor('HRHO')]],
       ['SHARIAH', 'SHARIAH Corp', [idFor('HRHO')]],
     ]);
     expect(Object.isFrozen(all[0])).toBe(true);
@@ -67,6 +67,16 @@ describe('IndexMembership', () => {
     expect((await indices.find('sharia', 'egypt')).ticker.value).toBe('SHARIAH');
   });
 
+  it("also finds an index by its name or the name's first word", async () => {
+    const { repository, indices } = setup();
+    repository.quotes.egypt = (repository.quotes.egypt ?? []).map((q) =>
+      q.ticker.value === 'SHARIAH' ? { ...q, name: null } : q,
+    );
+    expect((await indices.find('EGX33', 'egypt')).ticker.value).toBe('SHARIAH');
+    expect((await indices.find('egx33 sharia', 'egypt')).ticker.value).toBe('SHARIAH');
+    expect((await indices.find('EGX 30', 'egypt')).ticker.value).toBe('EGX30');
+  });
+
   it('rejects unknown or ambiguous names and lists the candidates', async () => {
     const { indices } = setup();
     await expect(indices.find('EGX', 'egypt')).rejects.toThrow(
@@ -83,7 +93,7 @@ describe('IndexMembership', () => {
     const { indices } = setup();
     const membership = await indices.membership('egypt');
     expect(membership.get(idFor('COMI'))).toEqual(['EGX30', 'EGX30CAPPED']);
-    expect(membership.get(idFor('HRHO'))).toEqual(['EGX30', 'SHARIAH']);
+    expect(membership.get(idFor('HRHO'))).toEqual(['EGX30', 'EGX70-EWI', 'SHARIAH']);
     expect(membership.has(idFor('EGX30'))).toBe(false);
   });
 
@@ -99,7 +109,8 @@ describe('IndexMembership', () => {
     await expect(indices.indices('egypt')).rejects.toThrow('boom');
     repository.failures = {};
     await indices.indices('egypt');
-    expect(repository.calls.getIndexConstituents).toHaveLength(12);
+    // Indices load one at a time, so the failed load stopped after its first call.
+    expect(repository.calls.getIndexConstituents).toHaveLength(9);
   });
 
   it('does not cache an empty index list, so a snapshot without index rows is retried', async () => {
@@ -114,5 +125,54 @@ describe('IndexMembership', () => {
     expect(await indices.indices('egypt')).toHaveLength(4);
     expect(await indices.indices('egypt')).toHaveLength(4);
     expect(repository.calls.getIndexConstituents).toHaveLength(4);
+  });
+
+  it('retries a load in which an index came back without members', async () => {
+    const { repository, indices } = setup();
+    repository.constituents[idFor('EGX70-EWI')] = [];
+    const first = await indices.indices('egypt');
+    expect(first.find((i) => i.ticker.value === 'EGX70-EWI')?.members).toEqual([]);
+    repository.constituents[idFor('EGX70-EWI')] = [idFor('HRHO')];
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const second = await indices.indices('egypt');
+    expect(second.find((i) => i.ticker.value === 'EGX70-EWI')?.members.map((m) => m.value)).toEqual([
+      idFor('HRHO'),
+    ]);
+  });
+
+  it('keeps members for 6 hours by default', async () => {
+    let now = new Date('2026-01-01T12:00:00Z').getTime();
+    const clock = { now: () => new Date(now) };
+    const { repository } = setup(clock);
+    const indices = new IndexMembership(repository, new MarketQuotesCache(repository, clock), clock);
+    await indices.indices('egypt');
+    now += 6 * 3_600_000 - 1;
+    await indices.indices('egypt');
+    expect(repository.calls.getIndexConstituents).toHaveLength(4);
+    now += 1;
+    await indices.indices('egypt');
+    expect(repository.calls.getIndexConstituents).toHaveLength(8);
+  });
+
+  it('never lets a failed load evict a newer entry', async () => {
+    let now = new Date('2026-01-01T12:00:00Z').getTime();
+    const clock = { now: () => new Date(now) };
+    const { repository, indices } = setup(clock);
+    const original = repository.getIndexConstituents.bind(repository);
+    let fail: () => void = () => {};
+    repository.getIndexConstituents = () =>
+      new Promise((_, reject) => {
+        fail = () => reject(new Error('late'));
+      });
+    const stale = indices.indices('egypt');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    now += 1_001;
+    repository.getIndexConstituents = original;
+    await indices.indices('egypt');
+    const calls = repository.calls.getIndexConstituents.length;
+    fail();
+    await expect(stale).rejects.toThrow('late');
+    expect(await indices.indices('egypt')).toHaveLength(4);
+    expect(repository.calls.getIndexConstituents).toHaveLength(calls);
   });
 });

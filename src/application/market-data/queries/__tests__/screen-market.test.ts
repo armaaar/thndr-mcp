@@ -233,6 +233,10 @@ describe('ScreenMarket', () => {
       expect((await run({ screenerId: 's1', preset: 'reversal-watch' })).screeners?.map((x) => x.id)).toEqual(
         ['reversal-watch', 's1'],
       );
+      await expect(run({ screenerId: 's1', market: 'us' })).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: 'Screener "Cheap" was saved for the egypt market; run it with market "egypt".',
+      });
     });
 
     it('refuses a saved screener with filters it cannot evaluate, and unknown ids or presets', async () => {

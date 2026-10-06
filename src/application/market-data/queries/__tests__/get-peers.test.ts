@@ -81,11 +81,14 @@ describe('GetPeers', () => {
     const deps = setup();
     const egypt = deps.repository.quotes.egypt!.filter((q) => q.ticker.value !== 'COMI');
     egypt.push(aQuote({ ticker: 'BNK2', sector: 'Banking', marketCap: 1 }));
+    egypt.push(aQuote({ ticker: 'BNK3', sector: 'Banking', marketCap: 0.5 }));
     deps.repository.quotes.egypt = egypt;
     const out = await new GetPeers(deps).run({ symbol: 'COMI', limit: 1 });
     expect(out.sector).toBe('Banking');
     expect(out.similar.map((p) => p.ticker)).toEqual(['ADIB']);
     expect(out.sameSector.map((p) => p.ticker)).toEqual(['BNK2']);
+    // The total counts the whole sector, before the limit.
+    expect(out.sameSectorTotal).toBe(2);
   });
 
   it('handles a sectorless instrument and clamps the limit when executed directly', async () => {

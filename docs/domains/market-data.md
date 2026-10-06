@@ -98,10 +98,13 @@ Turns what a user types into an `Instrument`:
 
 ### `IndexMembership`
 - Lists a market's indices — the `INDX` rows of the snapshot — and each index's members from its asset details
-  (`constituents[].id`). Cached per market for **6 hours** (membership changes at rebalances); a failed load is
-  evicted.
-- `find(symbol, market)`: exact match ignoring case and separators (`EGX70 EWI` = `egx70-ewi`), else the only index
-  whose symbol starts with it (`EGX70` → `EGX70-EWI`); otherwise `NOT_FOUND` listing the indices.
+  (`constituents[].id`, fetched one index at a time to avoid bursts). Names come from the market indicators, matched by
+  asset id (index rows have none); if that call fails the names stay null. Cached per market for **6 hours**
+  (membership changes at rebalances); a failed load, an answer without index rows and one with an index without
+  members are not cached.
+- `find(symbol, market)`: exact match of the symbol or the name ignoring case and separators (`EGX70 EWI` =
+  `egx70-ewi`, `EGX33 (Sharia)`, or the name's first word when it has a digit, `EGX33`), else the only index whose
+  symbol starts with it (`EGX70` → `EGX70-EWI`); otherwise `NOT_FOUND` listing the indices.
 - `membership(market)`: instrument id → symbols of its indices (used by `get_instrument_details`; open to Portfolio's
   allocation).
 

@@ -163,7 +163,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
      ([api §5.1](../api/market-data.md)).
   4. Sort (nulls last) and take `limit`.
 - **Alternative/error flows:** unknown `index` → `NOT_FOUND` (lists the indices); unknown `screenerId` →
-  `NOT_FOUND`; a saved screener with a filter thndr-mcp cannot evaluate → `VALIDATION_ERROR` naming it; unknown
+  `NOT_FOUND`; a saved screener with a filter thndr-mcp cannot evaluate, or saved for another market →
+  `VALIDATION_ERROR` naming it; unknown
   `preset` → `INVALID_INPUT`; common errors. No matches → `total: 0`, empty `results`.
 - **Output:** `market`, `index` (when given), `screeners` (applied preset/saved screener: `id`, `name`, `filters`
   in plain words), `total` (matches before the limit), `results` (quotes + `relativeVolume`).
@@ -205,7 +206,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   `changePercent`, `value`, `volume`, `marketCap`) and `missingFromSnapshot`. Thndr publishes **no weights**, so none
   are returned.
 - **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}`
-  per `INDX` row (`constituents`, cached 6 h).
+  per `INDX` row, one at a time (`constituents`) + `GET prod /assets-service/assets/market-indicators` (index names);
+  membership is cached 6 h (an answer without index rows, or with an index without members, is not cached).
 
 ## Peers — `get_peers` (`GetPeers`)
 
