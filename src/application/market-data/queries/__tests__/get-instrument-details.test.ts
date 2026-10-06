@@ -64,4 +64,36 @@ describe('GetInstrumentDetails', () => {
     expect(out.indices).toBeNull();
     expect(out.ticker.value).toBe('COMI');
   });
+
+  it.each(['us', 'uae'] as const)(
+    'never asks for index membership in %s: indices is null',
+    async (market) => {
+      const repository = withInstruments();
+      repository.instruments = [anInstrument({ ticker: 'FAB', market })];
+      const deps = setupMarketData(repository);
+      const out = await new GetInstrumentDetails(deps).run({ symbol: 'FAB', market });
+      expect(out.indices).toBeNull();
+      expect(repository.calls.getMarketQuotes).toEqual([]);
+      expect(repository.calls.getIndexConstituents).toEqual([]);
+    },
+  );
+
+  it('reads Egypt’s index membership for an Egyptian listing found through the simulator', async () => {
+    const repository = withInstruments();
+    repository.instruments = [anInstrument({ ticker: 'COMI', market: 'egypt' })];
+    repository.searchInstruments = async () => repository.instruments;
+    const deps = setupMarketData(repository);
+    const out = await new GetInstrumentDetails(deps).run({ symbol: 'COMI', market: 'simulator' });
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
+    expect(out.indices).toEqual([]);
+  });
+
+  it('reads Egypt’s index membership for an instrument whose market is the simulator itself', async () => {
+    const repository = withInstruments();
+    repository.instruments = [anInstrument({ ticker: 'COMI', market: 'simulator' })];
+    const deps = setupMarketData(repository);
+    const out = await new GetInstrumentDetails(deps).run({ symbol: 'COMI', market: 'simulator' });
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
+    expect(out.indices).toEqual([]);
+  });
 });

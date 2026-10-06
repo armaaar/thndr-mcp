@@ -21,7 +21,7 @@ export class GetEconomicIndicators extends Query<typeof input, EconomicIndicator
   readonly name = 'get_economic_indicators';
   readonly title = 'Egypt economic indicators';
   readonly description =
-    'Egypt’s macroeconomic data as Thndr shows it: headline readings (inflation, CBE deposit/lending rates, ' +
+    'Egypt only: macroeconomic data as Thndr shows it: headline readings (inflation, CBE deposit/lending rates, ' +
     '12-month T-bill yield, unemployment, GDP) and the latest points of the inflation (monthly and yearly), CBE ' +
     'overnight rates, treasury-bill returns and quarterly unemployment series, with Thndr’s source descriptions.';
   readonly context = 'market-data';

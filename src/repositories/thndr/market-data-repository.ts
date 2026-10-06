@@ -3,6 +3,8 @@ import type {
   AssetDto,
   AssetSearchResponseDto,
   CandlesResponseDto,
+  ChartsResponseDto,
+  GatewayPriceResponseDto,
   MarketDepthResponseDto,
   MarketHoursDto,
   MarketIndicatorsResponseDto,
@@ -17,7 +19,9 @@ import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
 import { assertNoKrakendError } from '../../data-sources/thndr/krakend';
 import { parseTimestamp } from '../../data-sources/thndr/wire';
 import type { Candle, CandleResolution } from '../../domain/market-data/candle';
+import type { ClosePoint, CloseSpan } from '../../domain/market-data/close-series';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
+import type { LatestPrice } from '../../domain/market-data/latest-price';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
 import type { Screener } from '../../domain/market-data/screener';
@@ -35,19 +39,24 @@ import {
   toTapeTrade,
   WIRE_RESOLUTION,
 } from './translators/market-data';
+import { toClosePoints, toLatestPrices, WIRE_CLOSE_OPTION } from './translators/prices';
 import { toScreener } from './translators/screener';
 
 const FEED = { include_feed: true, feed_detail: true } as const;
+/** Ids per bulk-price request (the mobile app batches its gateway reads by 50). */
+const PRICE_BATCH = 50;
 
 /**
  * Adapter for Thndr's market-data endpoints (docs/api/market-data.md).
- * `api` targets https://prod.thndr.app, `krakend` targets https://prod.thndr.app/krakend-thndr-x; every krakend
- * response goes through {@link assertNoKrakendError}.
+ * `api` targets https://prod.thndr.app, `krakend` targets https://prod.thndr.app/krakend-thndr-x and `gateway` the
+ * mobile app's https://prod.thndr.app/krakend-thndr-app (docs/api/mobile-app.md §4.A); every KrakenD response goes
+ * through {@link assertNoKrakendError}.
  */
 export class ThndrMarketDataRepository implements MarketDataRepository {
   constructor(
     private readonly api: ThndrHttpClient,
     private readonly krakend: ThndrHttpClient,
+    private readonly gateway: ThndrHttpClient,
   ) {}
 
   async searchInstruments(query: string, market: Market): Promise<Instrument[]> {
@@ -89,6 +98,32 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
     });
     assertNoKrakendError(data, `GET ${path}`);
     return mapRows(data?.trades_candles, toCandle);
+  }
+
+  async getLatestPrices(ids: readonly AssetId[]): Promise<LatestPrice[]> {
+    const unique = [...new Set(ids.map((id) => id.value))].sort();
+    const out: LatestPrice[] = [];
+    for (let i = 0; i < unique.length; i += PRICE_BATCH) {
+      const path = '/securities/v2/price';
+      const data = await this.gateway.get<GatewayPriceResponseDto>(path, {
+        query: { asset_id: unique.slice(i, i + PRICE_BATCH) },
+      });
+      // The day snapshot only adds open/previous close: without it the price section is still a usable answer.
+      const usable =
+        data && typeof data === 'object' && Array.isArray(data.price?.results)
+          ? (({ error_asset_day_snapshot_v2: _ignored, ...rest }) => rest)(data as Record<string, unknown>)
+          : data;
+      assertNoKrakendError(usable, `GET ${path}`);
+      out.push(...toLatestPrices(usable as GatewayPriceResponseDto));
+    }
+    return out;
+  }
+
+  async getCloses(id: AssetId, market: Market, span: CloseSpan): Promise<ClosePoint[]> {
+    const data = await this.api.get<ChartsResponseDto>('/assets-service/charts', {
+      query: { asset_ids: id.value, option: WIRE_CLOSE_OPTION[span], market: instrumentMarket(market) },
+    });
+    return toClosePoints(data, id);
   }
 
   async getOrderBook(id: AssetId): Promise<OrderBook> {

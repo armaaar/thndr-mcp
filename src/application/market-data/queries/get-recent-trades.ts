@@ -23,7 +23,7 @@ export class GetRecentTrades extends Query<typeof input, RecentTrades> {
   readonly name = 'get_recent_trades';
   readonly title = 'Recent trades (time & sales)';
   readonly description =
-    'Latest executed trades for an instrument. Use `before` with the returned nextCursor to page back.';
+    'Egypt only: latest executed trades for an instrument. Use `before` with the returned nextCursor to page back.';
   readonly context = 'market-data';
   readonly input = input;
 

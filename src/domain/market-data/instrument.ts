@@ -24,7 +24,11 @@ export interface Instrument {
   readonly tags?: readonly string[];
 }
 
-/** The point-in-time trading snapshot of an instrument (one marketwatch row). */
+/**
+ * The point-in-time trading snapshot of an instrument: one marketwatch row in Egypt; elsewhere built from Thndr's bulk
+ * latest price (`quoteFromLatestPrice` in latest-price.ts), where only last, open, previous close, change, bid/ask and the price time
+ * are known and every other field is null.
+ */
 export interface Quote {
   readonly instrumentId: AssetId;
   readonly ticker: Ticker;
@@ -64,6 +68,7 @@ export interface Quote {
   readonly lastTradePrice: number | null;
   readonly lastTradeVolume: number | null;
   readonly suspended: boolean;
+  /** Time of the last trade; outside Egypt, the time of the latest price Thndr reports. */
   readonly lastTradeAt: Date | null;
 }
 

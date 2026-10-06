@@ -80,7 +80,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
   readonly name = 'screen_market';
   readonly title = 'Screen the market';
   readonly description =
-    'Filter and rank every instrument of a market using the live snapshot — e.g. top gainers ' +
+    'Egypt only: filter and rank every instrument of the market using the live snapshot — e.g. top gainers ' +
     '(sortBy=changePercent), top losers (order=asc), most active (sortBy=value), unusual volume ' +
     '(minRelativeVolume=200), value stocks (maxPeRatio, minDividendYield), a sector, the members of an index ' +
     "(index=EGX30), one of ThndrX's built-in screeners (preset=momentum-movers, breakout-radar, value-yield, " +

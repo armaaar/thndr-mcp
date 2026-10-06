@@ -16,16 +16,26 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 **Common to all use cases**
 
 - **Preconditions:** a Thndr session exists (every market-data endpoint is called with the full-access token).
-- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); a tool asked for something its market lacks answers `FEATURE_DISABLED` naming where it is available; `symbol` is a ticker (`COMI`, any case) or a Thndr
-  asset id (UUID), resolved by `InstrumentResolver`.
+- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae`
+  (ADX, AED) or `simulator` (paper trading), ADR 0021; a tool asked for something its market lacks answers
+  `FEATURE_DISABLED` naming where it is available; `symbol` is a ticker of that market (`COMI`, any case) or a Thndr
+  asset id (UUID) of any market, resolved by `InstrumentResolver`.
+- **Markets:** market data follows the **instrument's own market** (a simulator search answers with Egyptian and US
+  listings). Egypt has the whole-market snapshot (marketwatch), OHLC candles, the order book, financials and indices;
+  the other markets have quotes from the mobile gateway's bulk latest price and closing-price history only. A use case
+  never calls marketwatch for the US or the UAE (Thndr answers 400); the simulator, and any instrument reporting the
+  `simulator` market, reads Egypt's data (`dataMarket` / `snapshotMarket`,
+  `src/application/market-data/services/snapshot-market.ts`). Each section below states its
+  markets; guarded Egypt-only use cases answer `FEATURE_DISABLED` elsewhere without calling Thndr.
 - **Common error flows:**
   - No session → `NOT_AUTHENTICATED`; refresh credential rejected → `SESSION_EXPIRED` (re-approve).
   - Argument outside the use case's zod contract (unknown field, wrong type, enum, range) → `INVALID_INPUT`.
   - Invalid ticker/asset id format → `VALIDATION_ERROR`.
   - Ticker with no exact match → `NOT_FOUND` (with up to five suggestions).
   - Thndr HTTP error, network error, KrakenD embedded error or unexpected payload → `UPSTREAM_ERROR`.
-- Hosts: `prod` = `https://prod.thndr.app`, `krakend` = `https://prod.thndr.app/krakend-thndr-x`, `web` =
-  `https://x.thndr.app/api` (ThndrX's own routes, same full-access token).
+- Hosts: `prod` = `https://prod.thndr.app`, `krakend` = `https://prod.thndr.app/krakend-thndr-x`, `gateway` =
+  `https://prod.thndr.app/krakend-thndr-app` (the mobile app's KrakenD, same token, `error_<section>` keys checked),
+  `web` = `https://x.thndr.app/api` (ThndrX's own routes, same full-access token).
 
 ---
 
@@ -49,15 +59,18 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetInstrumentDetails` (`Query`) in `src/application/market-data/queries/get-instrument-details.ts`
 - **Invoke:** MCP `get_instrument_details {"symbol": "COMI"}` · CLI `thndr get-instrument-details COMI`
 - **Goal:** company profile and listing details of one instrument.
+- **Markets:** all; index membership only for Egypt (and Egyptian listings found through the simulator).
 - **Input:** `symbol`, `market`.
 - **Main flow:**
   1. Resolve the symbol to an asset id.
-  2. In parallel: fetch the asset details (always fresh) and the market's index membership (`IndexMembership`,
-     cached 6 h).
-- **Alternative/error flows:** membership failure → `indices: null` (the details are still returned); common errors.
+  2. In parallel: fetch the asset details (always fresh) and, when the instrument's market has indices (Egypt), that
+     market's index membership (`IndexMembership`, cached 6 h).
+- **Alternative/error flows:** membership failure → `indices: null` (the details are still returned); a US or UAE
+  instrument → `indices: null` without any membership call; common errors.
 - **Output:** `Instrument` including `description`, `logoUrl` and `tags` (Thndr's visible labels, e.g. "Banks",
   "EGX30 Index", "Same Day Tradable") when Thndr sends them, plus `indices` (symbols of the indices the instrument
-  belongs to, e.g. `["EGX30", "EGX30CAPPED"]`; `[]` for none). Themes among the tags (e.g. "Sharia") can be listed
+  belongs to, e.g. `["EGX30", "EGX30CAPPED"]`; `[]` for none; `null` outside Egypt). `sector` is Thndr's industry
+  (e.g. "Semiconductors & Semiconductor Equipment" for NVDA, "Banks" for FAB). Themes among the tags (e.g. "Sharia") can be listed
   with `get_tags` / `get_tag_instruments`.
 - **Thndr endpoints:** resolve (`/assets-service/assets/search` or cache) + `GET prod /assets-service/assets/{id}`;
   membership: `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` per index.
@@ -67,37 +80,59 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetPriceSnapshot` (`Query`) in `src/application/market-data/queries/get-price-snapshot.ts`
 - **Invoke:** MCP `get_price_snapshot {"symbols": ["COMI", "HRHO"]}` · CLI `thndr get-price-snapshot COMI HRHO` (or `--symbols COMI,HRHO`)
 - **Goal:** current quotes for up to 50 instruments.
-- **Input:** `symbols` (1–50), `market`.
+- **Markets:** all; asset ids of different markets may be mixed in one call.
+- **Input:** `symbols` (1–50; tickers of `market` or asset ids of any market), `market`.
 - **Main flow:**
-  1. Resolve all symbols and load the market snapshot in parallel (snapshot cached 10 s).
-  2. Pick each instrument's row from the snapshot.
+  1. Resolve all symbols.
+  2. Group them by their instrument's market (`quoteInstruments`, `services/instrument-quotes.ts`): Egyptian (and
+     simulator) listings take their row of Egypt's snapshot (cached 10 s); every other instrument — and an Egyptian
+     one missing from the snapshot — takes the gateway's bulk latest price, in one call for all of them.
+  3. Bulk prices become thin quotes (domain `quoteFromLatestPrice`): last, open, previous close, change and change %
+     from the previous close, bid/ask when Thndr has them, `lastTradeAt` = the price's time, `lastTradePrice` only when
+     the price is a trade; name, sector, board, currency and suspension from the listing; every other field null.
 - **Alternative/error flows:**
   - 0 or > 50 symbols → `INVALID_INPUT`.
   - Any unresolvable symbol → `NOT_FOUND` for the whole call.
-  - Resolved but absent from the snapshot (e.g. an index) → listed in `missing`.
-- **Output:** `quotes` (last, previousClose, open/high/low, change, changePercent, bid/ask and sizes, volume,
+  - Resolved but without a snapshot row or a bulk price → listed in `missing`.
+  - Bulk price section failing inside a 200 (`error_asset_price_v2`) → `UPSTREAM_ERROR`; only the day snapshot
+    failing (`error_asset_day_snapshot_v2`) → the prices without open/previous close (change null). When the bulk
+    price was only a fallback for Egyptian rows missing from the snapshot, its failure leaves them in `missing`.
+- **Output:** `quotes` (Egypt: last, previousClose, open/high/low, change, changePercent, bid/ask and sizes, volume,
   value, trades, lower/upper price limit, 52-week high/low, P/E, EPS, dividend yield, listed shares, market cap,
-  5/30/90-day average volume, last trade price and volume, board, suspended, lastTradeAt) and `missing` (tickers).
-- **Thndr endpoints:** resolve + `GET prod /assets-service/assets/marketwatch`.
+  5/30/90-day average volume, last trade price and volume, board, suspended, lastTradeAt; elsewhere the thin quote
+  above), `missing` (tickers) and `notes` (only when a thin quote is included, explaining the null fields).
+- **Thndr endpoints:** resolve + `GET prod /assets-service/assets/marketwatch` (Egypt) and/or
+  `GET gateway /securities/v2/price?asset_id=…` (repeated, sorted, ≤ 50 per call; live-verified for EGX, US and ADX
+  ids 2026-10-06).
 
 ## Price history — `get_price_history` (`GetPriceHistory`)
 
 - **Use case:** `GetPriceHistory` (`Query`) in `src/application/market-data/queries/get-price-history.ts`
 - **Invoke:** MCP `get_price_history {"symbol": "COMI", "resolution": "1d", "bars": 60}` · CLI `thndr get-price-history COMI --resolution 1d --bars 60` (or `--from 2026-01-01 --to 2026-01-31`)
-- **Goal:** OHLCV candles for charting or indicators.
+- **Goal:** OHLCV candles for charting or indicators; closing prices where Thndr has no candles.
+- **Markets:** all. Egypt: OHLCV candles. US, UAE (and US listings of the simulator): closing prices only — Thndr's
+  candles are empty there, and thndr-mcp never derives open/high/low from closes.
 - **Input:** `symbol`, `market`, `resolution` (`1min`, `5min`, `10min`, `1h`, `1d` default, `1w`), and either
   `bars` (1–2000, default 100) or `from`/`to` (ISO-8601).
 - **Main flow:**
   1. `to` defaults to now. Without `from`, derive it from `bars` × resolution, over-fetching (×4 intraday and
      `1h`, ×1.6 daily/weekly) because markets are closed most of the time.
   2. Validate and clamp the window to the last 5 years up to now.
-  3. Resolve the symbol, fetch candles, sort oldest first.
-  4. Without `from`, keep only the last `bars` candles.
+  3. Resolve the symbol. Egypt: fetch candles, sort oldest first; without `from`, keep the last `bars`.
+  4. Other markets: fetch the closing prices of the shortest Thndr span reaching back to the window's start
+     (`spanCovering`: `1d`, `1w`, `1M`, `6M`, `1y`, `2y`, `all`); with `from`, keep the points inside the window;
+     without it, the latest `bars` points up to `to` (`from` then reports the first point when the span starts earlier).
+     Thndr fixes the spacing per span (live 2026-10-06: `1w` hourly, `1M` daily, `1y` daily for UAE, `all` weekly back
+     to ~2021); `resolution` only sizes the window.
 - **Alternative/error flows:** malformed dates → `INVALID_INPUT`; `from ≥ to` or a window entirely outside the last 5 years →
-  `VALIDATION_ERROR`; malformed candles are dropped silently; common errors.
-- **Output:** `ticker`, `resolution`, `from`, `to` (effective window), `candles` (`time`, `open`, `high`, `low`,
-  `close`, `volume`).
-- **Thndr endpoints:** resolve + `GET krakend /feed/advanced-charts/v2/{id}/trades`.
+  `VALIDATION_ERROR`; malformed candles or closes are dropped silently; common errors.
+- **Output:** a union on `kind`:
+  - `{kind: "candles", market, ticker, resolution, from, to, candles: [{time, open, high, low, close, volume}]}`;
+  - `{kind: "closes", market, ticker, requestedResolution, span, granularity, from, to, points: [{time, close}],
+    note}` — `granularity` (`intraday`, `hourly`, `daily`, `weekly`, `monthly`, `unknown`) is measured from the
+    series (median gap).
+- **Thndr endpoints:** resolve + `GET krakend /feed/advanced-charts/v2/{id}/trades` (Egypt) or
+  `GET prod /assets-service/charts?asset_ids={id}&option={span}&market={instrument market: us, adsm…}`.
 
 ## Market depth — `get_market_depth` (`GetMarketDepth`)
 
@@ -225,19 +260,25 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetPeers` (`Query`) in `src/application/market-data/queries/get-peers.ts`
 - **Invoke:** MCP `get_peers {"symbol": "COMI"}` · CLI `thndr get-peers COMI [--limit 10]`
 - **Goal:** comparable instruments for one stock.
+- **Markets:** all for "similar stocks" (live-verified for the US 2026-10-06); the same-sector list only for Egypt
+  (it needs the whole-market snapshot).
 - **Input:** `symbol`, `market`, `limit` (1–20, default 5; per list).
-- **Main flow:**
+- **Main flow (Egypt, and Egyptian listings of the simulator):**
   1. Resolve the symbol.
-  2. In parallel: load the market snapshot and Thndr's "similar stocks" (`recommendations_number = limit`).
+  2. In parallel: load Egypt's snapshot and Thndr's "similar stocks" (`recommendations_number = limit`).
   3. Join the similar stocks with their quotes (the instrument itself is dropped).
   4. Same sector: the other non-index rows of the snapshot with the instrument's sector (its quote's sector, else
      its listing's), largest market cap first.
-- **Alternative/error flows:** a similar stock absent from the snapshot keeps its ticker, name and sector with null
-  prices; no sector → `sameSector: []`; common errors.
+- **Other markets (US, UAE):** no marketwatch call. Thndr's similar stocks (with the instrument's own market) are
+  joined with their bulk latest prices (`last`, `changePercent`; `value`, `marketCap`, `peRatio`,
+  `dividendYieldPercent` null); `sameSector: []`, `sameSectorTotal: 0` and `notes` say why.
+- **Alternative/error flows:** a similar stock absent from the snapshot (or without a bulk price) keeps its ticker,
+  name and sector with null prices; no sector → `sameSector: []`; common errors.
 - **Output:** `market`, `ticker`, `sector`, `similar` and `sameSector` (each `ticker`, `name`, `sector`, `last`,
-  `changePercent`, `value`, `marketCap`, `peRatio`, `dividendYieldPercent`), `sameSectorTotal`.
+  `changePercent`, `value`, `marketCap`, `peRatio`, `dividendYieldPercent`), `sameSectorTotal`, `notes?` (outside
+  Egypt).
 - **Thndr endpoints:** resolve + `GET prod /assets-service/assets/{id}/recommendations?market&recommendations_number&include_feed&feed_detail`
-  + `GET prod /assets-service/assets/marketwatch`.
+  + `GET prod /assets-service/assets/marketwatch` (Egypt) or `GET gateway /securities/v2/price` (elsewhere).
 
 ## Price performance — `get_price_performance` (`GetPricePerformance`)
 
@@ -245,6 +286,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   (calculations: `pricePerformance` in `src/domain/market-data/performance.ts`)
 - **Invoke:** MCP `get_price_performance {"symbol": "COMI"}` · CLI `thndr get-price-performance COMI`
 - **Goal:** trailing performance and risk statistics of one instrument (IBKR has none; ADR 0018).
+- **Markets:** all. Egypt from daily candles (below); other markets from closing prices (see "Outside Egypt").
 - **Input:** `symbol`, `market`.
 - **Main flow:**
   1. Resolve the symbol.
@@ -260,17 +302,25 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
      returns × √252, in percent (null with too few sessions).
   6. 52-week high/low from the daily highs/lows after the 1Y start day (a low ≤ 0 is a bad bar: the session's close
      counts instead); maximum drawdown on closes from the 1Y base close (tied peaks keep the first).
-- **Alternative/error flows:** common errors. No candles → nulls and empty lists. Thndr's one-year return fails
+- **Outside Egypt** (domain `closePerformance`): step 2 fetches Thndr's closing prices for the spans `1M`, `1y` and
+  `all` (plus the one-year return) and joins them finest first (`mergeCloseSeries`: a coarser series only adds points
+  more than 12 h older than the finer ones), so recent returns use daily closes and long-period bases may be weekly
+  closes. Volatility uses only the trailing run of daily closes (consecutive closes at most 5 days apart), so weekly
+  points never count as daily returns; the 52-week high/low are the highest and lowest **close** (`week52.basis:
+  "close"`); the drawdown is unchanged. `history.resolution` is `closes` and `history.sources` lists each span with
+  its measured `granularity`, first day and point count; `method` explains it.
+- **Alternative/error flows:** common errors. No candles/closes → nulls and empty lists. Thndr's one-year return fails
   (upstream or not-found error) → `thndrOneYearReturn: null` and a note; the statistics are still returned.
 - **Output:** `ticker`, `name`, `currency`, `asOf` (day of the latest close), `lastClose`, `returns`
   (`[{period, startDate, baseDate, baseClose, returnPercent}]`), `volatility` (`[{window, tradingDays,
-  annualisedPercent}]`), `week52` (`{high, highDate, low, lowDate}`), `maxDrawdown1Y` (`{percent, peakDate,
-  troughDate}`), `thndrOneYearReturn` (`{percent, direction}` or null), `history` (`firstDate`, `sessions`), `method`,
-  `notes?`.
+  annualisedPercent}]`), `week52` (`{basis: "high-low" | "close", high, highDate, low, lowDate}`), `maxDrawdown1Y`
+  (`{percent, peakDate, troughDate}`), `thndrOneYearReturn` (`{percent, direction}` or null), `history` (`firstDate`,
+  `sessions`, `resolution: "1d" | "closes"`, `sources?`), `method`, `notes?`.
   Percentages are rounded to 2 decimals and prices to 4. Thndr's daily candles look adjusted for corporate actions
   (fractional prices), so these figures can differ from raw closes. `thndrOneYearReturn` is Thndr's own figure; its
   method is not published.
-- **Thndr endpoints:** (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades?resolution=1D` +
+- **Thndr endpoints:** (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades?resolution=1D` (Egypt) or
+  `GET prod /assets-service/charts?asset_ids&option=1M|1y|all&market` (elsewhere) +
   `GET prod /assets-service/assets/{id}?include_yearly_return=true`.
 
 ## Company financials — `get_financials` (`GetFinancials`)
@@ -331,9 +381,11 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Invoke:** MCP `get_news {"symbol": "COMI", "limit": 2}` · CLI `thndr get-news COMI [--limit 2] [--page 2] [--locale ar] [--content-chars 0]`;
   market-wide: `thndr get-news`
 - **Goal:** recent news and exchange disclosures, for one instrument or market-wide.
-- **Input:** `symbol` (optional; omit for market-wide news across Thndr's markets), `market` (only to resolve the
-  symbol: market-wide news cannot be filtered by market — the endpoint ignores a `market` parameter and mixes EGX
-  and US items, live-verified 2026-10-06), `page` (default 1, 25 per page), `limit` (keep the first N articles of
+- **Markets:** all per instrument (US instruments have plenty, live 2026-10-06; UAE instruments may have none);
+  market-wide: US news for `market: "us"`, else Thndr's mixed feed.
+- **Input:** `symbol` (optional; omit for market-wide news), `market` (resolves the symbol; without a symbol, `us`
+  selects the gateway's US market news, and any other market Thndr's legacy feed, which ignores a `market` parameter
+  and mixes EGX and US items, live-verified 2026-10-06), `page` (default 1, 25 per page), `limit` (keep the first N articles of
   the page, 1–25, default 25), `locale` (`en` default, `ar`), `contentChars` (truncate each article's content to N
   characters, default 500, 0 omits it, up to 20000).
 - **Main flow:**
@@ -346,11 +398,14 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   4. Keep the first `limit` articles; truncate content longer than `contentChars` (adds `…` and
      `contentTruncated: true`).
 - **Alternative/error flows:** a page past the last one → empty `items`, `hasMore: false`. Common errors.
-- **Output:** `ticker` (or null), `locale`, `page`, `total` (Thndr's count across pages, duplicates included),
+- **Output:** `ticker` (or null), `market` (`us` for US market news, else null), `locale` (null for US market news:
+  that feed takes no locale), `page`, `total` (Thndr's
+  count across pages, duplicates included),
   `hasMore` (another page exists, or `limit` left articles of this page out), `duplicatesRemoved`, `items`
   (`[{id, title, content?, contentTruncated?, source, link, publishedAt, market, tickers}]`). Many EGX disclosures
   have empty content: their text is the PDF at `link`.
-- **Thndr endpoints:** (resolve) + `GET prod /api/post/news/?asset_id=&locale=&page=`.
+- **Thndr endpoints:** (resolve) + `GET prod /api/post/news/?asset_id=&locale=&page=`; US market news:
+  `GET gateway /news/v1/market?markets=us&page=&page_size=25` (same item shape; `locale` not sent).
 
 ## Egypt economic indicators — `get_economic_indicators` (`GetEconomicIndicators`)
 

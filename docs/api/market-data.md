@@ -307,6 +307,9 @@ See section 8 (Misc market endpoints) below.
 There are **two** history endpoints.
 
 ### 2.1 Simple line chart — `GET /assets-service/charts` [C]
+> **Live (2026-10-06) [P]:** serves closing prices for every market — `market` is the instrument's own market (`us`,
+> `adsm`, `egypt`); thndr-mcp uses it for price history and performance outside Egypt (`getCloses`). Spacing per
+> option and the bulk-quote endpoint: [mobile-app.md §2.10](mobile-app.md).
 - Client `aP`. Used by the stock landing/overview mini-chart (`chunks_4856-b1391c64ea89d9ab.js:375-405`).
 - Params (`paramsSerializer: { indexes: null }` → repeated keys `asset_ids=a&asset_ids=b`):
   - `asset_ids: string[]`

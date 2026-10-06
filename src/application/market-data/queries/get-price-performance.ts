@@ -1,7 +1,19 @@
 import {
+  type CloseGranularity,
+  type ClosePoint,
+  type CloseSpan,
+  closeGranularity,
+  mergeCloseSeries,
+} from '../../../domain/market-data/close-series';
+import type { Instrument } from '../../../domain/market-data/instrument';
+import {
   BASE_FORWARD_DAYS,
+  closePerformance,
   type Drawdown,
+  MAX_DAILY_GAP_DAYS,
+  marketDay,
   type PeriodReturn,
+  type PricePerformance,
   pricePerformance,
   type RangeExtremes,
   type Volatility,
@@ -9,11 +21,12 @@ import {
 import type { YearlyReturn } from '../../../domain/market-data/research';
 import type { AssetId } from '../../../domain/shared-kernel/asset-id';
 import { roundTo } from '../../../domain/shared-kernel/guards';
-import { parseMarket } from '../../../domain/shared-kernel/market';
+import { marketSupports, parseMarket } from '../../../domain/shared-kernel/market';
 import { FeatureDisabledError, NotFoundError, UpstreamError } from '../../errors';
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
+import { dataMarket } from '../services/snapshot-market';
 
 const input = { symbol: symbolInput, market: marketInput };
 
@@ -37,7 +50,14 @@ export interface PricePerformanceView {
   maxDrawdown1Y: Drawdown | null;
   /** Thndr's own one-year return (asset details), for reference; null when Thndr gives none or fails. */
   thndrOneYearReturn: YearlyReturn | null;
-  history: { firstDate: string | null; sessions: number; resolution: '1d' };
+  history: {
+    firstDate: string | null;
+    sessions: number;
+    /** `1d`: Egypt's daily candles. `closes`: Thndr's closing-price series (other markets: no candles). */
+    resolution: '1d' | 'closes';
+    /** Closes only: the series joined, finest first, with the spacing Thndr gave each. */
+    sources?: CloseSource[];
+  };
   method: string;
   notes?: string[];
 }
@@ -51,6 +71,28 @@ const METHOD =
   'in percent. The 52-week range uses daily highs and lows; the maximum drawdown uses closes from the 1Y base. ' +
   'thndrOneYearReturn is Thndr’s own figure and may differ (Thndr’s method is not published).';
 
+/** One closing-price series used by the computation. */
+export interface CloseSource {
+  span: CloseSpan;
+  granularity: CloseGranularity;
+  firstDate: string | null;
+  points: number;
+}
+
+/** Spans joined for markets without candles, finest first: daily recent closes, then the weekly full history. */
+const CLOSE_SPANS_USED: readonly CloseSpan[] = ['1M', '1y', 'all'];
+
+const CLOSES_METHOD =
+  'Computed from Thndr’s closing prices (this market has no candles): its 1M, 1Y and full-history series joined, ' +
+  'finest first — each `history.sources` entry gives the spacing Thndr used (daily recent closes, weekly older ' +
+  'ones), so long-period bases may be a weekly close. Returns are close to close; the base is the last close on or ' +
+  `before the period start, else the first close at most ${BASE_FORWARD_DAYS} days after it; null when history ` +
+  'does not reach back that far. Volatility uses only the trailing run of daily closes (consecutive closes at most ' +
+  `${MAX_DAILY_GAP_DAYS} days apart): the sample standard deviation of daily log returns × √252, in percent, null ` +
+  'when that run is shorter than the window. The 52-week high/low are the highest and lowest CLOSE (no intraday ' +
+  'range is available); the maximum drawdown uses closes from the 1Y base. thndrOneYearReturn is Thndr’s own ' +
+  'figure and may differ.';
+
 const r2 = (value: number | null) => (value === null ? null : roundTo(value, 2));
 /** Thndr's daily candles carry adjusted prices with many decimals. */
 const r4 = (value: number | null) => (value === null ? null : roundTo(value, 4));
@@ -59,9 +101,10 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
   readonly name = 'get_price_performance';
   readonly title = 'Price performance';
   readonly description =
-    'Trailing performance of one instrument computed from Thndr’s daily candles: returns over 1W, 1M, 3M, 6M, YTD, ' +
-    '1Y, 3Y and 5Y, annualised historical volatility (30-day, 90-day, 1-year), the 52-week high/low, the 1-year ' +
-    'maximum drawdown, and Thndr’s own one-year return.';
+    'All markets: trailing performance of one instrument — returns over 1W, 1M, 3M, 6M, YTD, 1Y, 3Y and 5Y, ' +
+    'annualised historical volatility (30-day, 90-day, 1-year), the 52-week high/low, the 1-year maximum drawdown, ' +
+    'and Thndr’s own one-year return. Egypt: from daily candles. US, UAE and others: from Thndr’s closing prices ' +
+    '(daily recent closes, weekly older ones; the 52-week range is of closes) — see `history` and `method`.';
   readonly context = 'market-data';
   readonly input = input;
 
@@ -71,15 +114,8 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
 
   async execute(params: InputOf<typeof input>): Promise<PricePerformanceView> {
     const instrument = await this.deps.resolver.resolve(params.symbol, parseMarket(params.market));
-    const to = this.deps.clock.now();
-    const from = new Date(to.getTime());
-    from.setUTCFullYear(from.getUTCFullYear() - LOOKBACK_YEARS);
-    from.setUTCDate(from.getUTCDate() - LOOKBACK_MARGIN_DAYS);
-    const [candles, yearly] = await Promise.all([
-      this.deps.repository.getCandles(instrument.id, '1d', from, to),
-      this.yearlyReturn(instrument.id),
-    ]);
-    const stats = pricePerformance(candles);
+    const [series, yearly] = await Promise.all([this.series(instrument), this.yearlyReturn(instrument.id)]);
+    const { stats } = series;
     return {
       ticker: instrument.ticker.value,
       name: instrument.name,
@@ -102,8 +138,13 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
         percent: roundTo(stats.maxDrawdown1Y.percent, 2),
       },
       thndrOneYearReturn: yearly.value,
-      history: { firstDate: stats.firstDate, sessions: stats.sessions, resolution: '1d' },
-      method: METHOD,
+      history: {
+        firstDate: stats.firstDate,
+        sessions: stats.sessions,
+        resolution: series.sources ? 'closes' : '1d',
+        ...(series.sources ? { sources: series.sources } : {}),
+      },
+      method: series.sources ? CLOSES_METHOD : METHOD,
       ...(yearly.failed
         ? {
             notes: [
@@ -112,6 +153,34 @@ export class GetPricePerformance extends Query<typeof input, PricePerformanceVie
           }
         : {}),
     };
+  }
+
+  /** Egypt: ~5 years of daily candles. Elsewhere: Thndr's close series of several spans, joined finest first. */
+  private async series(
+    instrument: Instrument,
+  ): Promise<{ stats: PricePerformance; sources?: CloseSource[] }> {
+    const home = dataMarket(instrument.market);
+    if (!marketSupports(home, 'candles')) {
+      const all = await Promise.all(
+        CLOSE_SPANS_USED.map((span) => this.deps.repository.getCloses(instrument.id, home, span)),
+      );
+      const sources = CLOSE_SPANS_USED.map((span, i): CloseSource => {
+        const points = all[i] as ClosePoint[];
+        const first = points.reduce<Date | null>((min, p) => (min && min <= p.time ? min : p.time), null);
+        return {
+          span,
+          granularity: closeGranularity(points),
+          firstDate: first ? marketDay(first) : null,
+          points: points.length,
+        };
+      });
+      return { stats: closePerformance(mergeCloseSeries(...all)), sources };
+    }
+    const to = this.deps.clock.now();
+    const from = new Date(to.getTime());
+    from.setUTCFullYear(from.getUTCFullYear() - LOOKBACK_YEARS);
+    from.setUTCDate(from.getUTCDate() - LOOKBACK_MARGIN_DAYS);
+    return { stats: pricePerformance(await this.deps.repository.getCandles(instrument.id, '1d', from, to)) };
   }
 
   /** Thndr's reference figure: a failure must not cost the whole answer. */

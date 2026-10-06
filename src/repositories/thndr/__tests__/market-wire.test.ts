@@ -29,7 +29,7 @@ function setup(answer: (req: RecordedRequest) => Response = () => json({})) {
     last,
     portfolio: new ThndrPortfolioRepository(api, krakend),
     engagement: new ThndrEngagementRepository(api, krakend),
-    market: new ThndrMarketDataRepository(api, krakend),
+    market: new ThndrMarketDataRepository(api, krakend, client(`${API}/krakend-thndr-app`)),
   };
 }
 

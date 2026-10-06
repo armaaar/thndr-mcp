@@ -62,19 +62,19 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | MCP tool | CLI command | Use case | Thndr endpoint(s) | IBKR equivalent |
 | --- | --- | --- | --- | --- |
 | `search_instruments` | `thndr search-instruments <query>` | `SearchInstruments` (`market-data/queries/search-instruments.ts`) | `GET prod /assets-service/assets/search` | `search_contracts` |
-| `get_instrument_details` | `thndr get-instrument-details <symbol>` | `GetInstrumentDetails` (`market-data/queries/get-instrument-details.ts`) | (resolve) + `GET prod /assets-service/assets/{id}` (+ index membership) | `search_contracts` (contract details) |
-| `get_price_snapshot` | `thndr get-price-snapshot <symbols…>` | `GetPriceSnapshot` (`market-data/queries/get-price-snapshot.ts`) | (resolve) + `GET prod /assets-service/assets/marketwatch` | `get_price_snapshot` |
-| `get_price_history` | `thndr get-price-history <symbol>` | `GetPriceHistory` (`market-data/queries/get-price-history.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` | `get_price_history` |
+| `get_instrument_details` | `thndr get-instrument-details <symbol>` | `GetInstrumentDetails` (`market-data/queries/get-instrument-details.ts`) | (resolve) + `GET prod /assets-service/assets/{id}` (+ index membership, Egypt only) | `search_contracts` (contract details) |
+| `get_price_snapshot` | `thndr get-price-snapshot <symbols…>` | `GetPriceSnapshot` (`market-data/queries/get-price-snapshot.ts`) | (resolve) + `GET prod /assets-service/assets/marketwatch` (Egypt) / `GET gateway /securities/v2/price` (other markets) | `get_price_snapshot` |
+| `get_price_history` | `thndr get-price-history <symbol>` | `GetPriceHistory` (`market-data/queries/get-price-history.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` (Egypt candles) / `GET prod /assets-service/charts` (closes elsewhere) | `get_price_history` |
 | `get_market_depth` | `thndr get-market-depth <symbol>` | `GetMarketDepth` (`market-data/queries/get-market-depth.ts`) | (resolve) + `GET prod /assets-service/market-depth/{id}` | — (not in IBKR MCP) |
 | `get_recent_trades` | `thndr get-recent-trades <symbol>` | `GetRecentTrades` (`market-data/queries/get-recent-trades.ts`) | (resolve) + `GET prod /assets-service/market-depth/v3/trades-book/{id}` | — |
 | `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` + `GET app /explore/v1/default-market-indicators` (the market's indices) | — (market clock) |
 | `screen_market` | `thndr screen-market` | `ScreenMarket` (`market-data/queries/screen-market.ts`) | `GET prod /assets-service/assets/marketwatch` (+ index members, `GET prod /users-service/screeners/{id}` for `screenerId`) | — |
 | `get_screeners` | `thndr get-screeners` | `GetScreeners` (`market-data/queries/get-screeners.ts`) | `GET prod /users-service/screeners` (+ ThndrX's built-in presets) | — |
 | `get_index_constituents` | `thndr get-index-constituents <index>` | `GetIndexConstituents` (`market-data/queries/get-index-constituents.ts`) | `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` (`constituents`) + `GET prod /assets-service/assets/market-indicators` (names) | — |
-| `get_peers` | `thndr get-peers <symbol>` | `GetPeers` (`market-data/queries/get-peers.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/recommendations` + `GET prod /assets-service/assets/marketwatch` | `get_company_connections` (closest) |
-| `get_price_performance` | `thndr get-price-performance <symbol>` | `GetPricePerformance` (`market-data/queries/get-price-performance.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` (1D, ~5 years) + `GET prod /assets-service/assets/{id}?include_yearly_return=true` | — (PortfolioAnalyst-style statistics) |
+| `get_peers` | `thndr get-peers <symbol>` | `GetPeers` (`market-data/queries/get-peers.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/recommendations` + `GET prod /assets-service/assets/marketwatch` (Egypt) / `GET gateway /securities/v2/price` (elsewhere) | `get_company_connections` (closest) |
+| `get_price_performance` | `thndr get-price-performance <symbol>` | `GetPricePerformance` (`market-data/queries/get-price-performance.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` (1D, ~5 years; Egypt) / `GET prod /assets-service/charts` (`1M`, `1y`, `all`; elsewhere) + `GET prod /assets-service/assets/{id}?include_yearly_return=true` | — (PortfolioAnalyst-style statistics) |
 | `get_financials` | `thndr get-financials <symbol>` | `GetFinancials` (`market-data/queries/get-financials.ts`) | (resolve) + `GET web /financials`; sector comparison: + `GET prod /assets-service/assets/marketwatch` + `GET web /financials?symbols=` | — (fundamentals) |
-| `get_news` | `thndr get-news [symbol]` | `GetNews` (`market-data/queries/get-news.ts`) | (resolve) + `GET prod /api/post/news/` | — |
+| `get_news` | `thndr get-news [symbol]` | `GetNews` (`market-data/queries/get-news.ts`) | (resolve) + `GET prod /api/post/news/`; US market news: `GET gateway /news/v1/market` | — |
 | `get_economic_indicators` | `thndr get-economic-indicators` | `GetEconomicIndicators` (`market-data/queries/get-economic-indicators.ts`) | `GET web /macros` | — |
 | `get_markets` | `thndr get-markets` | `GetMarkets` (`market-data/queries/get-markets.ts`) | `GET prod /compliance-service/eligibilities/v2/visible-markets` (+ the per-market capability table) | — (account markets) |
 | `get_market_movers` | `thndr get-market-movers` | `GetMarketMovers` (`market-data/queries/get-market-movers.ts`) | `GET prod /assets-service/assets/rank` (Egypt, US) | — (scanner-like) |
@@ -84,9 +84,17 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_dividends` | `thndr get-dividends <symbol>` | `GetDividends` (`market-data/queries/get-dividends.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/dividends` | — |
 
 "(resolve)" = `InstrumentResolver`: cache, else `GET /assets-service/assets/search` (ticker) or
-`GET /assets-service/assets/{id}` (asset id). `app` = `https://prod.thndr.app/krakend-thndr-app` (the mobile app's
-gateway, ADR 0021). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
-each index's `GET /assets-service/assets/{indexId}` (`constituents`), cached 6 h.
+`GET /assets-service/assets/{id}` (asset id). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
+each index's `GET /assets-service/assets/{indexId}` (`constituents`), cached 6 h. `gateway` = the mobile app's
+KrakenD, `https://prod.thndr.app/krakend-thndr-app`.
+
+Markets (ADR 0021; market data follows the instrument's own market, the simulator reads Egypt's data):
+**all markets** — `search_instruments`, `get_instrument_details` (indices Egypt only), `get_price_snapshot` (thin
+quotes outside Egypt), `get_price_history` (closing prices outside Egypt), `get_peers` (no same-sector list outside
+Egypt), `get_price_performance` (from closes outside Egypt), `get_news`; **Egypt, US, UAE** — `get_market_status`;
+**Egypt and US** — `get_market_movers`, `get_tags`, `get_tag_instruments`; **Egypt, US, UAE** — `get_trending`;
+**any market** — `get_markets`, `get_dividends`; **Egypt only** — `get_market_depth`, `get_recent_trades`, `screen_market`, `get_index_constituents`,
+`get_financials`, `get_economic_indicators` (others answer `FEATURE_DISABLED` without calling Thndr).
 
 ## Portfolio — [details](portfolio.md)
 
@@ -103,7 +111,7 @@ All read-only ([ADR 0006](../adr/0006-trading-safety.md)).
 | `get_sell_journal` | `thndr get-sell-journal` | `GetSellJournal` (`portfolio/queries/get-sell-journal.ts`) | `GET krakend /trading-journals/v1/grouped-sells` | `get_account_trades` |
 | `get_trading_metrics` | `thndr get-trading-metrics` | `GetTradingMetrics` (`portfolio/queries/get-trading-metrics.ts`) | `GET krakend /trading-journals/v1/trading-metrics` (+ resolve tickers) | — |
 | `get_account_activity` | `thndr get-account-activity` | `ListAccountActivity` (`portfolio/queries/list-account-activity.ts`) | `GET prod /funding-service/account-activities` (one page, or paged through a `from`/`to`/`period` range) | `get_account_trades` (activity) |
-| `get_portfolio_allocation` | `thndr get-portfolio-allocation` | `GetPortfolioAllocation` (`portfolio/queries/get-portfolio-allocation.ts`) (→ `MarketQuotesCache`, `IndexMembership`) | `GET prod /market-service/accounts/wallet-and-portfolio`, `GET prod /assets-service/assets/marketwatch`, index `constituents` (`GET prod /assets-service/assets/{id}`, cached 6 h) | `get_pa_allocation` |
+| `get_portfolio_allocation` | `thndr get-portfolio-allocation` | `GetPortfolioAllocation` (`portfolio/queries/get-portfolio-allocation.ts`) (→ `MarketQuotesCache`, `IndexMembership`, `InstrumentResolver`) | `GET prod /market-service/accounts/wallet-and-portfolio`, Egypt/simulator: `GET prod /assets-service/assets/marketwatch`, index `constituents` (`GET prod /assets-service/assets/{id}`, cached 6 h); holdings outside the snapshot: `GET prod /assets-service/assets/{id}` (≤ 30) | `get_pa_allocation` |
 | `get_portfolio_performance` | `thndr get-portfolio-performance` | `GetPortfolioPerformance` (`portfolio/queries/get-portfolio-performance.ts`) | `GET prod /market-service/realized-returns/chart/6M` and `/2Y` | `get_pa_performance_all_periods` |
 | `get_savings` | `thndr get-savings` | `GetSavings` (`portfolio/queries/get-savings.ts`) | `GET krakend /savings/v1/clouds`, `GET krakend /savings/v1/clouds-stats` | `get_account_balances` (closest) |
 

@@ -361,6 +361,9 @@ People search (`/explore/v1/people/search?q&page&page_count`) also exists (M8040
 Provider label per market: `…provider.title.us|egypt|adx` (i18n keys only). No separate US fundamentals endpoint was found besides these fields and the legacy analysis endpoints (2.9).
 
 ### 2.3 Live / bulk quotes
+**[P] 2026-10-06:** the bulk price answers with our ThndrX token for EGX, US and ADX ids in one call; thndr-mcp's
+`getLatestPrices` uses it (exact live shape in §2.10).
+
 **Bulk price (all markets)** — `GET apiGateway /securities/v2/price?asset_id=A&asset_id=B…` (M5514 `getSecurityPrice`, `SECURITY_PRICE_ENDPOINT='securities/v2/price'`) [C]. KrakenD response:
 ```
 { price: {results:[{asset_id, price:{last:{value}|null, ask:{value}|null, bid:{value}|null,
@@ -383,6 +386,9 @@ Mapped to `priceType: transactional (last) | quote (bid/ask) | nav (funds) | rat
 - No websocket / `relay.thndr.app` usage found in market data (relay is elsewhere).
 
 ### 2.4 Price history
+**[P] 2026-10-06:** OHLC candles (krakend `feed/advanced-charts`) are empty for US/UAE; `assets-service/charts` serves
+closes for every market (§2.10). thndr-mcp uses candles for Egypt and closes elsewhere.
+
 Chart intervals `MOBILE_CHART_INTERVALS` (M1876): `1d, 1d-1min, 1w, 1w-1h, 1M, 6M, 1y, 1y-1d, 2y, all` [C].
 
 **Routing** (`getAssetChartData`, M5461 simplified.js:~835800; V2 in M5620) [C]:
@@ -403,12 +409,19 @@ TradingView (flag `mobile_enable_tradingview_charts`): `GET apiGateway /charts/v
 Mutual funds: `GET apiGateway /charts/v1/mutual-funds/{symbol}?option`, legacy `GET thndrApi /assets-service/charts/mutual-funds/{fund}?fund_name&option` [C]. Gold: `GOLD_INDEX_SECURITY_ID 33633457-…`, gold V2 price via `securities/v2/price` (M4299) [C].
 
 ### 2.5 Order book & trades
+**[P] 2026-10-06:** order book and trades book answer 403 `FEATURE_DISABLED` for US/UAE instruments (thndr-mcp guards
+them as Egypt-only).
 - **Egypt** depth: `GET thndrApi /assets-service/market-depth/{id}` every 2 s (M1870/M1868) → `bids_per_price[], asks_per_price[], total_bids_and_asks{total_bids,total_asks}` [C].
 - **UAE (adsm)** depth: **Firebase RTDB** `abudhabiPriceDepth/{assetId}` → rows `{bid:{price,quantity,orders_count}, ask:{…}}` (`useAdxRealtimePriceDepth`, M3820); needs `PRICE_DEPTH` subscription for ADX and ADSM eligibility (`useLevel2MarketDataVisibility`, M3828) [C].
 - **US**: no depth or trades book [C: `shouldShowTradesBook` = market==egypt; depth only egypt/adsm].
 - Trades book (Egypt only): `GET thndrApi /assets-service/market-depth/{v2|v3}/trades-book/{id}?page_size=20&before={last_cursor}&after={first_cursor}`; `v3` with flag `mobile_marketdata_trades_book_v3`, default `v2` (decompiled.js:1355308) → `{trades[], first_cursor, last_cursor}`, v2 trades have `side: BUY|SELL` [C].
 
 ### 2.6 News
+**[P] 2026-10-06:** the legacy `prod /api/post/news/?asset_id=` works for US instruments (10k+ articles for NVDA) and is
+empty for FAB; `{gw}/news/v1/market?markets=us&page&page_size` answers the same item shape (`count, next, results[{id,
+title, content, created_at, link, source, market, stocks[{asset_id, symbol}]}]`) — used by thndr-mcp for US
+market-wide news; `{gw}/explore/v1/news/articles?asset_id&page&page_size` answers richer items (`category`,
+`sentiment`, `confidence`, `ai_status`, `asset_ids`, `added_at`) — not used yet.
 - **US**: `GET apiGateway /news/v1/market?markets=us&asset_id={id,id…}&page&page_size` (M5555 `getUSNews`) → `{count, next, results:[{id, title, link, source, created_at, stocks:[{asset_id}]}]}`, error `error_news-service` [C].
 - **Egypt & others** (any market ≠ `us`, M5552 `fetchNewsPage`): `GET apiGateway /explore/v1/news/articles?page&page_size&source*&category*&sentiment*&asset_id*&scope&search&from_date&to_date` (M5557) → `results[{key,title,title_i18n,link,source,summary_i18n,sentiment,category,scope,asset_ids,published_at|added_at}]`, `count,next`, error `error_get_news_articles`; page size 15 [C]. Sources: `GET apiGateway /explore/v1/news/sources` → `news_sources` [C].
 - Per-security (portfolio): `GET apiGateway news/v1/asset?asset_id={ids}&locale&page&page_size` → `results[{created_at, link,…}]` (M7769) [C].
@@ -430,6 +443,29 @@ Mutual funds: `GET apiGateway /charts/v1/mutual-funds/{symbol}?option`, legacy `
 - `GET prod.thndr.app/assets-service/assets/{id}/analytics` — analyst rating (fair value, potential change up/down, rank `SIGNIFICANTLY_UNDERVALUED…SIGNIFICANTLY_OVERVALUED`, good/bad review cards, last updated) (M6547 `getAnalytics`, UI M5317); `/assets/{id}/analytics-report` → report URL.
 - `GET /assets-service/analysis/financial|consensus|technical/{assetId}` (M6598 `getFinancials/getAssetConsensus/getAssetTechnical`).
 No market gating found; data likely Egypt-only [I].
+
+
+### 2.10 Live checks of market data per market [P] (read-only, 2026-10-06)
+- **Bulk quotes** `GET {gw}/securities/v2/price?asset_id=A&asset_id=B…` →
+  `{day_snapshot:{results:[{asset_id, day_snapshot:{ask, bid, last:{close, open, previous_close,
+  market_effective_timestamp}, rate}}]}, price:{results:[{asset_id, price:{ask, bid, last:{value, price_field
+  (last_trade_price|close), market_effective_timestamp}, nav, rate}}]}}`; timestamps are epoch **nanoseconds**; US
+  rows carry `price_field: close`, EGX/ADX rows `last_trade_price` during the session. ThndrX's krakend
+  `/securities/v1/price` answers 403 `FEATURE_DISABLED`: use the app gateway.
+- **Marketwatch** only for Egypt: 400 "Marketwatch is not supported for this market" for `us`, `adsm`, `simulator`.
+- **Closes** `GET {api}/assets-service/charts?asset_ids=<id>&option=<1d|1w|1M|6M|1y|2y|all>&market=<us|adsm|egypt>` →
+  `{<assetId>: {<ISO time>: close}}`. Spacing seen: `1d` 5-minute (EGX), `1w` hourly, `1M` daily (US stamps at
+  04:00Z), `1y` daily for UAE (00:00Z) / weekly for Egypt, `all` weekly back to ~2021. `1d-1min` → 403
+  `FEATURE_DISABLED` for the US.
+- **Search** `assets-service/assets/search?market=` takes the instrument market (`adsm` for the UAE); the simulator's
+  search returns Egyptian (and US) listings, each with its own `market`.
+- **Asset details** work for every market: US `industry` such as "Semiconductors & Semiconductor Equipment",
+  `currency` "USD", `feed.market_id` "stocks"; FAB `industry` "Banks", `currency` "AED", `feed.market_id` "R",
+  `market` "adsm".
+- **Financials** (`x.thndr.app/api/financials`) 404 for NVDA and FAB. **Recommendations** ("similar stocks") work for
+  `market=us`.
+- **Market status** works for egypt/us/uae (US hours answered 13:30–20:00 UTC on 2026-10-06, i.e. 09:30–16:00
+  New York daylight time); the simulator has no hours (422) and a null status.
 
 ---
 
