@@ -71,6 +71,8 @@ describe('market profiles and features', () => {
       ['financials', ['egypt']],
       ['indices', ['egypt']],
       ['movers', ['egypt', 'us']],
+      ['trending', ['egypt', 'us', 'uae']],
+      ['tags', ['egypt', 'us']],
       ['marketStatus', ['egypt', 'us', 'uae']],
       ['account', ['egypt', 'us', 'uae', 'simulator']],
       ['activity', ['egypt', 'us', 'uae']],
