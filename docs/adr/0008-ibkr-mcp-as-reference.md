@@ -23,8 +23,7 @@ We mirror IBKR's tool families and naming where Thndr has an equivalent capabili
 | `get_price_history`                                   | `get_price_history`                              |
 | — (market depth not in IBKR MCP)                      | `get_market_depth`                               |
 | — (market clock)                                      | `get_market_status`                              |
-| `create_order_instruction`                            | `preview_order` + `place_order` (ADR 0006)       |
-| `delete_order_instruction`                            | `cancel_order`                                   |
+| `create_order_instruction`, `delete_order_instruction` | — not provided (read-only scope, ADR 0006)      |
 | `get_watchlists`, `get_watchlist`, `create_watchlist`, `edit_watchlist`, `delete_watchlist` | same names |
 | `get_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert` | same names (price alerts)    |
 

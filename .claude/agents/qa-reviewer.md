@@ -27,8 +27,7 @@ read, run checks and report.
 3. **Correctness** — compare the HTTP adapters against `docs/api/*.md` (the reverse-engineered spec): paths,
    methods, headers, bodies, and response mapping. Look for edge cases: token expiry/refresh, 401 handling,
    pagination, empty lists, number parsing, EGX tick sizes, timezones (Africa/Cairo).
-4. **Safety** — trading write operations must follow ADR on trading safety (disabled by default, explicit
-   confirmation). Secrets/tokens must never be logged, written to stdout (stdout is the MCP stdio channel), or
+4. **Safety** — per ADR 0006 no tool may place, modify or cancel orders or move funds. Secrets/tokens must never be logged, written to stdout (stdout is the MCP stdio channel), or
    committed. Session files must be written with 0600 permissions.
 5. **Tests** — meaningful assertions (not just coverage padding), no real network calls, deterministic time.
 6. **Docs** — ADRs, domain docs and use-case docs match the code. Conventional commit messages.

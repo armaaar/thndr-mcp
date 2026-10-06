@@ -30,8 +30,8 @@ src/
 Dependency rule: `interface → application → domain`, `infrastructure → application(ports) → domain`. Nothing
 depends on `interface` or `infrastructure` except `main.ts`.
 
-Bounded contexts (see `docs/domains/`): **Identity & Access**, **Market Data**, **Trading**, **Portfolio**
-(account, wallet, positions, activity), and **Engagement** (watchlists, price alerts, notifications).
+Bounded contexts (see `docs/domains/`): **Identity & Access**, **Market Data**, **Portfolio**
+(account, wallet, positions, order history, activity, journal), and **Engagement** (watchlists, price alerts, notifications).
 
 ## Consequences
 
