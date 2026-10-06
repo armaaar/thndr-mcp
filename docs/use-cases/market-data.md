@@ -331,8 +331,9 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   1. Resolve the symbol when given.
   2. Fetch the page of news (newest first).
   3. Drop repeated articles (domain `dedupeNews`): Thndr lists some EGX filings twice, with and without the PDF link
-     (live 2026-10-06, e.g. ADIB's 6-month results); same title (ignoring case and spacing) and publication time → one
-     article, the copy with a link first, then the one with more content.
+     (live 2026-10-06, e.g. ADIB's 6-month results); same title (ignoring case and spacing), publication time and
+     tickers → one article, the copy with a link first, then the one with more content. Articles without a title or a
+     time are never merged. Duplicates are removed within the page only (none were seen across a page boundary).
   4. Keep the first `limit` articles; truncate content longer than `contentChars` (adds `…` and
      `contentTruncated: true`).
 - **Alternative/error flows:** a page past the last one → empty `items`, `hasMore: false`. Common errors.

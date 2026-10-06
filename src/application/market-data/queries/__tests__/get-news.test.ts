@@ -109,4 +109,26 @@ describe('GetNews', () => {
     expect((await new GetNews(deps).run({ limit: 3 })).hasMore).toBe(false);
     expect((await new GetNews(deps).execute({ limit: 0 })).items).toHaveLength(1);
   });
+
+  it('returns the whole page by default and never more than 25', async () => {
+    const deps = setup();
+    deps.research.news = {
+      total: 30,
+      hasMore: false,
+      articles: Array.from({ length: 30 }, (_, i) => aNewsArticle({ id: `n${i}`, title: `News ${i}` })),
+    };
+    const out = await new GetNews(deps).run({});
+    expect(out.items).toHaveLength(25);
+    expect(out.hasMore).toBe(true);
+    deps.research.news = { ...deps.research.news, articles: deps.research.news.articles.slice(0, 12) };
+    const page = await new GetNews(deps).run({});
+    expect(page.items).toHaveLength(12);
+    expect(page.hasMore).toBe(false);
+    expect((await new GetNews(deps).execute({ limit: 100 })).items).toHaveLength(12);
+    deps.research.news = {
+      ...deps.research.news,
+      articles: Array.from({ length: 30 }, (_, i) => aNewsArticle({ id: `m${i}`, title: `M ${i}` })),
+    };
+    expect((await new GetNews(deps).execute({ limit: 100 })).items).toHaveLength(25);
+  });
 });
