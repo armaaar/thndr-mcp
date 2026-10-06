@@ -60,7 +60,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
           npm init -y > /dev/null
           npm install "$tarball"
-          npx thndr help | head -3
+          npx thndr help > help.txt
+          head -3 help.txt
           # The MCP server speaks JSON-RPC on stdio: it must start, report itself ready on stderr, and stop cleanly
           # when stdin closes (or still be running after 3 s).
           set +e
