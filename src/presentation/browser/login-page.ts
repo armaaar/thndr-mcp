@@ -156,6 +156,10 @@ export function renderLoginPage(nonce: string): string {
   <p class="notice" id="notice"><strong>Unofficial</strong> — not affiliated with Thndr. Everything runs locally on
     your computer and thndr-mcp collects no data: your email and code go only to thndr-mcp on this machine, which sends them
     straight to Thndr.</p>
+  <p class="notice" id="disclaimer"><strong>Not financial advice.</strong> thndr-mcp uses Thndr’s private API, which may
+    change or break, and is provided “as is”, without warranty. Check figures in the Thndr app; use it at your own risk
+    and in line with Thndr’s terms and your local laws. The maintainers accept no liability for losses or decisions
+    made with it (see DISCLAIMER.md).</p>
 </div>
 </main>
 <script nonce="${nonce}">

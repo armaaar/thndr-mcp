@@ -1,6 +1,9 @@
 # thndr-mcp documentation
 
-thndr-mcp is a community, **unofficial**, read-only (with respect to money) MCP server **and CLI** for the
+> Unofficial, not affiliated with Thndr, not financial advice, provided "AS IS" at your own risk — see the
+> [Disclaimer](../DISCLAIMER.md).
+
+thndr-mcp is a community, **unofficial**, currently read-only (with respect to money) MCP server **and CLI** for the
 [Thndr](https://thndr.app) broker on the Egyptian Exchange (EGX). It is built with Domain-Driven Design
 ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md)) in five Clean Architecture layers — domain, application,
 repositories, data sources, presentation — with Command–Query Separation and an enforced context map
@@ -33,6 +36,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [0017](adr/0017-browser-login-page.md) | The MCP login runs in a local browser page (127.0.0.1, random token): email, code, then the approval QR code; works with or without elicitation (Claude Code, Claude Desktop, …). |
 | [0018](adr/0018-analytics-from-thndr-data-only.md) | New analytics (allocation, performance, index members, peers, financials, news, macro data, savings, screeners) use only Thndr data and no paid features; no crawling to fake missing endpoints. |
 | [0019](adr/0019-document-write-operations.md) | Write operations (orders, funding, subscriptions…) are documented with full request shapes in marked sections; implementing any needs a superseding ADR. |
+| [0020](adr/0020-apache-license-and-disclaimer.md) | Apache-2.0 (unmodified) plus NOTICE and DISCLAIMER.md; the disclaimer is shown in the README, CLI, MCP instructions and login page. |
 
 ## Domains — [`domains/`](domains/README.md)
 

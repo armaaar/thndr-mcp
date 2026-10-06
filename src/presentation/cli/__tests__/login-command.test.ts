@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { APPROVAL, APPROVED, identityUseCases } from '../../../__tests__/support/fake-login';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
+import { SHORT_DISCLAIMER } from '../../presenters/disclaimer';
 import { renderQr } from '../../presenters/qr';
 import { EXIT_FAILURE, EXIT_OK } from '../cli';
 import { runLoginCommand } from '../login-command';
@@ -32,7 +33,8 @@ describe('runLoginCommand', () => {
     expect(spies.login_verify_code).toHaveBeenCalledWith({ code: '123456' });
     expect(spies.login_complete).toHaveBeenCalledWith({ timeoutSeconds: 60 });
     expect(spies.login_request_approval).not.toHaveBeenCalled();
-    expect(t.printed).toEqual([
+    expect(t.printed.slice(0, 2)).toEqual([SHORT_DISCLAIMER, '']);
+    expect(t.printed.slice(2)).toEqual([
       'Code sent to m***@example.com.',
       APPROVAL.message,
       renderQr(APPROVAL.deepLink),
@@ -51,7 +53,8 @@ describe('runLoginCommand', () => {
     expect(t.io.prompt).not.toHaveBeenCalled();
     expect(spies.login_start).not.toHaveBeenCalled();
     expect(spies.login_request_approval).toHaveBeenCalledOnce();
-    expect(t.printed).toEqual([
+    expect(t.printed.slice(0, 2)).toEqual([SHORT_DISCLAIMER, '']);
+    expect(t.printed.slice(2)).toEqual([
       'Already identified with Thndr. Requesting a new approval on your phone…',
       APPROVAL.message,
       renderQr(APPROVAL.deepLink),
@@ -124,7 +127,8 @@ describe('runLoginCommand', () => {
     const t = io(['nope']);
     expect(await runLoginCommand(useCases, t.io)).toBe(EXIT_FAILURE);
     expect(spies.login_verify_code).not.toHaveBeenCalled();
-    expect(t.printed).toEqual(['Login failed — VALIDATION_ERROR: Invalid email address']);
+    expect(t.printed.slice(0, 2)).toEqual([SHORT_DISCLAIMER, '']);
+    expect(t.printed.slice(2)).toEqual(['Login failed — VALIDATION_ERROR: Invalid email address']);
   });
 
   it('throws when a login use case is not registered', async () => {

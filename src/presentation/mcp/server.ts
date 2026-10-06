@@ -9,13 +9,18 @@ import type {
 import { z } from 'zod';
 import type { Logger } from '../../application/ports/logger';
 import { Command, type UseCase } from '../../application/use-case';
+import { SHORT_DISCLAIMER } from '../presenters/disclaimer';
 import { runAndPresent } from '../presenters/outcome';
 import { isRecord } from '../presenters/view';
 import { type LoginCall, LoginOnDemand, type LoginOnDemandOptions } from './login-on-demand';
 
 export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Exchange broker), built on the private API of ThndrX.
-- Read-only for money: it can analyse markets, the account, positions, orders and activity, and manage watchlists
-  and price alerts, but it cannot place, modify or cancel orders or move funds. Users trade in the Thndr app.
+- ${SHORT_DISCLAIMER}
+- Present results as information, not personalised investment advice or recommendations to buy, sell or hold; point
+  users to the Thndr app for authoritative figures.
+- Currently read-only for money: it can analyse markets, the account, positions, orders and activity, and manage
+  watchlists and price alerts, but it cannot place, modify or cancel orders or move funds. Users trade in the Thndr
+  app.
 - Login: just call the tool you need. If there is no session, the server opens a login page in the user's browser
   (email, emailed code, then a QR code to approve in the Thndr mobile app) and the call waits for it. If a call ends
   before the user finished, ask them to complete the login page and call the tool again. Never ask the user for their
