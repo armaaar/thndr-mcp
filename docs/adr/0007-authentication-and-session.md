@@ -25,7 +25,7 @@ perform the same flow. Google/Apple popups cannot run headlessly; email OTP can.
 2. **Re-approval without OTP.** The Firebase session is persisted, so when the Thndr refresh cookie expires the
    user only needs to approve a new request on the phone (`login_request_approval`).
 3. **Fallback import.** `login_import_session` accepts the `Cookie` header of an authenticated `x.thndr.app`
-   browser session (and optionally an access token), for accounts that sign in with Google/Apple only.
+   browser session, for accounts that sign in with Google/Apple only.
 4. **Token lifecycle** mirrors ThndrX: access token treated as *about to expire* 180 s before expiry and refreshed
    proactively; on a 401/403 the HTTP client invalidates the token, refreshes once and retries. Refresh failures of
    type `INVALID_REFRESH_TOKEN | MISSING_REFRESH_TOKEN | EXPIRED_REFRESH_TOKEN` end the session and ask the user to
