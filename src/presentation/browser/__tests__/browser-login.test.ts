@@ -1,4 +1,6 @@
 import { request } from 'node:http';
+import { connect } from 'node:net';
+import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   APPROVAL,
@@ -231,10 +233,22 @@ describe('startBrowserLogin', () => {
     expect(await session.result).toEqual({ ok: false, message: 'Login cancelled.' });
   });
 
-  it('closes the page after the login ended', async () => {
-    const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 0 });
+  it('closes the page after the login ended, including connections still open', async () => {
+    const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 300 });
+    const url = new URL(`${session.url}state`);
+    // A connection in the middle of a request when the page closes (a polling tab racing the close): close() alone
+    // would keep serving it, and a kept-alive connection could keep reaching the page.
+    const socket = connect(Number(url.port), url.hostname);
+    socket.on('error', () => {});
+    await new Promise((resolve) => socket.once('connect', resolve));
+    socket.write(`GET ${url.pathname} HTTP/1.1\r\nHost: ${url.host}\r\n`);
+    const closed = new Promise((resolve) => socket.once('close', resolve));
     await session.result;
-    await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow(), { timeout: 5_000 });
+    await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow(), { timeout: 3_000 });
+    socket.write('\r\n');
+    await expect(Promise.race([closed.then(() => 'closed'), delay(1_000).then(() => 'open')])).resolves.toBe(
+      'closed',
+    );
   });
 
   it('serves its own font', async () => {
