@@ -42,7 +42,7 @@ jobs:
       VERSION: ${{ needs.release-please.outputs.version }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: actions/setup-node@v4
