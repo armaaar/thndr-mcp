@@ -3,7 +3,6 @@
   "files": {
     "includes": [
       "src/**",
-      "tests/**",
       ".claude/skills/*/scripts/**",
       "*.ts",
       "*.json",
@@ -41,7 +40,7 @@
   },
   "overrides": [
     {
-      "includes": ["tests/**"],
+      "includes": ["src/**/__tests__/**"],
       "linter": {
         "rules": {
           "suspicious": {

@@ -64,10 +64,11 @@ any without a superseding ADR.
 
 ## Testing (ADR 0005)
 
-- Vitest; tests live in `tests/` mirroring `src/`. No real network — use `tests/support/fake-fetch.ts`.
+- Vitest; tests live next to the code in `__tests__/` folders (`src/<path>/__tests__/<file>.test.ts`); shared
+  helpers in `src/__tests__/support/`. No real network — use `src/__tests__/support/fake-fetch.ts`.
 - Coverage thresholds are 95% for lines/branches/functions/statements; keep it above that.
 - MCP tools are tested in-process with `InMemoryTransport` + a real MCP `Client`; the CLI via `runCli` with
-  captured output. `tests/interfaces/parity.test.ts` asserts both return identical results.
+  captured output. `src/presentation/__tests__/parity.test.ts` asserts both return identical results.
 
 ## Workflow
 
