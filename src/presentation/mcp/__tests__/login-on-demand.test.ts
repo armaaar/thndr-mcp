@@ -1,356 +1,318 @@
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import type { ElicitRequest, ElicitResult } from '@modelcontextprotocol/sdk/types.js';
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  APPROVAL,
-  APPROVED,
-  identityUseCases,
-  type LoginHandlers,
-} from '../../../__tests__/support/fake-login';
+  ElicitationCompleteNotificationSchema,
+  type ElicitRequest,
+  type ElicitResult,
+} from '@modelcontextprotocol/sdk/types.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { identityUseCases } from '../../../__tests__/support/fake-login';
 import { FakeQuery } from '../../../__tests__/support/fake-use-cases';
 import { fakeLogger } from '../../../__tests__/support/identity-fakes';
 import { type ConnectedClient, connect, type ElicitHandler } from '../../../__tests__/support/mcp-client';
 import { NotAuthenticatedError, SessionExpiredError } from '../../../application/errors';
-import { elicitationDialog, LoginOnDemand } from '../login-on-demand';
+import type { UseCase } from '../../../application/use-case';
+import type { BrowserLoginSession } from '../../browser/browser-login';
+import type { GuidedLoginResult } from '../../presenters/guided-login';
 
 type Params = ElicitRequest['params'];
-const fieldOf = (params: Params) =>
-  'requestedSchema' in params ? Object.keys(params.requestedSchema.properties)[0] : undefined;
+const URL_ = 'http://127.0.0.1:4242/token/';
+const LOGGED_IN: GuidedLoginResult = { ok: true, message: '✔ Logged in.' };
+const CANCELLED: GuidedLoginResult = { ok: false, message: 'Login cancelled.' };
 
-/** A user who answers each question: email, code, then "I approved it". */
-function user(
-  answers: { email?: string; code?: string } = {},
-  override?: (params: Params) => ElicitResult | null,
-) {
-  const asked: Params[] = [];
-  const elicit = vi.fn(async (params: Params): Promise<ElicitResult> => {
-    asked.push(params);
-    const custom = override?.(params);
-    if (custom) return custom;
-    const field = fieldOf(params);
-    if (field === 'email') return { action: 'accept', content: { email: answers.email ?? 'me@example.com' } };
-    if (field === 'code') return { action: 'accept', content: { code: answers.code ?? '123456' } };
-    return { action: 'accept' };
+/** A browser login whose outcome the test decides. */
+function browser() {
+  let finish: (result: GuidedLoginResult) => void = () => {};
+  const result = new Promise<GuidedLoginResult>((resolve) => {
+    finish = resolve;
   });
-  return { asked, elicit };
+  const session: BrowserLoginSession = { url: URL_, result, cancel: vi.fn(() => finish(CANCELLED)) };
+  const start = vi.fn(async (_useCases: readonly UseCase[]) => session);
+  const open = vi.fn();
+  return { session, start, open, finish: (r: GuidedLoginResult) => finish(r) };
 }
 
-/** A portfolio tool that needs a session, and the login use cases that establish one. */
-function app(handlers: LoginHandlers = {}, error: () => Error = () => new NotAuthenticatedError()) {
-  let loggedIn = false;
-  const { useCases: login, spies } = identityUseCases({
-    login_complete: () => {
-      loggedIn = true;
-      return APPROVED;
-    },
-    ...handlers,
-  });
-  const positions = vi.fn(() => {
-    if (!loggedIn) throw error();
+/** A portfolio tool that needs a session; `state.loggedIn` flips when the test finishes the login. */
+function portfolioTool(error: () => Error = () => new NotAuthenticatedError()) {
+  const state = { loggedIn: false };
+  const handler = vi.fn(() => {
+    if (!state.loggedIn) throw error();
     return { positions: [{ ticker: 'COMI' }] };
   });
-  const useCases = [
-    ...login,
-    new FakeQuery({ name: 'get_account_positions', context: 'portfolio', handler: positions }),
-  ];
-  return { useCases, spies, positions };
+  return {
+    state,
+    handler,
+    tool: new FakeQuery({ name: 'get_account_positions', context: 'portfolio', handler }),
+  };
 }
 
-describe('MCP login on demand (ADR 0016)', () => {
+describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
   let connected: ConnectedClient | undefined;
   afterEach(async () => {
     await connected?.close();
     connected = undefined;
   });
 
-  const open = async (
-    useCases: Parameters<typeof connect>[0],
-    elicit?: ElicitHandler,
-    logger = fakeLogger(),
+  const setup = async (
+    options: {
+      elicit?: ElicitHandler;
+      url?: boolean;
+      error?: () => Error;
+      logger?: ReturnType<typeof fakeLogger>;
+    } = {},
   ) => {
-    connected = await connect(useCases, logger, elicit ? { elicit } : {});
-    return connected;
+    const b = browser();
+    const p = portfolioTool(options.error);
+    const { useCases: login } = identityUseCases({});
+    const logger = options.logger ?? fakeLogger();
+    connected = await connect([...login, p.tool], logger, {
+      ...(options.elicit ? { elicit: options.elicit } : {}),
+      ...(options.url ? { url: true } : {}),
+      login: { start: b.start, open: b.open, logger },
+    });
+    /** Logs the user in "in the browser". */
+    const logIn = () => {
+      p.state.loggedIn = true;
+      b.finish(LOGGED_IN);
+    };
+    return { ...b, ...p, logIn, client: connected, logger };
   };
 
-  it('asks the user to log in through elicitation, then answers the original call', async () => {
-    const { useCases, spies, positions } = app();
-    const u = user();
-    const result = await (await open(useCases, u.elicit)).call('get_account_positions');
+  it('opens the browser login and answers the call once the user logged in (client without elicitation)', async () => {
+    const t = await setup();
+    const progress: Array<string | undefined> = [];
+    const call = t.client.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+      onprogress: (p) => progress.push(p.message),
+    });
+    await vi.waitFor(() => expect(t.open).toHaveBeenCalledWith(URL_));
+    t.logIn();
+    const result = await call;
 
     expect(result.isError).toBeFalsy();
-    expect(result.json).toEqual({ positions: [{ ticker: 'COMI' }] });
-    expect(positions).toHaveBeenCalledTimes(2);
-    expect(spies.login_start).toHaveBeenCalledWith({ email: 'me@example.com' });
-    expect(spies.login_verify_code).toHaveBeenCalledWith({ code: '123456' });
-    expect(spies.login_complete).toHaveBeenCalledWith({ timeoutSeconds: 60 });
+    expect(result.structuredContent).toEqual({ positions: [{ ticker: 'COMI' }] });
+    expect(t.start).toHaveBeenCalledOnce();
+    expect(t.handler).toHaveBeenCalledTimes(2);
+    expect(progress[0]).toBe(`Log in to Thndr in your browser: ${URL_}`);
+    expect(t.logger.info).toHaveBeenCalledWith(`login: Log in to Thndr in your browser: ${URL_}`);
+  });
 
-    expect(u.asked.map(fieldOf)).toEqual(['email', 'code', undefined]);
-    expect(u.asked[0]).toMatchObject({
-      mode: 'form',
-      requestedSchema: {
-        type: 'object',
-        properties: { email: { type: 'string', format: 'email', title: 'Thndr account email' } },
-        required: ['email'],
+  it('keeps reporting progress while it waits', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const t = await setup();
+      const progress: Array<string | undefined> = [];
+      const call = t.client.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+        onprogress: (p) => progress.push(p.message),
+      });
+      await vi.waitFor(() => expect(progress).toHaveLength(1));
+      vi.advanceTimersByTime(15_000);
+      await vi.waitFor(() => expect(progress).toHaveLength(2));
+      t.logIn();
+      await call;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('on SESSION_EXPIRED does the same', async () => {
+    const t = await setup({ error: () => new SessionExpiredError() });
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
+  });
+
+  it('with form elicitation, shows a short prompt with the link that closes once logged in', async () => {
+    const asked: Params[] = [];
+    const t = await setup({
+      elicit: (params) => {
+        asked.push(params);
+        return new Promise<ElicitResult>(() => {}); // the user leaves the prompt open
       },
     });
-    expect(u.asked[1]?.message).toBe('Code sent to m***@example.com. Enter the 6-digit code.');
-    expect(u.asked[2]?.message).toContain(APPROVAL.message);
-    expect(u.asked[2]?.message).toContain(APPROVAL.deepLink);
-  });
-
-  it('on SESSION_EXPIRED only asks for a new phone approval', async () => {
-    const { useCases, spies } = app(
-      { auth_status: () => ({ identified: true }) },
-      () => new SessionExpiredError(),
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(asked).toHaveLength(1));
+    expect(t.open).toHaveBeenCalledWith(URL_);
+    expect(asked[0]).toMatchObject({ mode: 'form', requestedSchema: { type: 'object', properties: {} } });
+    expect(asked[0]?.message.split('\n')[0]).toBe(
+      'Log in to Thndr in the browser tab that just opened. This closes once you are logged in.',
     );
-    const u = user();
-    const result = await (await open(useCases, u.elicit)).call('get_account_positions');
+    expect(asked[0]?.message).toContain(`Not opened? ${URL_}`);
 
-    expect(result.isError).toBeFalsy();
-    expect(u.asked).toHaveLength(1);
-    expect(spies.login_request_approval).toHaveBeenCalledOnce();
-    expect(spies.login_start).not.toHaveBeenCalled();
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
   });
 
-  it('returns the original error with the login outcome when the user declines', async () => {
-    const { useCases, spies } = app();
-    const u = user({}, () => ({ action: 'decline' }));
-    const result = await (await open(useCases, u.elicit)).call('get_account_positions');
+  it('keeps waiting when the user accepts the prompt before logging in', async () => {
+    const t = await setup({ elicit: async () => ({ action: 'accept' }) });
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(t.session.cancel).not.toHaveBeenCalled();
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
+  });
 
+  it.each(['decline', 'cancel'] as const)('cancels the login when the user chooses %s', async (action) => {
+    const t = await setup({ elicit: async () => ({ action }) });
+    const result = await t.client.call('get_account_positions');
+
+    expect(t.session.cancel).toHaveBeenCalled();
     expect(result.isError).toBe(true);
     expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED', login: 'Login cancelled.' });
-    expect(spies.login_start).not.toHaveBeenCalled();
+    expect(t.handler).toHaveBeenCalledOnce();
   });
 
-  it('treats a cancelled approval question as a cancelled login', async () => {
-    const { useCases, spies } = app();
-    const u = user({}, (params) => (fieldOf(params) === undefined ? { action: 'cancel' } : null));
-    const result = await (await open(useCases, u.elicit)).call('get_account_positions');
-
-    expect(result.json).toMatchObject({ login: 'Login cancelled.' });
-    expect(spies.login_complete).not.toHaveBeenCalled();
-  });
-
-  it('reports a failing login step and does not retry the tool', async () => {
-    const { useCases, positions } = app({
-      login_complete: () => ({
-        authenticated: false,
-        status: 'rejected',
-        message: 'The login request was rejected.',
-      }),
-    });
-    const result = await (await open(useCases, user().elicit)).call('get_account_positions');
-
-    expect(result.json).toMatchObject({
-      error: 'NOT_AUTHENTICATED',
-      login: 'The login request was rejected.',
-    });
-    expect(positions).toHaveBeenCalledOnce();
-  });
-
-  it('reports a broken elicitation exchange as a failed login and logs it', async () => {
-    const { useCases } = app();
-    const logger = fakeLogger();
-    const u = user({}, () => {
-      throw new Error('client crashed');
-    });
-    const result = await (await open(useCases, u.elicit, logger)).call('get_account_positions');
-
-    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
-    expect(String((result.json as { login: string }).login)).toMatch(/^Login failed — .*client crashed/);
-    expect(logger.warn).toHaveBeenCalledWith('login: guided login failed', expect.anything());
-  });
-
-  it('logs approval progress through the logger', async () => {
-    const responses = [{ authenticated: false, status: 'pending', message: 'Still waiting…' }];
-    let loggedIn = false;
-    const { useCases } = app({
-      login_complete: () => {
-        const next = responses.shift();
-        if (next) return next;
-        loggedIn = true;
-        return APPROVED;
+  it('with URL elicitation, lets the client open the page and tells it when the login completed', async () => {
+    const asked: Params[] = [];
+    const t = await setup({
+      url: true,
+      elicit: async (params) => {
+        asked.push(params);
+        return { action: 'accept' };
       },
     });
-    const gated = useCases.map((u) =>
-      u.name === 'get_account_positions'
-        ? new FakeQuery({
-            name: 'get_account_positions',
-            context: 'portfolio',
-            handler: () => {
-              if (!loggedIn) throw new NotAuthenticatedError();
-              return { ok: true };
-            },
-          })
-        : u,
-    );
-    const logger = fakeLogger();
-    const result = await (await open(gated, user().elicit, logger)).call('get_account_positions');
+    const completed: string[] = [];
+    t.client.client.setNotificationHandler(ElicitationCompleteNotificationSchema, (n) => {
+      completed.push(n.params.elicitationId);
+    });
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(asked).toHaveLength(1));
+    expect(asked[0]).toMatchObject({ mode: 'url', url: URL_, message: 'Log in to Thndr in your browser.' });
+    expect(t.open).not.toHaveBeenCalled();
 
-    expect(result.json).toEqual({ ok: true });
-    expect(logger.info).toHaveBeenCalledWith('login: Still waiting…');
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
+    const id = (asked[0] as { elicitationId: string }).elicitationId;
+    await vi.waitFor(() => expect(completed).toEqual([id]));
+  });
+
+  it('with URL elicitation, a declined link cancels the login', async () => {
+    const t = await setup({ url: true, elicit: async () => ({ action: 'decline' }) });
+    const result = await t.client.call('get_account_positions');
+    expect(t.session.cancel).toHaveBeenCalled();
+    expect(result.json).toMatchObject({ login: 'Login cancelled.' });
+  });
+
+  it('keeps waiting for the browser when the prompt itself fails', async () => {
+    const logger = fakeLogger();
+    const t = await setup({
+      logger,
+      elicit: () => {
+        throw new Error('client crashed');
+      },
+    });
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() =>
+      expect(logger.debug).toHaveBeenCalledWith('login: login prompt ended', expect.anything()),
+    );
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
   });
 
   it('runs one login for concurrent calls', async () => {
-    const { useCases, spies, positions } = app();
-    const u = user();
-    const c = await open(useCases, u.elicit);
-    const results = await Promise.all([c.call('get_account_positions'), c.call('get_account_positions')]);
+    const t = await setup();
+    const calls = [t.client.call('get_account_positions'), t.client.call('get_account_positions')];
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    t.logIn();
+    const results = await Promise.all(calls);
 
     expect(results.every((r) => !r.isError)).toBe(true);
-    expect(u.asked.filter((p) => fieldOf(p) === 'email')).toHaveLength(1);
-    expect(spies.login_start).toHaveBeenCalledOnce();
-    expect(positions).toHaveBeenCalledTimes(4);
+    expect(t.start).toHaveBeenCalledOnce();
+    expect(t.open).toHaveBeenCalledOnce();
   });
 
   it('starts a fresh login after a finished one', async () => {
-    let loggedIn = false;
-    const { useCases: login } = identityUseCases({});
-    const tool = new FakeQuery({
-      name: 'get_account_positions',
-      context: 'portfolio',
-      handler: () => {
-        if (!loggedIn) throw new NotAuthenticatedError();
-        loggedIn = false; // the session is lost again right away
-        return { ok: true };
-      },
-    });
-    const u = user({}, (params) => {
-      if (fieldOf(params) === undefined) loggedIn = true;
-      return null;
-    });
-    const c = await open([...login, tool], u.elicit);
-    await c.call('get_account_positions');
-    await c.call('get_account_positions');
+    const t = await setup();
+    t.session.cancel();
+    await t.client.call('get_account_positions');
+    await t.client.call('get_account_positions');
+    expect(t.start).toHaveBeenCalledTimes(2);
+  });
 
-    expect(u.asked.filter((p) => fieldOf(p) === 'email')).toHaveLength(2);
+  it('returns the original error with the login outcome when the login fails', async () => {
+    const t = await setup();
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    t.finish({ ok: false, message: 'Gave up waiting for approval.' });
+    const result = await call;
+
+    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED', login: 'Gave up waiting for approval.' });
+    expect(t.handler).toHaveBeenCalledOnce();
   });
 
   it('retries the tool only once, even if it still has no session after the login', async () => {
-    const { useCases: login, spies } = identityUseCases({});
-    const tool = vi.fn(() => {
-      throw new NotAuthenticatedError();
-    });
-    const c = await open(
-      [...login, new FakeQuery({ name: 'get_account_positions', context: 'portfolio', handler: tool })],
-      user().elicit,
-    );
-    const result = await c.call('get_account_positions');
+    const t = await setup();
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    t.finish(LOGGED_IN); // but the tool still has no session
+    const result = await call;
 
     expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
     expect(result.json).not.toHaveProperty('login');
-    expect(tool).toHaveBeenCalledTimes(2);
-    expect(spies.login_start).toHaveBeenCalledOnce();
+    expect(t.handler).toHaveBeenCalledTimes(2);
   });
 
-  it('reports login progress to a client that asked for it', async () => {
-    const responses = [{ authenticated: false, status: 'pending', message: 'Still waiting…' }];
-    let loggedIn = false;
-    const { useCases: login } = identityUseCases({
-      login_complete: () => {
-        const next = responses.shift();
-        if (next) return next;
-        loggedIn = true;
-        return APPROVED;
-      },
-    });
-    const tool = new FakeQuery({
-      name: 'get_account_positions',
-      context: 'portfolio',
-      handler: () => {
-        if (!loggedIn) throw new NotAuthenticatedError();
-        return { ok: true };
-      },
-    });
-    const c = await open([...login, tool], user().elicit);
-    const progress: Array<{ progress: number; message?: string }> = [];
-    await c.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
-      onprogress: (p) => progress.push({ progress: p.progress, message: p.message }),
-    });
-
-    expect(progress).toEqual([{ progress: 1, message: 'Still waiting…' }]);
+  it('reports a browser login that could not start', async () => {
+    const logger = fakeLogger();
+    const t = await setup({ logger });
+    t.start.mockRejectedValueOnce(new Error('EADDRINUSE'));
+    const result = await t.client.call('get_account_positions');
+    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED', login: 'Login failed — EADDRINUSE' });
+    expect(logger.warn).toHaveBeenCalledWith('login: browser login failed', expect.anything());
+    expect(t.open).not.toHaveBeenCalled();
   });
 
-  it('stops asking when the tool call is cancelled', async () => {
-    const { useCases, spies } = app();
+  it('reports a browser login whose result rejects as a failed login', async () => {
+    const logger = fakeLogger();
+    const t = await setup({ logger });
+    t.start.mockResolvedValueOnce({ url: URL_, result: Promise.reject('broken'), cancel: vi.fn() });
+    const result = await t.client.call('get_account_positions');
+    expect(result.json).toMatchObject({ login: 'Login failed — broken' });
+    expect(logger.warn).toHaveBeenCalledWith('login: browser login failed', expect.anything());
+
+    t.start.mockResolvedValueOnce({ url: URL_, result: Promise.reject(new Error('gone')), cancel: vi.fn() });
+    expect((await t.client.call('get_account_positions')).json).toMatchObject({
+      login: 'Login failed — gone',
+    });
+  });
+
+  it('leaves the browser login running when the client cancels the call', async () => {
+    const t = await setup({ elicit: () => new Promise<ElicitResult>(() => {}) });
     const controller = new AbortController();
-    let release: () => void = () => {};
-    const elicit = vi.fn(
-      (params: Params) =>
-        new Promise<ElicitResult>((resolve) => {
-          release = () => resolve({ action: 'accept', content: { email: 'me@example.com' } });
-          if (fieldOf(params) === 'email') controller.abort();
-        }),
-    );
-    const c = await open(useCases, elicit);
-    await expect(
-      c.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
-        signal: controller.signal,
-      }),
-    ).rejects.toThrow();
-    release();
-    await vi.waitFor(() => expect(spies.auth_status).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    const call = t.client.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+    controller.abort();
+    await expect(call).rejects.toThrow();
+    expect(t.session.cancel).not.toHaveBeenCalled();
 
-    expect(elicit).toHaveBeenCalledOnce();
-    expect(spies.login_start).not.toHaveBeenCalled();
-  });
-
-  it('leaves the error untouched when the client cannot elicit', async () => {
-    const { useCases, spies } = app();
-    const result = await (await open(useCases)).call('get_account_positions');
-
-    expect(result.isError).toBe(true);
-    expect(result.json).toEqual({ error: 'NOT_AUTHENTICATED', message: new NotAuthenticatedError().message });
-    expect(spies.auth_status).not.toHaveBeenCalled();
+    t.logIn();
+    expect((await t.client.call('get_account_positions')).isError).toBeFalsy();
   });
 
   it('never starts a login from the identity tools themselves', async () => {
-    const { useCases } = app({
+    const t = await setup();
+    const { useCases } = identityUseCases({
       login_complete: () => {
-        throw new NotAuthenticatedError('Firebase identity lost. Call login_start again.');
+        throw new NotAuthenticatedError('Firebase identity lost.');
       },
     });
-    const u = user();
-    const result = await (await open(useCases, u.elicit)).call('login_complete');
-
-    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
-    expect(u.elicit).not.toHaveBeenCalled();
+    await t.client.close();
+    connected = await connect(useCases, undefined, { login: { start: t.start, open: t.open } });
+    expect((await connected.call('login_complete')).json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
+    expect(t.start).not.toHaveBeenCalled();
   });
 
   it('does not log in for other errors', async () => {
-    const { useCases } = app({}, () => new Error('boom'));
-    const u = user();
-    const result = await (await open(useCases, u.elicit)).call('get_account_positions');
-
-    expect(result.json).toMatchObject({ error: 'INTERNAL_ERROR' });
-    expect(u.elicit).not.toHaveBeenCalled();
+    const t = await setup({ error: () => new Error('boom') });
+    expect((await t.client.call('get_account_positions')).json).toMatchObject({ error: 'INTERNAL_ERROR' });
+    expect(t.start).not.toHaveBeenCalled();
   });
-});
 
-describe('LoginOnDemand', () => {
-  it('reports a non-Error rejection from the client as a failed login', async () => {
-    const { useCases } = identityUseCases({});
-    const server = {
-      getClientCapabilities: () => ({ elicitation: { form: {} } }),
-      elicitInput: () => Promise.reject('connection closed'),
-    } as unknown as Server;
-    const login = new LoginOnDemand(server, useCases);
-
-    expect(await login.login()).toEqual({ ok: false, message: 'Login failed — connection closed' });
-  });
-});
-
-describe('elicitationDialog', () => {
-  it('logs progress it could not deliver instead of failing the login', async () => {
-    const logger = fakeLogger();
-    const dialog = elicitationDialog({} as Server, logger, {
-      progress: () => Promise.reject(new Error('closed')),
-    });
-    dialog.notify('Still waiting…');
-    await vi.waitFor(() =>
-      expect(logger.debug).toHaveBeenCalledWith('login: progress not delivered', expect.anything()),
-    );
-    expect(logger.info).toHaveBeenCalledWith('login: Still waiting…');
+  it('is off unless the server is given a login', async () => {
+    const p = portfolioTool();
+    connected = await connect([p.tool]);
+    const result = await connected.call('get_account_positions');
+    expect(result.json).toEqual({ error: 'NOT_AUTHENTICATED', message: new NotAuthenticatedError().message });
   });
 });

@@ -6,6 +6,8 @@ import type { View } from './view';
 /** What the user must do on their phone to approve the login. */
 export interface ApprovalPrompt {
   message: string;
+  /** Short number the Thndr app shows for this request ('' if Thndr gave none). */
+  humanId: string;
   deepLink: string;
   /** The deep link as a scannable QR code (Unicode half blocks). */
   qr: string;
@@ -78,6 +80,7 @@ export async function runGuidedLogin(
     const deepLink = String(instructions.deepLink);
     const approval = {
       message: forPerson(String(instructions.message)),
+      humanId: String(instructions.humanId ?? ''),
       deepLink,
       qr: renderQr(deepLink),
     };

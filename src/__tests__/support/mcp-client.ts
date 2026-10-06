@@ -8,6 +8,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import type { Logger } from '../../application/ports/logger';
 import type { UseCase } from '../../application/use-case';
+import type { LoginOnDemandOptions } from '../../presentation/mcp/login-on-demand';
 import { createMcpServer } from '../../presentation/mcp/server';
 
 export interface ConnectedClient {
@@ -20,18 +21,26 @@ export type ElicitHandler = (params: ElicitRequest['params']) => ElicitResult | 
 
 /**
  * Spins up the real MCP server in-process and connects a real MCP client to it. With `elicit`, the client declares
- * form elicitation and answers the server's questions with it.
+ * form elicitation (and URL elicitation with `url`) and answers the server's requests with it. With `login`, the
+ * server logs in on demand.
  */
 export async function connect(
   useCases: readonly UseCase[],
   logger?: Logger,
-  options: { elicit?: ElicitHandler } = {},
+  options: { elicit?: ElicitHandler; url?: boolean; login?: LoginOnDemandOptions } = {},
 ): Promise<ConnectedClient> {
-  const server = createMcpServer({ version: '0.0.0-test', useCases, logger });
+  const server = createMcpServer({
+    version: '0.0.0-test',
+    useCases,
+    logger,
+    ...(options.login ? { login: options.login } : {}),
+  });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client(
     { name: 'test-client', version: '1.0.0' },
-    options.elicit ? { capabilities: { elicitation: { form: {} } } } : {},
+    options.elicit
+      ? { capabilities: { elicitation: options.url ? { form: {}, url: {} } : { form: {} } } }
+      : {},
   );
   const { elicit } = options;
   if (elicit) client.setRequestHandler(ElicitRequestSchema, (request) => elicit(request.params));

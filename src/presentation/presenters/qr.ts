@@ -30,3 +30,8 @@ export function renderQr(text: string): string {
   }
   return lines.join('\n');
 }
+
+/** Renders `text` as a QR code in SVG, for a page shown in a browser (dark modules on white, 4-module quiet zone). */
+export function renderQrSvg(text: string): Promise<string> {
+  return QRCode.toString(text, { type: 'svg', errorCorrectionLevel: 'L', margin: 4 });
+}

@@ -3,6 +3,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { loadConfig } from '../../config';
 import { compose } from '../../container';
 import { VERSION } from '../../version';
+import { startBrowserLogin } from '../browser/browser-login';
+import { openInBrowser } from '../browser/open';
 import { createMcpServer } from './server';
 
 async function main(): Promise<void> {
@@ -11,7 +13,16 @@ async function main(): Promise<void> {
     return;
   }
   const app = compose(loadConfig());
-  const server = createMcpServer({ version: VERSION, useCases: app.useCases, logger: app.logger });
+  const server = createMcpServer({
+    version: VERSION,
+    useCases: app.useCases,
+    logger: app.logger,
+    login: {
+      start: (useCases) => startBrowserLogin(useCases, { logger: app.logger }),
+      open: openInBrowser,
+      logger: app.logger,
+    },
+  });
   await server.connect(new StdioServerTransport());
   app.logger.info('thndr-mcp: ready on stdio', { tools: app.useCases.length });
 }

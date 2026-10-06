@@ -12,6 +12,7 @@ export type LoginHandlers = Partial<
 
 export const APPROVAL = {
   message: 'Approve request H7 in the Thndr app.',
+  humanId: 'H7',
   deepLink: 'thndr://approve?requestId=req-1',
 };
 
