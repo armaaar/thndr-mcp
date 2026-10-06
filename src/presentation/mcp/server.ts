@@ -14,7 +14,7 @@ import { runAndPresent } from '../presenters/outcome';
 import { isRecord } from '../presenters/view';
 import { type LoginCall, LoginOnDemand, type LoginOnDemandOptions } from './login-on-demand';
 
-export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Exchange broker), built on the private API of ThndrX.
+export const SERVER_INSTRUCTIONS = `Unofficial MCP server for the Thndr broker, built on the private API of its web and mobile apps.
 - ${SHORT_DISCLAIMER}
 - Present results as information, not personalised investment advice or recommendations to buy, sell or hold.
 - Currently read-only for money: it can analyse markets, the account, positions, orders and activity, and manage
@@ -25,7 +25,10 @@ export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Ex
   before the user finished, ask them to complete the login page and call the tool again. Never ask the user for their
   code in the chat. Fallback (no browser on this machine): login_start(email) → login_verify_code(code) → approval in
   the Thndr app → login_complete; on SESSION_EXPIRED use login_request_approval then login_complete.
-- Instruments can be referenced by ticker (e.g. COMI) or Thndr asset id. Default market is "egypt"; prices are EGP.`;
+- Markets: "egypt" (EGX, default), "us" (NYSE/Nasdaq/ETFs, USD), "uae" (ADX, AED) and "simulator" (paper trading).
+  Prices and amounts are in the \`currency\` each result carries — never assume EGP. Call get_markets to see the user's
+  markets and which tools work in each; a tool asked for something a market lacks answers FEATURE_DISABLED.
+- Instruments can be referenced by ticker of the chosen market (e.g. COMI, NVDA, FAB) or by Thndr asset id.`;
 
 /** MCP tool annotations derived from the use case's CQRS kind and flags. */
 export function annotationsFor(useCase: UseCase): ToolAnnotations {

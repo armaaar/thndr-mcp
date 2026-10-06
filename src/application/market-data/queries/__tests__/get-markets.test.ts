@@ -41,6 +41,8 @@ describe('GetMarkets', () => {
     expect(simulator?.supports).toEqual(['account']);
     expect(out.features.movers).toBe('top gainers and losers');
     expect(out.note).toContain('simulator');
+    expect(out.note).toContain('get_price_snapshot');
+    expect(out.note).toContain('closing prices elsewhere');
   });
 
   it('propagates a failure', async () => {

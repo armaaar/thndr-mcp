@@ -30,7 +30,8 @@ export class CreateAlert extends Command<typeof input, AlertReceipt> {
   readonly title = 'Create price alert';
   readonly description =
     'Creates a price alert that notifies the user in the Thndr app when the instrument crosses `price`. ' +
-    'Direction is inferred from the current price unless given.';
+    'Direction is inferred from the current price unless given; in the US give it explicitly, because Thndr has ' +
+    'no whole-market snapshot there to read the current price from.';
   readonly context = 'engagement';
   readonly input = input;
 

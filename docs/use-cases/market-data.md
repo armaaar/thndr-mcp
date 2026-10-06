@@ -184,7 +184,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Output:** `market`, `isOpen`, `opensAt`, `closesAt`, `indices` (`ticker`, `name`, `level`, `changePercent`,
   `previousClose`). EGX regular session: Sunday–Thursday 10:00–14:30 Africa/Cairo.
 - **Thndr endpoints:** `GET prod /market-service/markets/status`, `GET prod /market-service/markets/hours`,
-  `GET prod /assets-service/assets/market-indicators`, `GET app /explore/v1/default-market-indicators?market=`
+  `GET prod /assets-service/assets/market-indicators`, `GET gateway /explore/v1/default-market-indicators?market=`
   (+ `GET prod /assets-service/assets/{id}` per pick, cached for the process lifetime).
 
 ## Screen the market — `screen_market` (`ScreenMarket`)
@@ -432,7 +432,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 
 These use cases read the `discovery` dependency (`DiscoveryRepository`, adapter `ThndrDiscoveryRepository`), built
 from the Thndr Android app's endpoints ([api/mobile-app.md](../api/mobile-app.md) §1.3, §2.7, §2.8, §4.B), all
-live-verified read-only on 2026-10-06. Host `app` = `https://prod.thndr.app/krakend-thndr-app` (the app's KrakenD
+live-verified read-only on 2026-10-06. Host `gateway` = `https://prod.thndr.app/krakend-thndr-app` (the app's KrakenD
 gateway, same full-access token; its embedded `error_*` keys become `UPSTREAM_ERROR`). Markets outside a feature's
 list fail fast with `FEATURE_DISABLED` (`requireMarketFeature`) without calling Thndr.
 
@@ -484,7 +484,7 @@ list fail fast with `FEATURE_DISABLED` (`requireMarketFeature`) without calling 
   null fields; common errors.
 - **Output:** `market`, `stocksOnly`, `items` (`[{rank, instrumentId, ticker, name, assetClass, sector}]`). No prices:
   use `get_price_snapshot`.
-- **Thndr endpoints:** `GET app /explore/v1/assets/trending?market=egypt|us|abudhabi&count[&asset_class=STOCK]` +
+- **Thndr endpoints:** `GET gateway /explore/v1/assets/trending?market=egypt|us|abudhabi&count[&asset_class=STOCK]` +
   (resolve) `GET prod /assets-service/assets/{id}`.
 
 ## Tags (themes) — `get_tags` (`GetTags`)

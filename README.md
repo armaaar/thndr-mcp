@@ -5,7 +5,8 @@
 > liability arising from its use.**
 > Read the [Disclaimer](#disclaimer) before using it.
 
-An **unofficial, community** toolkit for [Thndr](https://thndr.app), the Egyptian Exchange (EGX) broker, with two
+An **unofficial, community** toolkit for [Thndr](https://thndr.app), the broker for the Egyptian Exchange (EGX), US
+stocks (NYSE, Nasdaq and ETFs, through Alpaca) and the Abu Dhabi Securities Exchange (ADX), with two
 interfaces that offer **exactly the same use cases**:
 
 - **`thndr-mcp`**: a [Model Context Protocol](https://modelcontextprotocol.io) server. Ask Claude about your
@@ -107,6 +108,12 @@ Accounts that only use Google/Apple sign-in can use `login_import_session` with 
 The session is stored in `~/.config/thndr-mcp/session.json` (mode `0600`). Delete it or call `logout` to end it.
 
 ## Use cases (MCP tools = CLI commands)
+
+Every tool takes a `market`: `egypt` (EGX, default), `us`, `uae` or `simulator` (Thndr's paper-trading account).
+Thndr offers different features per market — for example the order book, financials and whole-market screens exist only
+for Egypt, and US/UAE price history is closing prices only — so a tool asked for something a market lacks answers
+`FEATURE_DISABLED` and says where it is available. `get_markets` lists your markets and what works in each
+([ADR 0021](docs/adr/0021-all-thndr-markets.md)).
 
 | Area | MCP tool names (CLI uses kebab-case) |
 | --- | --- |

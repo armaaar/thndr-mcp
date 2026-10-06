@@ -71,6 +71,18 @@ describe('per-market guards fail before calling Thndr', () => {
     expect(deps.repository.calls.getOrderBook).toHaveLength(1);
   });
 
+  it('an instrument Thndr reports in the simulator market reads Egypt’s data', async () => {
+    const repository = new FakeMarketDataRepository({
+      instruments: [anInstrument({ ticker: 'SIMX', market: 'simulator' })],
+    });
+    const deps = setupMarketData(repository);
+    const id = repository.instruments[0]?.id.value;
+    expect(await new GetMarketDepth(deps).run({ symbol: id, market: 'simulator' })).toMatchObject({
+      ticker: 'SIMX',
+    });
+    expect(await new GetRecentTrades(deps).run({ symbol: id })).toMatchObject({ ticker: 'SIMX' });
+  });
+
   it('Portfolio tools', async () => {
     const { deps, repository } = setupPortfolio();
     await expectDisabled(new ListAccountActivity(deps), { market: 'simulator' });

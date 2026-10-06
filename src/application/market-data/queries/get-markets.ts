@@ -70,8 +70,12 @@ export class GetMarkets extends Query<typeof input, MarketsView> {
       otherThndrMarkets: [...access.otherMarkets],
       features: { ...FEATURE_LABELS },
       note:
-        'Instrument search and details, news and dividends work in every market. The simulator is a ' +
-        'paper-trading account on Egyptian and US instruments: use market "egypt" or "us" for their market data.',
+        'Every market has instrument search and details, quotes (get_price_snapshot), price history ' +
+        '(get_price_history: OHLC candles in Egypt, closing prices elsewhere), performance (get_price_performance), ' +
+        'similar stocks (get_peers), news and dividends; outside Egypt quotes are thinner (no volume, limits or ' +
+        'ratios) and there is no whole-market snapshot, order book or financials. The simulator is a paper-trading ' +
+        'account on Egyptian and US instruments; their market data follows each instrument (Egyptian listings read ' +
+        "Egypt's data).",
     };
   }
 }

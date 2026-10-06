@@ -67,7 +67,7 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_price_history` | `thndr get-price-history <symbol>` | `GetPriceHistory` (`market-data/queries/get-price-history.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` (Egypt candles) / `GET prod /assets-service/charts` (closes elsewhere) | `get_price_history` |
 | `get_market_depth` | `thndr get-market-depth <symbol>` | `GetMarketDepth` (`market-data/queries/get-market-depth.ts`) | (resolve) + `GET prod /assets-service/market-depth/{id}` | — (not in IBKR MCP) |
 | `get_recent_trades` | `thndr get-recent-trades <symbol>` | `GetRecentTrades` (`market-data/queries/get-recent-trades.ts`) | (resolve) + `GET prod /assets-service/market-depth/v3/trades-book/{id}` | — |
-| `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` + `GET app /explore/v1/default-market-indicators` (the market's indices) | — (market clock) |
+| `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` + `GET gateway /explore/v1/default-market-indicators` (the market's indices) | — (market clock) |
 | `screen_market` | `thndr screen-market` | `ScreenMarket` (`market-data/queries/screen-market.ts`) | `GET prod /assets-service/assets/marketwatch` (+ index members, `GET prod /users-service/screeners/{id}` for `screenerId`) | — |
 | `get_screeners` | `thndr get-screeners` | `GetScreeners` (`market-data/queries/get-screeners.ts`) | `GET prod /users-service/screeners` (+ ThndrX's built-in presets) | — |
 | `get_index_constituents` | `thndr get-index-constituents <index>` | `GetIndexConstituents` (`market-data/queries/get-index-constituents.ts`) | `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` (`constituents`) + `GET prod /assets-service/assets/market-indicators` (names) | — |
@@ -78,7 +78,7 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_economic_indicators` | `thndr get-economic-indicators` | `GetEconomicIndicators` (`market-data/queries/get-economic-indicators.ts`) | `GET web /macros` | — |
 | `get_markets` | `thndr get-markets` | `GetMarkets` (`market-data/queries/get-markets.ts`) | `GET prod /compliance-service/eligibilities/v2/visible-markets` (+ the per-market capability table) | — (account markets) |
 | `get_market_movers` | `thndr get-market-movers` | `GetMarketMovers` (`market-data/queries/get-market-movers.ts`) | `GET prod /assets-service/assets/rank` (Egypt, US) | — (scanner-like) |
-| `get_trending` | `thndr get-trending` | `GetTrending` (`market-data/queries/get-trending.ts`) | `GET app /explore/v1/assets/trending` + (resolve) per id | — |
+| `get_trending` | `thndr get-trending` | `GetTrending` (`market-data/queries/get-trending.ts`) | `GET gateway /explore/v1/assets/trending` + (resolve) per id | — |
 | `get_tags` | `thndr get-tags` | `GetTags` (`market-data/queries/get-tags.ts`) | `GET prod /assets-service/tags` (Egypt, US) | `search_investment_topics` (closest) |
 | `get_tag_instruments` | `thndr get-tag-instruments <tag>` | `GetTagInstruments` (`market-data/queries/get-tag-instruments.ts`) | (`GET prod /assets-service/tags` for a slug/name) + `GET prod /assets-service/tags/{id}` | `get_theme_details` (closest) |
 | `get_dividends` | `thndr get-dividends <symbol>` | `GetDividends` (`market-data/queries/get-dividends.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/dividends` | — |
@@ -91,9 +91,9 @@ KrakenD, `https://prod.thndr.app/krakend-thndr-app`.
 Markets (ADR 0021; market data follows the instrument's own market, the simulator reads Egypt's data):
 **all markets** — `search_instruments`, `get_instrument_details` (indices Egypt only), `get_price_snapshot` (thin
 quotes outside Egypt), `get_price_history` (closing prices outside Egypt), `get_peers` (no same-sector list outside
-Egypt), `get_price_performance` (from closes outside Egypt), `get_news`; **Egypt, US, UAE** — `get_market_status`;
-**Egypt and US** — `get_market_movers`, `get_tags`, `get_tag_instruments`; **Egypt, US, UAE** — `get_trending`;
-**any market** — `get_markets`, `get_dividends`; **Egypt only** — `get_market_depth`, `get_recent_trades`, `screen_market`, `get_index_constituents`,
+Egypt), `get_price_performance` (from closes outside Egypt), `get_news`, `get_markets`, `get_dividends`; **Egypt,
+US, UAE** — `get_market_status`, `get_trending`; **Egypt and US** — `get_market_movers`, `get_tags`,
+`get_tag_instruments`; **Egypt only** — `get_market_depth`, `get_recent_trades`, `screen_market`, `get_index_constituents`,
 `get_financials`, `get_economic_indicators` (others answer `FEATURE_DISABLED` without calling Thndr).
 
 ## Portfolio — [details](portfolio.md)
