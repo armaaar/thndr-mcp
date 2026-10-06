@@ -8,69 +8,88 @@ export function renderLoginPage(nonce: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Thndr login</title>
+<title>thndr-mcp · Log in to Thndr</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,800&display=swap">
 <style>
-  /* ThndrX design tokens (x.thndr.app): dark first, DM Sans, indigo primary. */
-  :root { color-scheme: dark; --background: #090909; --surface-a: #070707; --surface-b: #171717;
-    --surface-c: #2d2d2d; --outline: #2a2a2a; --primary: #8d96ff; --on-primary: #000; --text: #fff;
-    --text-secondary: #9a9a9a; --error: #ff3d5a; --green: #75cc43; --hover: #28282c; }
-  @media (prefers-color-scheme: light) { :root { color-scheme: light; --background: #eee; --surface-a: #fff;
-    --surface-b: #ececec; --surface-c: #f7f7f7; --outline: #ddd; --primary: #4656e8; --on-primary: #fff;
-    --text: #07080d; --text-secondary: #6c6c6c; --error: #f23645; --green: #0d8f16; --hover: #e5e5e5; } }
+  /*
+   * ThndrX design system (x.thndr.app): its CSS colour tokens and Ant Design theme — square corners (borderRadius 0),
+   * transparent outlined inputs, primary buttons in the text colour (white on dark, black on light), DM Sans, the
+   * diagonal "thndrx-bg" gradient, indigo brand only as an accent.
+   */
+  :root { color-scheme: dark; --surface-a: #070707; --gradient-highlight: #0d0d0f; --surface-b: #171717;
+    --surface-c: #2d2d2d; --outline: #2a2a2a; --field-border: #6c6c6c; --text-primary: #fff; --text-inverse: #000;
+    --text-secondary: #9a9a9a; --brand: #8899ff; --error: #ff3d5a; --green: #75cc43; }
+  @media (prefers-color-scheme: light) { :root { color-scheme: light; --surface-a: #fff; --gradient-highlight: #fff;
+    --surface-b: #ececec; --surface-c: #f7f7f7; --outline: #ddd; --field-border: #8b8b8b; --text-primary: #07080d;
+    --text-inverse: #fff; --text-secondary: #6c6c6c; --brand: #4656e8; --error: #a81e47; --green: #1e6325; } }
   * { box-sizing: border-box; }
-  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--background);
-    color: var(--text); font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { background: var(--surface-b); border: 1px solid var(--outline); border-radius: 1.5rem; padding: 32px 28px;
-    width: 100%; max-width: 400px; text-align: center; }
-  .brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; }
-  .brand .bolt { width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: var(--on-primary);
-    display: grid; place-items: center; font-size: 15px; }
-  .unofficial { color: var(--text-secondary); font-size: 12px; margin: 4px 0 24px; }
-  h1 { font-size: 24px; line-height: 1.25; font-weight: 700; margin: 0 0 6px; }
-  .muted { color: var(--text-secondary); font-size: 14px; margin: 0; }
-  form { display: grid; gap: 12px; margin-top: 20px; text-align: left; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; color: var(--text-primary);
+    background: linear-gradient(to top right, var(--surface-a), var(--gradient-highlight));
+    font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 24px;
+    border-bottom: 1px solid var(--outline); flex-wrap: wrap; }
+  .wordmark { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  .wordmark span { color: var(--brand); }
+  .unofficial { color: var(--text-secondary); font-size: 13px; }
+  main { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
+  .content { width: 100%; max-width: 400px; text-align: center; }
+  h1 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 8px; }
+  .muted { color: var(--text-secondary); font-size: 15px; margin: 0; }
+  form { display: grid; gap: 16px; margin-top: 32px; text-align: start; }
   label { color: var(--text-secondary); font-size: 14px; }
-  input { font: inherit; padding: 14px 16px; border-radius: 0.75rem; border: 1px solid var(--outline);
-    background: var(--surface-c); color: var(--text); outline: none; }
-  input:focus { border-color: var(--primary); }
-  input.code { letter-spacing: 0.5em; font-size: 24px; font-weight: 700; text-align: center; }
-  button { font: inherit; font-weight: 700; padding: 14px 16px; border-radius: 999px; border: 0; background: var(--primary);
-    color: var(--on-primary); cursor: pointer; }
-  button:hover { filter: brightness(1.08); }
-  button.link { background: none; color: var(--text-secondary); font-weight: 500; font-size: 14px; padding: 8px; margin-top: 8px; }
-  button.link:hover { color: var(--text); filter: none; }
-  button:disabled { opacity: 0.6; cursor: default; }
-  .qr { background: #fff; border-radius: 1rem; padding: 10px; display: inline-block; margin: 20px 0 12px; }
-  .qr svg { width: 232px; height: 232px; display: block; }
-  .request { display: inline-block; background: var(--surface-c); border: 1px solid var(--outline); border-radius: 999px;
-    padding: 4px 14px; font-weight: 700; margin-bottom: 8px; }
-  .status { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 14px; }
-  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
-    animation: pulse 1.2s ease-in-out infinite; }
+  .field { display: grid; gap: 6px; }
+  input { font: inherit; height: 48px; padding: 0 14px; border-radius: 0; border: 1px solid var(--field-border);
+    background: transparent; color: var(--text-primary); outline: none; transition: border-color 0.2s; }
+  input::placeholder { color: var(--text-secondary); }
+  input:focus { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+  input.code { letter-spacing: 0.5em; font-size: 26px; font-weight: 500; text-align: center; }
+  button { font: inherit; font-weight: 500; height: 48px; padding: 0 16px; border-radius: 0; border: 1px solid var(--text-primary);
+    background: var(--text-primary); color: var(--text-inverse); cursor: pointer; transition: opacity 0.2s; }
+  button:hover { opacity: 0.88; }
+  button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  button.link { background: none; border: 0; color: var(--text-secondary); height: auto; padding: 8px; margin-top: 24px;
+    font-size: 14px; }
+  button.link:hover { color: var(--text-primary); opacity: 1; }
+  .qr { background: #fff; border-radius: 0.375rem; padding: 12px; display: inline-block; margin: 28px 0 16px;
+    box-shadow: 0 0 20px rgba(141, 150, 255, 0.5); }
+  .qr svg { width: 220px; height: 220px; display: block; }
+  .request { display: inline-block; background: color-mix(in srgb, var(--brand) 15%, transparent); color: var(--brand);
+    border-radius: 999px; padding: 4px 14px; font-weight: 500; font-size: 15px; margin-bottom: 12px; }
+  .status { display: inline-flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 15px; margin: 0; }
+  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--brand);
+    box-shadow: 0 0 10px var(--brand); animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: 0.3; } }
-  .error { color: var(--error); font-size: 14px; min-height: 1.5em; margin: 12px 0 0; }
-  .ok { color: var(--green); font-weight: 700; }
-  .done-icon { font-size: 40px; line-height: 1; margin-bottom: 8px; }
+  @media (prefers-reduced-motion: reduce) { .status::before { animation: none; } }
+  .error { color: var(--error); font-size: 14px; min-height: 1.5em; margin: 16px 0 0; }
+  .ok { color: var(--green); font-weight: 500; font-size: 18px; }
+  .done-icon { width: 56px; height: 56px; margin: 0 auto 16px; display: grid; place-items: center; font-size: 28px;
+    color: var(--green); border: 1px solid var(--green); }
+  .done-icon:empty { display: none; }
   a { color: var(--text-secondary); font-size: 12px; word-break: break-all; }
+  footer { padding: 16px 24px; color: var(--text-secondary); font-size: 12px; text-align: center; }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
+<header>
+  <div class="wordmark">thndr<span>-mcp</span></div>
+  <div class="unofficial">Unofficial community tool · not affiliated with Thndr</div>
+</header>
 <main>
-  <div class="brand"><span class="bolt" aria-hidden="true">⚡</span>thndr-mcp</div>
-  <p class="unofficial">Unofficial community tool · not affiliated with Thndr</p>
-  <h1>Log in to Thndr</h1>
+<div class="content">
+  <h1 id="heading">Log in to Thndr</h1>
 
   <section id="working"><p class="status">Working…</p></section>
 
   <section id="email" hidden>
     <p class="muted">We will email you a verification code.</p>
     <form id="email-form">
-      <label for="email-input">Email of your Thndr account</label>
-      <input id="email-input" type="email" autocomplete="email" required autofocus>
+      <div class="field">
+        <label for="email-input">Email of your Thndr account</label>
+        <input id="email-input" type="email" autocomplete="email" placeholder="you@example.com" required autofocus>
+      </div>
       <button type="submit">Send code</button>
     </form>
   </section>
@@ -78,7 +97,10 @@ export function renderLoginPage(nonce: string): string {
   <section id="code" hidden>
     <p id="code-sent" class="muted"></p>
     <form id="code-form">
-      <input id="code-input" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required>
+      <div class="field">
+        <label for="code-input">Verification code</label>
+        <input id="code-input" class="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required>
+      </div>
       <button type="submit">Verify</button>
     </form>
   </section>
@@ -88,7 +110,7 @@ export function renderLoginPage(nonce: string): string {
       Thndr sends no notification for it.</p>
     <div class="qr" id="approval-qr"></div>
     <div><span class="request" id="approval-request"></span></div>
-    <p class="status" id="approval-status">Waiting for your approval…</p>
+    <p class="status" id="approval-status" aria-live="polite">Waiting for your approval…</p>
     <p><a id="approval-link"></a></p>
   </section>
 
@@ -96,12 +118,14 @@ export function renderLoginPage(nonce: string): string {
     <div class="done-icon" id="done-icon" aria-hidden="true"></div>
     <p id="done-message"></p>
     <p id="done-next" class="muted"></p>
-    <button id="retry" type="button" hidden>Try again</button>
+    <form id="retry-form" hidden><button id="retry" type="button">Try again</button></form>
   </section>
 
   <p class="error" id="error" role="alert"></p>
   <button class="link" id="cancel" type="button">Cancel login</button>
+</div>
 </main>
+<footer>Your email and code go only to this computer's thndr-mcp, which talks to Thndr for you.</footer>
 <script nonce="${nonce}">
   const $ = (id) => document.getElementById(id);
   const sections = ['working', 'email', 'code', 'approval', 'done'];
@@ -119,6 +143,7 @@ export function renderLoginPage(nonce: string): string {
 
   function render(state) {
     for (const id of sections) $(id).hidden = id !== state.step;
+    if (state.step !== 'done') $('heading').textContent = 'Log in to Thndr';
     $('cancel').hidden = state.step === 'done';
     if (state.step === 'code') $('code-sent').textContent = state.sent;
     if (state.step === 'approval') {
@@ -129,11 +154,15 @@ export function renderLoginPage(nonce: string): string {
       $('approval-link').href = state.deepLink;
     }
     if (state.step === 'done') {
-      $('done-message').textContent = state.message;
+      $('heading').textContent = state.ok ? "You're logged in" : 'Login did not finish';
+      // Server messages are plain text; drop the terminal check mark and show dates in the user's locale.
+      $('done-message').textContent = state.message
+        .replace(/^✔\\s*/, '')
+        .replace(/\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z/g, (iso) => new Date(iso).toLocaleString());
       $('done-message').className = state.ok ? 'ok' : 'error';
       $('done-icon').textContent = state.ok ? '✓' : '';
       $('done-next').textContent = state.ok ? 'You can close this tab and go back to your MCP client.' : '';
-      $('retry').hidden = state.ok || state.message === 'Login cancelled.';
+      $('retry-form').hidden = state.ok || state.message === 'Login cancelled.';
     }
     if (state.step !== current) {
       current = state.step;
@@ -144,7 +173,7 @@ export function renderLoginPage(nonce: string): string {
 
   async function poll() {
     try { render(await (await fetch('state')).json()); } catch { $('error').textContent = 'The login page has closed.'; return; }
-    if (current !== 'done' || !$('retry').hidden) setTimeout(poll, 1000);
+    if (current !== 'done' || !$('retry-form').hidden) setTimeout(poll, 1000);
   }
 
   $('email-form').addEventListener('submit', (e) => { e.preventDefault(); post('email', { email: $('email-input').value }); });

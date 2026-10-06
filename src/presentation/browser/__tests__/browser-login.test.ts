@@ -71,6 +71,10 @@ describe('startBrowserLogin', () => {
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("style-src 'unsafe-inline' https://fonts.googleapis.com;");
+    expect(csp).toContain('font-src https://fonts.gstatic.com;');
+    expect(csp).not.toContain('*');
+    expect(csp).not.toContain('img-src');
     expect(page.text).toContain(`<script nonce="${nonce}">`);
   });
 

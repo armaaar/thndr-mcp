@@ -8,6 +8,8 @@ import type { GuidedLoginResult } from '../presenters/guided-login';
 interface RunningLogin {
   session: BrowserLoginSession;
   result: Promise<GuidedLoginResult>;
+  /** Whether the server could open the page in the browser. */
+  opened: boolean;
 }
 
 /** Error codes that a successful login fixes. */
@@ -34,8 +36,8 @@ export interface LoginOnDemandOptions {
  * Login on demand (ADR 0016, ADR 0017): when a tool fails because there is no usable session, the server starts the
  * browser login page, opens it in the default browser and the tool waits for it, then is retried once. The server
  * always opens the page itself, so the user never has to agree to open it (MCP URL elicitation would ask first, and a
- * declined consent would cancel the login). The link is also shown as a fallback: in a short form prompt when the
- * client supports form elicitation (it closes once logged in), and in progress messages.
+ * declined consent would cancel the login). Only if the browser could not be opened is the link shown in a form
+ * prompt (when the client supports form elicitation); progress messages always carry it.
  *
  * Concurrent tool calls share one login. A call cancelled by the client leaves the page running: the user can finish
  * logging in and ask again.
@@ -74,7 +76,9 @@ export class LoginOnDemand {
     const done = new AbortController();
     const stop = AbortSignal.any([done.signal, ...(call.signal ? [call.signal] : [])]);
     // Only the call that started the login prompts: joined calls must not stack prompts, nor cancel it by declining.
-    const prompt = starter ? this.prompt(session, stop) : Promise.resolve();
+    // Only when the browser could not be opened: clients may not close a prompt the server cancels (Claude Code
+    // leaves it open), so a prompt shown alongside the open page would outlive the login.
+    const prompt = starter && !running.opened ? this.prompt(session, stop) : Promise.resolve();
     const report = () => {
       if (!stop.aborted) void call.progress?.(notice).catch(() => undefined);
     };
@@ -99,8 +103,10 @@ export class LoginOnDemand {
       .finally(() => {
         this.inFlight = null;
       });
-    this.options.open(session.url);
-    return { session, result };
+    const opened = await this.options.open(session.url);
+    if (!opened)
+      this.options.logger?.warn('login: could not open the browser; showing the login link instead');
+    return { session, result, opened };
   }
 
   private failed(error: unknown): GuidedLoginResult {
@@ -108,21 +114,21 @@ export class LoginOnDemand {
     return { ok: false, message: `Login failed — ${error instanceof Error ? error.message : String(error)}` };
   }
 
-  /** Shows the page's link in the client, when it can; declining the prompt cancels the login. Never rejects. */
+  /** Shows the page's link in the client, when it can. Never rejects. */
   private async prompt(session: BrowserLoginSession, signal: AbortSignal): Promise<void> {
     const elicitation = this.server.getClientCapabilities()?.elicitation;
     const options = { signal, timeout: 15 * 60_000 };
     try {
       if (elicitation?.form) {
-        const answer = await this.server.elicitInput(
+        // Whatever the user answers only hides the link: the login page stays usable (it has its own Cancel).
+        await this.server.elicitInput(
           {
             mode: 'form',
-            message: `Log in to Thndr in the browser tab that just opened. This closes once you are logged in.\nNot opened? ${session.url}`,
+            message: `Could not open your browser. Open this link to log in to Thndr: ${session.url}`,
             requestedSchema: { type: 'object', properties: {} },
           },
           options,
         );
-        if (answer.action !== 'accept') session.cancel();
       }
     } catch (error) {
       if (!signal.aborted) this.options.logger?.debug('login: login prompt ended', { error });

@@ -15,7 +15,7 @@ const LOGGED_IN: GuidedLoginResult = { ok: true, message: '✔ Logged in.' };
 const CANCELLED: GuidedLoginResult = { ok: false, message: 'Login cancelled.' };
 
 /** A browser login whose outcome the test decides. */
-function browser() {
+function browser(opened = true) {
   let finish: (result: GuidedLoginResult) => void = () => {};
   const result = new Promise<GuidedLoginResult>((resolve) => {
     finish = resolve;
@@ -27,7 +27,7 @@ function browser() {
     cancel: vi.fn(() => finish(CANCELLED)),
   };
   const start = vi.fn(async (_useCases: readonly UseCase[]) => session);
-  const open = vi.fn();
+  const open = vi.fn(async (_url: string) => opened);
   return { session, start, open, finish: (r: GuidedLoginResult) => finish(r) };
 }
 
@@ -58,9 +58,11 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
       url?: boolean;
       error?: () => Error;
       logger?: ReturnType<typeof fakeLogger>;
+      /** Whether the server manages to open the browser (default: yes). */
+      opened?: boolean;
     } = {},
   ) => {
-    const b = browser();
+    const b = browser(options.opened ?? true);
     const p = portfolioTool(options.error);
     const { useCases: login } = identityUseCases({});
     const logger = options.logger ?? fakeLogger();
@@ -122,51 +124,23 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
     expect((await call).isError).toBeFalsy();
   });
 
-  it('with form elicitation, shows a short prompt with the link that closes once logged in', async () => {
+  it('shows no prompt when the browser opened (a cancelled prompt may stay open in the client)', async () => {
+    const elicit = vi.fn(() => new Promise<ElicitResult>(() => {}));
+    const t = await setup({ url: true, elicit });
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(t.open).toHaveBeenCalledWith(URL_));
+    t.logIn();
+
+    expect((await call).isError).toBeFalsy();
+    expect(elicit).not.toHaveBeenCalled();
+  });
+
+  it('shows the link in a prompt when the browser could not be opened', async () => {
+    const logger = fakeLogger();
     const asked: Params[] = [];
     const t = await setup({
-      elicit: (params) => {
-        asked.push(params);
-        return new Promise<ElicitResult>(() => {}); // the user leaves the prompt open
-      },
-    });
-    const call = t.client.call('get_account_positions');
-    await vi.waitFor(() => expect(asked).toHaveLength(1));
-    expect(t.open).toHaveBeenCalledWith(URL_);
-    expect(asked[0]).toMatchObject({ mode: 'form', requestedSchema: { type: 'object', properties: {} } });
-    expect(asked[0]?.message.split('\n')[0]).toBe(
-      'Log in to Thndr in the browser tab that just opened. This closes once you are logged in.',
-    );
-    expect(asked[0]?.message).toContain(`Not opened? ${URL_}`);
-
-    t.logIn();
-    expect((await call).isError).toBeFalsy();
-  });
-
-  it('keeps waiting when the user accepts the prompt before logging in', async () => {
-    const t = await setup({ elicit: async () => ({ action: 'accept' }) });
-    const call = t.client.call('get_account_positions');
-    await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(t.session.cancel).not.toHaveBeenCalled();
-    t.logIn();
-    expect((await call).isError).toBeFalsy();
-  });
-
-  it.each(['decline', 'cancel'] as const)('cancels the login when the user chooses %s', async (action) => {
-    const t = await setup({ elicit: async () => ({ action }) });
-    const result = await t.client.call('get_account_positions');
-
-    expect(t.session.cancel).toHaveBeenCalled();
-    expect(result.isError).toBe(true);
-    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED', login: 'Login cancelled.' });
-    expect(t.handler).toHaveBeenCalledOnce();
-  });
-
-  it('opens the browser itself even when the client could open URLs, so there is no consent step', async () => {
-    const asked: Params[] = [];
-    const t = await setup({
-      url: true,
+      opened: false,
+      logger,
       elicit: (params) => {
         asked.push(params);
         return new Promise<ElicitResult>(() => {});
@@ -174,17 +148,37 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
     });
     const call = t.client.call('get_account_positions');
     await vi.waitFor(() => expect(asked).toHaveLength(1));
-    expect(t.open).toHaveBeenCalledWith(URL_);
-    expect(asked[0]).toMatchObject({ mode: 'form' });
+    expect(asked[0]).toMatchObject({
+      mode: 'form',
+      message: `Could not open your browser. Open this link to log in to Thndr: ${URL_}`,
+      requestedSchema: { type: 'object', properties: {} },
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'login: could not open the browser; showing the login link instead',
+    );
 
     t.logIn();
     expect((await call).isError).toBeFalsy();
   });
 
+  it.each(['accept', 'decline', 'cancel'] as const)(
+    'keeps the login page running whatever the user answers to the prompt (%s)',
+    async (action) => {
+      const t = await setup({ opened: false, elicit: async () => ({ action }) });
+      const call = t.client.call('get_account_positions');
+      await vi.waitFor(() => expect(t.start).toHaveBeenCalled());
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(t.session.cancel).not.toHaveBeenCalled();
+      t.logIn();
+      expect((await call).isError).toBeFalsy();
+    },
+  );
+
   it('keeps waiting for the browser when the prompt itself fails', async () => {
     const logger = fakeLogger();
     const t = await setup({
       logger,
+      opened: false,
       elicit: () => {
         throw new Error('client crashed');
       },
@@ -292,6 +286,7 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
   it('prompts only from the call that started the login', async () => {
     const asked: Params[] = [];
     const t = await setup({
+      opened: false,
       elicit: (params) => {
         asked.push(params);
         return new Promise<ElicitResult>(() => {});
