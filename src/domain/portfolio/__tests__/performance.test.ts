@@ -81,7 +81,7 @@ describe('timeWeightedReturn', () => {
     ).toBe(1);
   });
 
-  it('skips sub-periods that start from nothing invested', () => {
+  it('counts a first deposit from zero at 0% and skips sub-periods with nothing at risk', () => {
     expect(
       timeWeightedReturn([
         { portfolioValue: 0, netDeposits: 0 },
