@@ -1,6 +1,6 @@
 # 0016. Login on demand via MCP elicitation
 
-- Status: Accepted
+- Status: Accepted — how the user is asked is refined by [0017](0017-browser-login-page.md) (browser login page)
 - Date: 2026-10-06
 
 ## Context

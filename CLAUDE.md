@@ -25,7 +25,7 @@ src/domain/                1 Domain: <context>/ entities, value objects, reposit
 src/application/           2 Application: use-case.ts (UseCase → Query | Command), <context>/{queries,commands,services}/, ports/
 src/repositories/          3 Repositories: thndr/ (+ translators = anti-corruption layer), local/, memory/
 src/data-sources/          4 Data sources: thndr/ (HTTP client, wire DTOs), firebase/, local/ (session file), logging/
-src/presentation/          5 Presentation: presenters/, mcp/, cli/ (driving adapters + main.ts entrypoints)
+src/presentation/          5 Presentation: presenters/, mcp/, cli/, browser/ (local login page) — driving adapters + main.ts entrypoints
 src/container.ts           composition root — builds the `useCases` list (with src/config.ts and src/version.ts)
 ```
 

@@ -25,14 +25,16 @@ The pending login (`LoginFlow`) and the session are persisted in the same owner-
   with a 60 s timeout). It runs every step through `runAndPresent` and adds no logic
   ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)); it talks to the user through a `LoginDialog`:
   - `thndr login` prompts on the terminal (`presentation/cli/login-command.ts`).
-  - The MCP server runs it **on demand** ([ADR 0016](../adr/0016-login-on-demand-via-mcp-elicitation.md),
-    `presentation/mcp/login-on-demand.ts`): when a non-identity tool fails with `NOT_AUTHENTICATED` or
-    `SESSION_EXPIRED` and the client supports form elicitation, the server asks for the email, the code and the phone
-    approval through elicitation, then retries the tool once. Declined or failed logins return the original error plus
-    a `login` field. Cancelling the tool call cancels the dialog; approval progress is sent as MCP progress
-    notifications when the call has a progress token. Without elicitation the error is returned unchanged.
-  - Thndr sends no push notification for the approval: both dialogs show the approval deep link as a QR code
-    (`presentation/presenters/qr.ts`) to scan with the phone, as ThndrX does, plus the link itself.
+  - The MCP server runs it **on demand** in a **local browser page**
+    ([ADR 0016](../adr/0016-login-on-demand-via-mcp-elicitation.md), [ADR 0017](../adr/0017-browser-login-page.md);
+    `presentation/mcp/login-on-demand.ts`, `presentation/browser/`): when a non-identity tool fails with
+    `NOT_AUTHENTICATED` or `SESSION_EXPIRED`, the server starts a page on `127.0.0.1` (random token), opens it in the
+    browser and waits; the page asks for the email and code, shows the approval QR code and completes by itself, then
+    the tool is retried once. URL-elicitation clients open the page themselves; form-elicitation clients get a one-line
+    prompt with the link; other clients get the link in progress notifications. A failed or cancelled login returns
+    the original error plus a `login` field. Concurrent calls share one page; a cancelled call leaves it running.
+  - Thndr sends no push notification for the approval: the page and `thndr login` show the approval deep link as a
+    QR code (`presentation/presenters/qr.ts`), as ThndrX does, plus the link itself.
   - Sentences addressed to an agent ("Call login_complete again.") are dropped from what the person sees (`forPerson`).
 
 ```sh

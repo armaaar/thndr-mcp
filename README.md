@@ -84,14 +84,17 @@ You can do it from the terminal:
 thndr login        # or step by step: thndr login-start you@example.com → thndr login-verify-code 123456 → thndr login-complete
 ```
 
-…or just ask Claude for what you want ("how is my portfolio doing?"). If you are not logged in, the MCP server asks
-you itself — in your MCP client's own prompt (e.g. Claude Code's), not in the chat — for your email, the emailed code and the approval on your
-phone, then answers the request ([ADR 0016](docs/adr/0016-login-on-demand-via-mcp-elicitation.md)). Your code never
-passes through the model. The session is renewed automatically; when it finally expires you are only asked to approve
-once more on your phone (no new email code).
+…or just ask Claude for what you want ("how is my portfolio doing?"). If you are not logged in, the MCP server opens
+a login page in your browser: enter your email and the emailed code, then scan the QR code with your phone and approve
+the login in the Thndr app (Thndr sends no notification for it). The request then completes on its own
+([ADR 0016](docs/adr/0016-login-on-demand-via-mcp-elicitation.md), [ADR 0017](docs/adr/0017-browser-login-page.md)).
+The page runs on `127.0.0.1` and talks only to the local server, so your code never passes through Claude. This works
+in any MCP client that runs local servers (Claude Code, Claude Desktop, …). If the client stops waiting, finish the
+page and ask again. The session is renewed automatically; when it finally expires you are only asked to approve once
+more on your phone (no new email code).
 
-Clients without MCP elicitation log in step by step instead: Claude calls `login_start` → `login_verify_code` → (you
-approve on your phone) → `login_complete`, and `login_request_approval` when the session expires.
+Without a browser on the machine (SSH, containers), use `thndr login` in a terminal, or let Claude call `login_start`
+→ `login_verify_code` → (you approve on your phone) → `login_complete`.
 
 Accounts that only use Google/Apple sign-in can use `login_import_session` with the `Cookie` header of a logged-in
 `x.thndr.app` browser session.

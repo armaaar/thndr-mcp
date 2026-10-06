@@ -21,4 +21,5 @@ is changed by adding a new ADR that supersedes the old one.
 | 0013 | [Persisted login flow and shared session](0013-persisted-login-flow-and-shared-session.md) | Accepted |
 | 0014 | [Extensionless imports and a bundled build](0014-extensionless-imports-and-bundled-build.md) | Accepted |
 | 0015 | [Five-layer Clean Architecture, CQS and an enforced context map](0015-five-layer-clean-architecture-cqs-and-context-map.md) | Accepted |
-| 0016 | [Login on demand via MCP elicitation](0016-login-on-demand-via-mcp-elicitation.md) | Accepted |
+| 0016 | [Login on demand via MCP elicitation](0016-login-on-demand-via-mcp-elicitation.md) | Accepted, dialog refined by 0017 |
+| 0017 | [Browser login page for login on demand](0017-browser-login-page.md) | Accepted |
