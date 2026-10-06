@@ -1,1 +1,65 @@
 # Changelog
+
+## 0.1.0 (2026-10-06)
+
+
+### Features
+
+* add composition root, stdio entrypoint and interactive login CLI ([5e51f07](https://github.com/armaaar/thndr-mcp/commit/5e51f07312013236df1326f344d107a8f9f5004a))
+* **domain:** add shared kernel value objects and redacting stderr logger ([b5c76dc](https://github.com/armaaar/thndr-mcp/commit/b5c76dc81aa2ff249af3ee0d80349f8f4a44bf01))
+* **engagement:** add watchlists, price alerts and notifications tools ([a97af2a](https://github.com/armaaar/thndr-mcp/commit/a97af2a915260265eac049871227ba4378e0ea9a))
+* **identity:** implement email OTP + mobile approval login with persisted session ([a009376](https://github.com/armaaar/thndr-mcp/commit/a009376ca31e40e3bc577792c7f02be219d8c0fa))
+* **identity:** persist the login flow so multi-step logins work across processes ([80342d0](https://github.com/armaaar/thndr-mcp/commit/80342d0906f975113cbfe0b62ab82d80b8e3570d))
+* **identity:** show the approval deep link as a compact QR code during login ([2081638](https://github.com/armaaar/thndr-mcp/commit/2081638057f9231c377d7146ee750cbe4ed9f6bb))
+* **infra:** add browser-equivalent Thndr HTTP client with token refresh retry ([cf8c473](https://github.com/armaaar/thndr-mcp/commit/cf8c4737cdd4d78cd80c9589c68084ab6c13c398))
+* **infra:** add the mobile app's KrakenD gateway client (krakend-thndr-app) ([20becbc](https://github.com/armaaar/thndr-mcp/commit/20becbc2140853fc936ebd79ea527dc2df421345))
+* **login:** add a light/dark theme switch to the browser login page ([a6a72ca](https://github.com/armaaar/thndr-mcp/commit/a6a72cad51c5b4e11963cbd4ce17cde03872c532))
+* **login:** off-white light theme with a yellow CTA, whitespace-free inputs and a mobile layout ([e29d512](https://github.com/armaaar/thndr-mcp/commit/e29d512aef31cc9f8e48ae3f5b0e8b0982423d33))
+* **login:** say on the page that it is unofficial, runs locally and collects no data; serve its font locally ([d2ac835](https://github.com/armaaar/thndr-mcp/commit/d2ac83564cfc21472cc7bb420bd8ddf47069f44f))
+* **login:** style the browser login page in Thndr's yellow-and-black brand ([5423e6c](https://github.com/armaaar/thndr-mcp/commit/5423e6c7496fbf3b42babdca8abf8b0a05ba6bd9))
+* **market-data:** add instrument search, quotes, candles, depth and screening ([6ca1950](https://github.com/armaaar/thndr-mcp/commit/6ca19508dceb1cb44cd0e72cdae2739e3d7c18c5))
+* **market-data:** add markets, movers, trending, tags and dividends from the mobile app (ADR 0021) ([26f9e94](https://github.com/armaaar/thndr-mcp/commit/26f9e9435f0e9e20915de4cf987ada19d03c2272))
+* **market-data:** financials with sector comparison, news, economic indicators and price performance ([ea1ff60](https://github.com/armaaar/thndr-mcp/commit/ea1ff6091e76d5213c72c76c0e9b3e94967d2ea1))
+* **market-data:** get_news takes a limit and drops filings Thndr lists twice ([af8bf81](https://github.com/armaaar/thndr-mcp/commit/af8bf814f3304fe2bf9c40d49346487cb660ceeb))
+* **market-data:** index constituents, peers, screeners and ThndrX presets ([4282ef8](https://github.com/armaaar/thndr-mcp/commit/4282ef8fa01e08102c5acf9a1440609ca62dc29f))
+* **market-data:** index membership, instrument tags and net deposits as a base for the new analytics ([1fd2521](https://github.com/armaaar/thndr-mcp/commit/1fd2521471495549207842f0f3e908f923f9e4f5))
+* **market-data:** quotes, closing-price history and performance for every market ([152927b](https://github.com/armaaar/thndr-mcp/commit/152927b716c3a8c90585ecb1ec56679f7893753a))
+* **markets:** support egypt, us, uae and simulator with per-market capabilities (ADR 0021) ([0038364](https://github.com/armaaar/thndr-mcp/commit/0038364a43a8d8f000d7dbe2704ec5aabd21aea8))
+* **mcp:** always open the browser login page and style it after ThndrX ([dfde250](https://github.com/armaaar/thndr-mcp/commit/dfde2506ab281d97f8e174d26fce74fe298f6bad))
+* **mcp:** cancel and report progress of login on demand; hide agent-only hints from people ([5b3d592](https://github.com/armaaar/thndr-mcp/commit/5b3d592c86cb35f69f8582285eb1f6dd7853de32))
+* **mcp:** expose identity, market-data and portfolio tools over MCP ([e5e7002](https://github.com/armaaar/thndr-mcp/commit/e5e7002e77518f4f45654b2f5d0ed29a4986f8a2))
+* **mcp:** follow ThndrX's design system and show the login prompt only when the browser cannot open ([ff84a96](https://github.com/armaaar/thndr-mcp/commit/ff84a9687a77fa5222bae401133091d91188e166))
+* **mcp:** log in on demand through a local browser page ([0591884](https://github.com/armaaar/thndr-mcp/commit/05918840236c1e2fc1eca035fec73aebe562bff6))
+* **mcp:** log in on demand through MCP elicitation ([02d2664](https://github.com/armaaar/thndr-mcp/commit/02d26645f9fe00d9211975907f94719a5fc9ef8e))
+* **portfolio:** add read-only account, positions, orders, journal and activity ([9bb78ca](https://github.com/armaaar/thndr-mcp/commit/9bb78ca12fa41f226cdd624d8c15e1e8b3b2e6f1))
+* **portfolio:** allocation, performance, savings and period presets ([ef70e40](https://github.com/armaaar/thndr-mcp/commit/ef70e4031c251554c0f109bec8c0ccbabbe9d2dc))
+* **scripts:** add read-only fixture capture to verify inferred response shapes ([35d9278](https://github.com/armaaar/thndr-mcp/commit/35d92780598928738ce43a69950d2f5e7a108e20))
+* **scripts:** add ThndrX bundle sync script that extracts the API surface ([0589a20](https://github.com/armaaar/thndr-mcp/commit/0589a20f9889dbe480b4098bfe4b0f3becff9de2))
+
+
+### Bug Fixes
+
+* address QA review — Cairo-day date bounds, redacted credential serialisation, doc corrections ([58cb9eb](https://github.com/armaaar/thndr-mcp/commit/58cb9eb220d5323d3f6bcdb98f70e719df4b13b9))
+* **engagement:** watchlist and alert labels never ask for a snapshot the US or UAE does not have ([9fee6b3](https://github.com/armaaar/thndr-mcp/commit/9fee6b3ac2638407f2eeb96fbdd6c8906c2d91e9))
+* **infra:** do not refresh the token on a feature-disabled 403 ([c117e92](https://github.com/armaaar/thndr-mcp/commit/c117e927da1c5698d8e65d76529e3eca2b7a34c4))
+* **infra:** release the body of a rejected 429/401/403 response before retrying ([5acaafd](https://github.com/armaaar/thndr-mcp/commit/5acaafdd9e84440f011bfca66d9ea06ded434bcd))
+* **login:** close the login page's open connections too, not only the listener ([effea09](https://github.com/armaaar/thndr-mcp/commit/effea09daddf1aadec08ea8f09da0e26b96b5c3e))
+* **login:** say that thndr-mcp collects no data, and that logging in contacts only Thndr ([0fa054e](https://github.com/armaaar/thndr-mcp/commit/0fa054e9c0adce655ae108307653223e918bae66))
+* **market-data:** decode microsecond gateway timestamps; drop a no-op market mapping in peers ([67bb576](https://github.com/armaaar/thndr-mcp/commit/67bb5765de1d22d1905bb8a971f85e6bdc2f6934))
+* **market-data:** document index names and caching, match indices by name, load members one at a time ([103b902](https://github.com/armaaar/thndr-mcp/commit/103b902195316f7cbd84a9d5c62070f99859e514))
+* **market-data:** keep an incomplete index list for 5 minutes, treat shared index names as ambiguous ([82b275a](https://github.com/armaaar/thndr-mcp/commit/82b275a2a4068045abea985c8c0051037304cd05))
+* **market-data:** name indices from the market indicators and retry a rate-limited read once ([a38343b](https://github.com/armaaar/thndr-mcp/commit/a38343b640a271d25d0ea430925b159615bbc4dd))
+* **market-data:** pin the news dedupe rules in tests; never merge undated or untitled articles ([58d77c1](https://github.com/armaaar/thndr-mcp/commit/58d77c1d8c1e9da173722391d3dc119981c6205d))
+* **market-data:** price a company's own multiples at its period-end close, as ThndrX does ([4511ae8](https://github.com/armaaar/thndr-mcp/commit/4511ae8b8f691b82b1f1f4c9290eff12b8d6b3f9))
+* **market-data:** QA findings on market indices, tag paging and dividend units ([193e18d](https://github.com/armaaar/thndr-mcp/commit/193e18d0e98ae3ad0c9e0e7ed779b61a7ad62806))
+* **market-data:** report index rows' placeholder stock fields as unknown and retry an empty index list ([52c1035](https://github.com/armaaar/thndr-mcp/commit/52c10353f8477fdefadb56315cb381d53cbea1ba))
+* **market-data:** route simulator instruments as Egyptian data and harden quotes ([2d213fd](https://github.com/armaaar/thndr-mcp/commit/2d213fdfaa9fb87663d2979db55cd0fd9a789edb))
+* **markets:** pin per-market behaviour in tests, strict market inputs, docs for every market ([efae7a9](https://github.com/armaaar/thndr-mcp/commit/efae7a901d911ec78e179caf3f4bc238ab0a682d))
+* **markets:** tell assistants each result's currency and what works outside Egypt (final QA) ([44ef221](https://github.com/armaaar/thndr-mcp/commit/44ef22172879a3f90e678688055904ce21b4a1af))
+* **mcp:** stop the guided login when the browser login is cancelled or expires ([8990ac7](https://github.com/armaaar/thndr-mcp/commit/8990ac7c5c890cb0e19a044e310777c0e493d3cb))
+* **portfolio:** count deposits from the start of a sub-period in the time-weighted return; name Thndr's total returns honestly ([9016088](https://github.com/armaaar/thndr-mcp/commit/90160887cc1f2c5eb822b3245ebd5015c6a835da))
+* **portfolio:** portfolio allocation for the US, UAE and simulator markets ([e82260c](https://github.com/armaaar/thndr-mcp/commit/e82260c95c56c4e94d8d75f1b44b1837ad0c49c5))
+* **portfolio:** send both journal date bounds, since Thndr ignores a range with only one ([d2f14c7](https://github.com/armaaar/thndr-mcp/commit/d2f14c7591a0b4e5966cd4205d116f4992a38a56))
+* QA findings on the disclaimer and mobile skill; rename the API skills; add the API researcher agent ([83cf8f8](https://github.com/armaaar/thndr-mcp/commit/83cf8f8e86cb5764445c4c732e55917e9add79bb))
+
+## Changelog
