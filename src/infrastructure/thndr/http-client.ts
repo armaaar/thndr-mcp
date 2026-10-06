@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NotAuthenticatedError, UpstreamError } from '../../application/errors.js';
 import type { AccessTokenProvider } from '../../application/ports/access-token-provider.js';
 import type { Logger } from '../../application/ports/logger.js';
@@ -22,6 +23,15 @@ export interface ThndrHttpClientOptions {
   language?: 'ar' | 'en';
   timeoutMs?: number;
   logger?: Logger;
+  /** Generates the per-request `X-Correlation-ID` (ThndrX sends a UUID on every call). */
+  correlationId?: () => string;
+  userAgent?: string;
+}
+
+export interface HttpResponse<T> {
+  status: number;
+  data: T;
+  headers: Headers;
 }
 
 /**
@@ -57,6 +67,15 @@ export class ThndrHttpClient {
   }
 
   async request<T>(method: HttpMethod, path: string, options: RequestOptions = {}): Promise<T> {
+    return (await this.exchange<T>(method, path, options)).data;
+  }
+
+  /** Like `request` but also returns status and headers (needed for `Set-Cookie`). */
+  async exchange<T>(
+    method: HttpMethod,
+    path: string,
+    options: RequestOptions = {},
+  ): Promise<HttpResponse<T>> {
     const auth = options.auth ?? 'full';
     let response = await this.send(method, path, options, auth);
     if (auth === 'full' && (response.status === 401 || response.status === 403)) {
@@ -67,7 +86,11 @@ export class ThndrHttpClient {
         throw new NotAuthenticatedError('Thndr rejected the session. Please log in again (login_start).');
       }
     }
-    return this.parse<T>(method, path, response);
+    return {
+      status: response.status,
+      data: await this.parse<T>(method, path, response),
+      headers: response.headers,
+    };
   }
 
   buildUrl(path: string, query?: Record<string, QueryValue>): string {
@@ -97,6 +120,8 @@ export class ThndrHttpClient {
       accept: 'application/json',
       'x-thndrx-runtime-version': this.options.runtimeVersion,
       'X-Language': this.options.language ?? 'en',
+      'X-Correlation-ID': (this.options.correlationId ?? randomUUID)(),
+      ...(this.options.userAgent ? { 'user-agent': this.options.userAgent } : {}),
       ...options.headers,
     };
     if (auth === 'full')
@@ -153,19 +178,24 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Best-effort extraction of `{message|detail|error, code|type}` from error bodies. */
+/**
+ * Best-effort extraction of a message and code from Thndr error bodies. Shapes seen (docs/api/*.md):
+ * `{detail: {msg, type}}` (FastAPI services), `{detail: "Not authenticated"}`, `{type}` (Next.js routes),
+ * `{message, code}`, `{error: {message, code}}`.
+ */
 export function describeError(payload: unknown): { message?: string; code?: string } {
   if (typeof payload === 'string') return { message: payload.slice(0, 300) };
   if (payload === null || typeof payload !== 'object') return {};
   const record = payload as Record<string, unknown>;
-  const nested =
-    typeof record.error === 'object' && record.error !== null
-      ? (record.error as Record<string, unknown>)
+  const asRecord = (value: unknown) =>
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
       : undefined;
+  const nested = asRecord(record.detail) ?? asRecord(record.error);
   const pick = (...values: unknown[]) =>
     values.find((v): v is string => typeof v === 'string' && v.length > 0);
   return {
-    message: pick(record.message, record.detail, record.error, nested?.message, record.title),
-    code: pick(record.code, record.type, record.error_code, nested?.code),
+    message: pick(nested?.msg, nested?.message, record.message, record.detail, record.error, record.title),
+    code: pick(nested?.type, nested?.code, record.code, record.type, record.error_code),
   };
 }

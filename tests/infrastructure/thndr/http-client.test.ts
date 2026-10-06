@@ -163,6 +163,17 @@ describe('describeError', () => {
     ['nested error', { error: { message: 'n', code: 'N' } }, { message: 'n', code: 'N' }],
     ['string error + error_code', { error: 'e', error_code: 'E' }, { message: 'e', code: 'E' }],
     ['title only', { title: 't' }, { message: 't', code: undefined }],
+    [
+      'fastapi detail object',
+      { detail: { msg: 'Invalid token', type: 'INVALID_TOKEN' } },
+      { message: 'Invalid token', code: 'INVALID_TOKEN' },
+    ],
+    [
+      'fastapi detail string',
+      { detail: 'Not authenticated' },
+      { message: 'Not authenticated', code: undefined },
+    ],
+    ['array detail ignored', { detail: [{ msg: 'x' }] }, { message: undefined, code: undefined }],
   ])('%s', (_label, payload, expected) => {
     expect(describeError(payload)).toEqual(expected);
   });

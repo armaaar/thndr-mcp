@@ -40,3 +40,14 @@ export class NotFoundError extends ApplicationError {
 export class FeatureDisabledError extends ApplicationError {
   readonly code = 'FEATURE_DISABLED';
 }
+
+/** The refresh credential was rejected: a new device approval is needed. */
+export class SessionExpiredError extends ApplicationError {
+  readonly code = 'SESSION_EXPIRED';
+
+  constructor(
+    message = 'Your Thndr session expired. Call login_request_approval (or login_start) and approve on your phone.',
+  ) {
+    super(message);
+  }
+}
