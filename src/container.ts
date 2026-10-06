@@ -24,7 +24,6 @@ import {
   StartLogin,
   VerifyLoginCode,
 } from './application/identity/login.js';
-import { LoginFlowHolder } from './application/identity/login-flow-holder.js';
 import { SessionTokenProvider } from './application/identity/session-token-provider.js';
 import { InstrumentResolver } from './application/market-data/instrument-resolver.js';
 import { MarketQuotesCache } from './application/market-data/quote-cache.js';
@@ -60,6 +59,7 @@ import { FirebaseIdentityProvider } from './infrastructure/data-sources/firebase
 import { SessionFile } from './infrastructure/data-sources/local/session-file.js';
 import { type FetchFn, ThndrHttpClient } from './infrastructure/data-sources/thndr/http-client.js';
 import { StderrLogger } from './infrastructure/logging/stderr-logger.js';
+import { FileLoginFlowRepository } from './infrastructure/repositories/local/login-flow-repository.js';
 import { FileSessionRepository } from './infrastructure/repositories/local/session-repository.js';
 import { HttpThndrAuthGateway } from './infrastructure/repositories/thndr/auth-gateway.js';
 import { ThndrEngagementRepository } from './infrastructure/repositories/thndr/engagement-repository.js';
@@ -109,7 +109,7 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     gateway: authGateway,
     identity,
     sessions,
-    flow: new LoginFlowHolder(),
+    flow: new FileLoginFlowRepository(sessionFile),
     clock,
     userAgent: config.userAgent,
   };

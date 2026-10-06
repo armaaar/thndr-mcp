@@ -10,13 +10,13 @@ import {
   StartLogin,
   VerifyLoginCode,
 } from '../../../src/application/identity/login.js';
-import { LoginFlowHolder } from '../../../src/application/identity/login-flow-holder.js';
 import { AccessToken } from '../../../src/domain/identity/access-token.js';
 import { DeviceApprovalRequest } from '../../../src/domain/identity/device-approval.js';
 import { Email } from '../../../src/domain/identity/email.js';
 import { RefreshCredential } from '../../../src/domain/identity/refresh-credential.js';
 import { ThndrSession } from '../../../src/domain/identity/thndr-session.js';
 import { BusinessRuleViolation, ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { InMemoryLoginFlowRepository } from '../../../src/infrastructure/repositories/memory/login-flow-repository.js';
 import {
   approvalRequest,
   fakeGateway,
@@ -37,7 +37,7 @@ function deps(
     gateway: overrides.gateway ?? fakeGateway(),
     identity: overrides.identity ?? fakeIdentity(),
     sessions: new InMemorySessionRepository(),
-    flow: new LoginFlowHolder(),
+    flow: new InMemoryLoginFlowRepository(),
     clock,
     sleep: vi.fn(async (ms: number) => clock.advance(ms)),
     userAgent: USER_AGENT,
@@ -45,7 +45,7 @@ function deps(
 }
 
 function awaiting(d: ReturnType<typeof deps>, request: DeviceApprovalRequest = approvalRequest) {
-  d.flow.set(d.flow.current.awaitingApproval(request));
+  void d.flow.save(d.flow.current.awaitingApproval(request));
 }
 
 describe('StartLogin', () => {
@@ -72,7 +72,7 @@ describe('StartLogin', () => {
 describe('VerifyLoginCode', () => {
   function codeSent() {
     const d = deps();
-    d.flow.set(d.flow.current.codeSent(Email.of('a@example.com'), 'verification-1'));
+    void d.flow.save(d.flow.current.codeSent(Email.of('a@example.com'), 'verification-1'));
     return d;
   }
 
@@ -306,7 +306,7 @@ describe('GetAuthStatus', () => {
       AccessToken.of('tok', new Date('2026-01-01T00:15:00Z')),
       T0,
     );
-    d.flow.set(d.flow.current.codeSent(Email.of('a@example.com'), 'v1'));
+    void d.flow.save(d.flow.current.codeSent(Email.of('a@example.com'), 'v1'));
     await expect(new GetAuthStatus(d).execute()).resolves.toEqual({
       authenticated: true,
       identified: true,

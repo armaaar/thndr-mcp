@@ -42,7 +42,7 @@ describe('SessionFile', () => {
   it('reads an empty document when the file does not exist', async () => {
     const file = new SessionFile(join(dir, 'missing.json'));
     expect(file.path).toBe(join(dir, 'missing.json'));
-    await expect(file.read()).resolves.toEqual({ version: 1, firebase: {}, thndr: null });
+    await expect(file.read()).resolves.toEqual({ version: 1, firebase: {}, thndr: null, loginFlow: null });
   });
 
   it('writes atomically with 0600 in a freshly created 0700 directory', async () => {
@@ -56,13 +56,15 @@ describe('SessionFile', () => {
     expect(await mode(join(dir, 'nested'))).toBe(0o700);
     const raw = await readFile(path, 'utf8');
     expect(raw.endsWith('\n')).toBe(true);
-    expect(JSON.parse(raw)).toEqual({ version: 1, firebase: { k: { v: 1 } }, thndr: null });
+    expect(JSON.parse(raw)).toEqual({ version: 1, firebase: { k: { v: 1 } }, thndr: null, loginFlow: null });
     await expect(stat(`${path}.${process.pid}.tmp`)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('tightens permissions of an existing world-readable file', async () => {
     const path = join(dir, 'session.json');
-    await writeFile(path, JSON.stringify({ version: 1, firebase: {}, thndr: null }), { mode: 0o644 });
+    await writeFile(path, JSON.stringify({ version: 1, firebase: {}, thndr: null, loginFlow: null }), {
+      mode: 0o644,
+    });
     await new SessionFile(path).update(() => undefined);
     expect(await mode(path)).toBe(0o600);
   });
@@ -77,19 +79,30 @@ describe('SessionFile', () => {
       establishedAt: '2026-01-01T00:00:00.000Z',
     };
     await writeFile(path, JSON.stringify({ firebase: 'bad', thndr }));
-    await expect(new SessionFile(path).read()).resolves.toEqual({ version: 1, firebase: {}, thndr });
+    await expect(new SessionFile(path).read()).resolves.toEqual({
+      version: 1,
+      firebase: {},
+      thndr,
+      loginFlow: null,
+    });
     await writeFile(path, JSON.stringify({ firebase: { x: 1 } }));
     await expect(new SessionFile(path).read()).resolves.toEqual({
       version: 1,
       firebase: { x: 1 },
       thndr: null,
+      loginFlow: null,
     });
   });
 
   it.each(['{not json', 'null', ''])('treats corrupted content %j as empty', async (raw) => {
     const path = join(dir, 'session.json');
     await writeFile(path, raw);
-    await expect(new SessionFile(path).read()).resolves.toEqual({ version: 1, firebase: {}, thndr: null });
+    await expect(new SessionFile(path).read()).resolves.toEqual({
+      version: 1,
+      firebase: {},
+      thndr: null,
+      loginFlow: null,
+    });
   });
 
   it('propagates other read errors (EISDIR)', async () => {
@@ -98,17 +111,19 @@ describe('SessionFile', () => {
     await expect(new SessionFile(path).read()).rejects.toMatchObject({ code: 'EISDIR' });
   });
 
-  it('caches reads and keeps the cache in sync with writes', async () => {
+  it("always reads from disk so other processes see each other's writes", async () => {
     const path = join(dir, 'session.json');
     const file = new SessionFile(path);
-    const first = await file.read();
-    await writeFile(path, JSON.stringify({ firebase: { external: true } }));
-    expect(await file.read()).toBe(first);
     await file.update((content) => {
       content.firebase.mine = 1;
     });
-    expect(await file.read()).toEqual({ version: 1, firebase: { mine: 1 }, thndr: null });
-    expect(first.firebase).toEqual({});
+    // Another process (e.g. the CLI while the MCP server runs) rewrites the file.
+    await writeFile(path, JSON.stringify({ firebase: { external: true } }));
+    expect((await file.read()).firebase).toEqual({ external: true });
+    await file.update((content) => {
+      content.firebase.mine = 2;
+    });
+    expect((await file.read()).firebase).toEqual({ external: true, mine: 2 });
   });
 
   it('serialises concurrent updates', async () => {

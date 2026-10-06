@@ -19,6 +19,16 @@ export class LoginFlow {
     Object.freeze(this);
   }
 
+  /** Rehydrates a persisted flow (repositories only). */
+  static restore(input: {
+    stage: LoginStage;
+    email: Email | null;
+    verificationId: string | null;
+    approval: DeviceApprovalRequest | null;
+  }): LoginFlow {
+    return new LoginFlow(input.stage, input.email, input.verificationId, input.approval);
+  }
+
   static idle(): LoginFlow {
     return new LoginFlow('IDLE', null, null, null);
   }

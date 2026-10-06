@@ -96,6 +96,7 @@ describe('FileSessionRepository', () => {
       version: 1,
       firebase: { user: { uid: 'u' } },
       thndr: null,
+      loginFlow: null,
     });
   });
 });

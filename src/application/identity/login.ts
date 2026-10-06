@@ -1,21 +1,21 @@
 import { AccessToken } from '../../domain/identity/access-token.js';
 import type { ApprovalStatus, DeviceApprovalRequest } from '../../domain/identity/device-approval.js';
 import { Email } from '../../domain/identity/email.js';
+import { LoginFlow } from '../../domain/identity/login-flow.js';
 import { RefreshCredential } from '../../domain/identity/refresh-credential.js';
-import type { SessionRepository } from '../../domain/identity/repository.js';
+import type { LoginFlowRepository, SessionRepository } from '../../domain/identity/repository.js';
 import { ThndrSession } from '../../domain/identity/thndr-session.js';
 import { ValidationError } from '../../domain/shared-kernel/errors.js';
 import { assertNonEmpty } from '../../domain/shared-kernel/guards.js';
 import { NotAuthenticatedError, UpstreamError } from '../errors.js';
 import type { Clock } from '../ports/clock.js';
 import type { IdentityProvider, ThndrAuthGateway } from '../ports/identity.js';
-import type { LoginFlowHolder } from './login-flow-holder.js';
 
 export interface LoginDependencies {
   gateway: ThndrAuthGateway;
   identity: IdentityProvider;
   sessions: SessionRepository;
-  flow: LoginFlowHolder;
+  flow: LoginFlowRepository;
   clock: Clock;
   /** User agent shown to the user in the Thndr app approval screen. */
   userAgent: string;
@@ -48,7 +48,7 @@ export class StartLogin {
   async execute(input: { email: string }): Promise<{ maskedEmail: string; message: string }> {
     const email = Email.of(input.email);
     const verificationId = await this.deps.gateway.sendEmailCode(email.value);
-    this.deps.flow.set(this.deps.flow.current.codeSent(email, verificationId));
+    await this.deps.flow.save((await this.deps.flow.load()).codeSent(email, verificationId));
     return {
       maskedEmail: email.masked(),
       message: `A 6-digit verification code was sent to ${email.masked()}. Call login_verify_code with it.`,
@@ -63,7 +63,7 @@ export class VerifyLoginCode {
   async execute(input: { code: string }): Promise<ApprovalInstructions> {
     const code = assertNonEmpty(input.code, 'Verification code').replace(/\s+/g, '');
     if (!/^\d{4,8}$/.test(code)) throw new ValidationError('Verification code must be 4–8 digits');
-    const { verificationId } = this.deps.flow.current.requireCodeSent();
+    const { verificationId } = (await this.deps.flow.load()).requireCodeSent();
     const customToken = await this.deps.gateway.verifyEmailCode(verificationId, code);
     await this.deps.identity.signInWithCustomToken(customToken);
     return new RequestDeviceApproval(this.deps).execute();
@@ -82,7 +82,7 @@ export class RequestDeviceApproval {
       );
     }
     const request = await this.deps.gateway.createApprovalRequest(idToken);
-    this.deps.flow.set(this.deps.flow.current.awaitingApproval(request));
+    await this.deps.flow.save((await this.deps.flow.load()).awaitingApproval(request));
     return instructions(request, this.deps.userAgent);
   }
 }
@@ -102,7 +102,7 @@ export class CompleteLogin {
   async execute(
     input: { timeoutSeconds?: number; pollIntervalMs?: number } = {},
   ): Promise<CompleteLoginResult> {
-    const request = this.deps.flow.current.requireAwaitingApproval();
+    const request = (await this.deps.flow.load()).requireAwaitingApproval();
     const idToken = await this.deps.identity.getIdToken();
     if (!idToken) throw new NotAuthenticatedError('Firebase identity lost. Call login_start again.');
     const timeoutMs = Math.min(Math.max(input.timeoutSeconds ?? 60, 0), 300) * 1000;
@@ -124,7 +124,7 @@ export class CompleteLogin {
     }
 
     if (status === 'rejected' || status === 'expired') {
-      this.deps.flow.reset();
+      await this.deps.flow.save(LoginFlow.idle());
       return {
         status,
         authenticated: false,
@@ -132,7 +132,7 @@ export class CompleteLogin {
       };
     }
     if (status === 'claimed') {
-      this.deps.flow.reset();
+      await this.deps.flow.save(LoginFlow.idle());
       throw new UpstreamError(
         'This approval was already used. Call login_request_approval to create a new one.',
       );
@@ -146,7 +146,7 @@ export class CompleteLogin {
       now,
     );
     await this.deps.sessions.save(session);
-    this.deps.flow.reset();
+    await this.deps.flow.save(LoginFlow.idle());
     return {
       status,
       authenticated: true,
@@ -194,7 +194,7 @@ export class GetAuthStatus {
       this.deps.sessions.load(),
       this.deps.identity.getIdToken().catch(() => null),
     ]);
-    const stage = this.deps.flow.current.stage;
+    const stage = (await this.deps.flow.load()).stage;
     const now = this.deps.clock.now();
     return {
       authenticated: session !== null && !session.refresh.isExpired(now),
@@ -219,7 +219,7 @@ export class Logout {
       await this.deps.sessions.clear();
     }
     if (input.forgetIdentity) await this.deps.identity.signOut();
-    this.deps.flow.reset();
+    await this.deps.flow.save(LoginFlow.idle());
     return { loggedOut: true };
   }
 }
