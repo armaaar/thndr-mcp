@@ -20,16 +20,25 @@ Thndr serves four markets and that each offers a different set of features:
   book and trades book (403 FEATURE_DISABLED for US/UAE), financials (404 for US/UAE symbols), indices with
   constituents, savings (Clouds) and the full trading journal (422 for the US).
 - Every market has bulk quotes through the mobile gateway (`krakend-thndr-app/securities/v2/price`, which accepts our
-  token), closing-price history (`assets-service/charts`), news, watchlists, price alerts, orders and wallet.
+  token), closing-price history (`assets-service/charts`), orders and a wallet. Watchlists work for egypt, us and uae;
+  price alerts for egypt and us (the UAE answers 403); news for egypt and us (empty for UAE listings seen).
 - Gainers/losers (`assets-service/assets/rank`) work for Egypt and the US (500 for the UAE).
-- Activity providers differ per market: `EGID`, `ALPACA`, `ADX_UAE`, `THNDR` (simulator).
+- Activity providers differ per market: `EGID`, `ALPACA`, `ADX_UAE`; the simulator has no activity feed (Thndr
+  answers 422 for `THNDR`, the provider the app lists).
+- The simulator is a paper account (`market_name` "boom_sim"): wallet and orders work; market status has nulls,
+  hours answer 422; it trades Egypt's (and US) listings, so its market data follows the instrument (Egypt's snapshot
+  for Egyptian listings).
+- Two entries of the feature table rest on thin evidence and should be re-checked with a funded account: `journal` is
+  Egypt-only (the US full-trades answer 422; UAE grouped-sells answered 200 but empty, and trading-metrics has no market
+  parameter), and `returns` is enabled for the UAE although the app hides Returns for ADX (the only evidence is a 404
+  on an empty account, which we read as an empty history).
 
 ## Decision
 
 - **Markets** in the domain (shared kernel): `egypt` (EGX, EGP, Africa/Cairo), `us` (NYSE, Nasdaq and ETFs via
   Alpaca, USD, America/New_York), `uae` (ADX, AED, Asia/Dubai) and `simulator` (Thndr's paper-trading market). Inputs
-  accept aliases (`egx`, `usa`, `nasdaq`, `nyse`, `adx`, `abudhabi`, `adsm`, `sim`…). Thndr's wire codes stay in the
-  Thndr adapters (anti-corruption layer): `uae` → `adsm` for instruments, `abudhabi` for accounts.
+  take exactly these four codes (case-insensitive), so the published tool schemas list them. Thndr's wire codes stay in
+  the Thndr adapters (anti-corruption layer): `uae` → `adsm` for instruments, `abudhabi` for accounts.
 - **Capabilities** are domain knowledge per market (`marketSupports(market, feature)`), based on the live checks
   above. A use case asked for a feature a market lacks fails fast with `FEATURE_DISABLED` and a message naming the
   market and what to use instead — it does not call Thndr for an answer that cannot exist. A `get_markets` tool lists

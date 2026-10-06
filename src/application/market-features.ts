@@ -14,9 +14,9 @@ import { FeatureDisabledError } from './errors';
  */
 export function requireMarketFeature(market: Market, feature: MarketFeature): void {
   if (marketSupports(market, feature)) return;
-  const offered = marketsSupporting(feature);
+  // Every feature exists in at least one market (the domain table), so there is always somewhere to point to.
   throw new FeatureDisabledError(
-    `Thndr does not offer ${FEATURE_LABELS[feature]} for the ${MARKET_PROFILES[market].name} market` +
-      (offered.length > 0 ? `; it is available for: ${offered.join(', ')}.` : '.'),
+    `Thndr does not offer ${FEATURE_LABELS[feature]} for the ${MARKET_PROFILES[market].name} market; it is ` +
+      `available for: ${marketsSupporting(feature).join(', ')}.`,
   );
 }

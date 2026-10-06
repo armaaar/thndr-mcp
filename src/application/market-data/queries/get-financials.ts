@@ -190,7 +190,8 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
       availableMetrics: available,
     };
     if (params.compareToSector)
-      Object.assign(view, await this.sectorComparison(instrument, statements, market, mode));
+      // The sector sample is the instrument's own market (e.g. Egypt for a simulator user looking at COMI).
+      Object.assign(view, await this.sectorComparison(instrument, statements, instrument.market, mode));
     return view;
   }
 

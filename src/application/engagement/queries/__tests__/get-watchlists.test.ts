@@ -57,6 +57,6 @@ describe('GetWatchlists', () => {
 
   it('parses the market', async () => {
     const deps = engagementSetup();
-    expect((await new GetWatchlists(deps).execute({ market: 'USA' as never })).market).toBe('us');
+    expect((await new GetWatchlists(deps).execute({ market: ' US ' as never })).market).toBe('us');
   });
 });

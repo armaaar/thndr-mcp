@@ -199,6 +199,9 @@ UI logic [C]:
 
 - Client: `aP`. Query: `market`. Key `["returns", market]`.
 - Evidence: `chunks_app_mobile_account_page` line 295.
+- An account without any daily snapshot (e.g. a US or UAE account that never held anything) answers **404** `Latest
+  Snapshot Not Found`, and the chart below answers 404 `No Realized Returns Charts Data` [P] (live 2026-10-06);
+  thndr-mcp reads both as an empty history. UAE accounts use `market=abudhabi`.
 ```ts
 interface RealizedReturns { total_returns: number; snapshot_date: string /* date */ }   // [I]
 ```

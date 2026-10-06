@@ -901,6 +901,10 @@ Evidence: `chunks_3073-1086eff233e85e69.js:917-929`.
 
 - The app refetches every 60 s.
 - `market_exchange` is the asset's `feed.market_id`, for example `NOPL`, `OOTC`, `SME`, `INDX`, `FNDS` or `adsm` (enum 18291 `L`).
+- **`market_exchange` is required** [P] (live 2026-10-06): without it Thndr answers 422 for every market. Values that
+  work: Egypt `NOPL` (or the asset's board), US `market=us&market_exchange=NOPL`, UAE
+  `market=abudhabi&market_exchange=adsm`. The simulator answers 200 with null fields; its hours answer 422. Response:
+  `{is_active, market_status ("OPEN"/"CLOSED"…), next_open_time, next_close_time}`.
 
 ```ts
 interface MarketStatus { is_active: boolean; /* + status/phase fields [I] */ }   // is_active [C]

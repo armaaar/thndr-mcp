@@ -16,7 +16,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 **Common to all use cases**
 
 - **Preconditions:** a Thndr session exists (every market-data endpoint is called with the full-access token).
-- **Input conventions:** `market` is `egypt` (default) or `us`; `symbol` is a ticker (`COMI`, any case) or a Thndr
+- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); a tool asked for something its market lacks answers `FEATURE_DISABLED` naming where it is available; `symbol` is a ticker (`COMI`, any case) or a Thndr
   asset id (UUID), resolved by `InstrumentResolver`.
 - **Common error flows:**
   - No session → `NOT_AUTHENTICATED`; refresh credential rejected → `SESSION_EXPIRED` (re-approve).

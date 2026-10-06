@@ -39,6 +39,8 @@ describe('mapCurrency', () => {
     ['2', 'USD'],
     ['egp', 'EGP'],
     ['USD', 'USD'],
+    ['AED', 'AED'],
+    [' aed ', 'AED'],
     [0, null],
     ['points', null],
     ['GBP', null],
@@ -379,6 +381,18 @@ describe('toQuote', () => {
     expect(toQuote(undefined)).toBeNull();
     expect(toQuote({ reuters: 'COMI' })).toBeNull();
     expect(toQuote({ asset_id: ID, reuters: 'BAD TICKER' })).toBeNull();
+  });
+});
+
+describe('toInstrument markets', () => {
+  it('reads Thndr’s UAE and simulator codes', () => {
+    expect(toInstrument({ id: ID, symbol: 'FAB', market: 'adsm', currency: 'AED' }, 'egypt')).toMatchObject({
+      market: 'uae',
+      currency: 'AED',
+    });
+    expect(toInstrument({ id: ID, symbol: 'FAB', market: 'abudhabi' }, 'egypt')?.market).toBe('uae');
+    expect(toInstrument({ id: ID, symbol: 'X', market: 'boom_sim' }, 'egypt')?.market).toBe('simulator');
+    expect(toInstrument({ id: ID, symbol: 'X', market: 'tdwl' }, 'us')?.market).toBe('us');
   });
 });
 

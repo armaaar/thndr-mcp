@@ -44,30 +44,13 @@ export const MARKET_PROFILES: Readonly<Record<Market, MarketProfile>> = Object.f
   }),
 });
 
-const ALIASES: Readonly<Record<string, Market>> = {
-  egypt: 'egypt',
-  egx: 'egypt',
-  eg: 'egypt',
-  us: 'us',
-  usa: 'us',
-  nasdaq: 'us',
-  nyse: 'us',
-  alpaca: 'us',
-  uae: 'uae',
-  adx: 'uae',
-  abudhabi: 'uae',
-  'abu dhabi': 'uae',
-  adsm: 'uae',
-  simulator: 'simulator',
-  sim: 'simulator',
-  paper: 'simulator',
-};
-
 export function parseMarket(raw: string | undefined | null): Market {
   if (raw === undefined || raw === null || raw === '') return DEFAULT_MARKET;
-  const market = ALIASES[raw.trim().toLowerCase()];
-  if (!market) throw new ValidationError(`Unsupported market "${raw}". Use one of: ${MARKETS.join(', ')}`);
-  return market;
+  const value = raw.trim().toLowerCase();
+  if (!(MARKETS as readonly string[]).includes(value)) {
+    throw new ValidationError(`Unsupported market "${raw}". Use one of: ${MARKETS.join(', ')}`);
+  }
+  return value as Market;
 }
 
 /**

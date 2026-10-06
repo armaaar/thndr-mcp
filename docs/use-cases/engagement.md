@@ -13,7 +13,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 **Common to all use cases**
 
 - **Preconditions:** a Thndr session exists (full-access bearer token on every call).
-- **Input conventions:** `market` is `egypt` (default) or `us`; symbols are tickers (`COMI`, any case) or Thndr
+- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); a tool asked for something its market lacks answers `FEATURE_DISABLED` naming where it is available; symbols are tickers (`COMI`, any case) or Thndr
   asset ids, resolved by `InstrumentResolver`. Query results always carry tickers next to asset ids (via
   `InstrumentLabeler`; unknown ids get `ticker: null` instead of failing); watchlist command receipts carry asset
   ids only.

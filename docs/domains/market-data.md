@@ -22,7 +22,7 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 
 | Term | Meaning |
 | --- | --- |
-| **Market** | A Thndr market account/venue, wire value of the `market` query param. Supported: `egypt` (default; aliases `egx`, `eg`) and `us` (alias `usa`). |
+| **Market** | A Thndr market (ADR 0021): `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading). Thndr's wire codes are mapped in the adapters (`uae` → `adsm` for instruments, `abudhabi` for accounts). Each market offers a different set of features (`marketSupports`); tools refuse unsupported combinations with `FEATURE_DISABLED`. |
 | **Instrument** | A tradable or reference listing: stock, ETF, index or fund (`AssetClass`: `STOCK`, `ETF`, `INDEX`, `FUND`, `UNKNOWN`). |
 | **Asset id** (`AssetId`) | Thndr's UUID for an instrument; the key used by every Thndr endpoint. Stored lower-case. |
 | **Ticker** (`Ticker`, shared kernel) | Exchange symbol such as `COMI`. Case-insensitive input. Users and agents refer to instruments by ticker *or* asset id. |
@@ -69,7 +69,7 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | `AssetId` (shared kernel, `shared-kernel/asset-id.ts`) | value object | Must be a UUID (`8-4-4-4-12` hex); normalised to lower-case. `AssetId.isAssetId(raw)` tests without throwing. |
 | `Market` (shared kernel, `shared-kernel/market.ts`) | enum + `parseMarket` | Empty → `egypt`; unknown → `VALIDATION_ERROR`. |
 | `AssetClass` (shared kernel, `shared-kernel/market.ts`) | enum + `parseAssetClass` | Unknown wire values become `UNKNOWN` (never fails). |
-| `Instrument` | read model | `id`, `ticker`, `name`, `assetClass`, `market`, `currency` (`EGP`/`USD`/null), `sector`, `board`, `tradable`, `suspended`, `priceDecimals` (2 or 3 on EGX), optional `description`, `logoUrl`, `tags` (visible tag names, Thndr's order, no duplicates). |
+| `Instrument` | read model | `id`, `ticker`, `name`, `assetClass`, `market`, `currency` (`EGP`/`USD`/`AED`/null), `sector`, `board`, `tradable`, `suspended`, `priceDecimals` (2 or 3 on EGX), optional `description`, `logoUrl`, `tags` (visible tag names, Thndr's order, no duplicates). |
 | `Quote` | read model | Every numeric field nullable (Thndr often omits them). `board` is `INDX` for index rows, which are in the snapshot but never screening results or peers. `relativeVolume(quote)` returns null without a 30-day average. |
 | `Screener` (`screener.ts`) | read model, deep-frozen | `id`, `name`, `market`, `preset`, `filters` (each a `ScreenerField` and a condition: `between` inclusive with open null bounds, `oneOf`, `contains` ignoring case, `equals`, `equalsNumber`) and `unsupported` (Thndr filters that cannot be evaluated, described). `SCREENER_PRESETS` holds ThndrX's presets. |
 | `matchesScreener(quote, filters)` | domain service | ThndrX's evaluator (bundle module 86697): derived `price`, `change`, `changePercent` (from `lastTradePrice` and previous close), `relativeVolume` (rounded; null fails the row), 52-week distances; `Number(null)` = 0 in ranges. `describeFilter` words a filter (`value ≥ 1,000,000`). |

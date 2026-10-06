@@ -20,20 +20,11 @@ describe('parseMarket', () => {
 
   it.each([
     ['egypt', 'egypt'],
-    [' EGX ', 'egypt'],
-    ['eg', 'egypt'],
+    [' EGYPT ', 'egypt'],
     ['US', 'us'],
-    ['usa', 'us'],
-    ['Nasdaq', 'us'],
-    ['nyse', 'us'],
     ['uae', 'uae'],
-    ['ADX', 'uae'],
-    ['abudhabi', 'uae'],
-    ['Abu Dhabi', 'uae'],
-    ['adsm', 'uae'],
-    ['simulator', 'simulator'],
-    ['sim', 'simulator'],
-  ])('accepts alias %s', (raw, expected) => {
+    ['Simulator', 'simulator'],
+  ])('accepts %s', (raw, expected) => {
     expect(parseMarket(raw)).toBe(expected);
   });
 

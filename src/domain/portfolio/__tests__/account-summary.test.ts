@@ -45,5 +45,7 @@ describe('accountCurrency', () => {
   it('maps markets to their cash currency', () => {
     expect(accountCurrency('egypt')).toBe('EGP');
     expect(accountCurrency('us')).toBe('USD');
+    expect(accountCurrency('uae')).toBe('AED');
+    expect(accountCurrency('simulator')).toBe('EGP');
   });
 });
