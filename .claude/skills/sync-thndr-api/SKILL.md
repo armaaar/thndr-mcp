@@ -11,6 +11,16 @@ Thndr redeploys without notice, so this workflow re-derives what changed and upd
 `src/infrastructure/repositories/thndr/**`) in one coherent change. Scope stays **read-only** (ADR 0006): if new order-entry or
 fund-movement endpoints appear, note them in the diff summary but do not document or implement them.
 
+## Bundled tools
+
+All tooling for this workflow lives in this skill's `scripts/` folder; `npm` aliases exist for humans and CI:
+
+| Script | Alias | Purpose |
+| --- | --- | --- |
+| `scripts/sync-thndr-bundle.ts` | `npm run sync:api` | Download the public ThndrX bundle, regenerate `docs/api/endpoints.generated.md` |
+| `scripts/find-call-sites.ts` | `npm run find:call-sites -- <path>` | Locate and beautify call sites of an endpoint in the synced bundle |
+| `scripts/capture-fixtures.ts` | `npm run capture:fixtures` | (Logged in) capture real, PII-redacted read-only responses to compare shapes |
+
 ## 1. Pull the latest bundle and diff the surface
 
 ```bash
@@ -40,7 +50,7 @@ grep -rhoE "['\`]/[a-zA-Z0-9/_{}\$.:-]+['\`]" src/infrastructure/repositories/th
 For each used path that changed, locate and read its call sites in the de-minified bundle:
 
 ```bash
-.claude/skills/sync-thndr-api/scripts/find-call-sites.sh "/market-service/v3/orders"
+npm run find:call-sites -- "/market-service/v3/orders"
 ```
 
 From the call site, re-derive: HTTP method, axios client (`aP` = prod.thndr.app, `Kc` = krakend, `Z$` = x.thndr.app/api

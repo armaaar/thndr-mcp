@@ -10,9 +10,9 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { loadConfig } from '../src/config.js';
-import { compose } from '../src/container.js';
-import { assertNoKrakendError } from '../src/infrastructure/data-sources/thndr/krakend.js';
+import { loadConfig } from '../../../../src/config';
+import { compose } from '../../../../src/container';
+import { assertNoKrakendError } from '../../../../src/infrastructure/data-sources/thndr/krakend';
 
 const OUT = resolve(process.argv[2] ?? '.cache/fixtures');
 const PII =
@@ -44,8 +44,9 @@ function shape(value: unknown, prefix = '', out = new Map<string, Set<string>>()
 async function main(): Promise<void> {
   const app = compose(loadConfig());
   const { api, krakend } = app;
-  const status = await app.identityUseCases.getAuthStatus.execute();
-  if (!status.authenticated) throw new Error('Not logged in. Run `npm run login` first.');
+  const authStatus = app.useCases.find((u) => u.name === 'auth_status');
+  const status = (await authStatus?.run({})) as { authenticated?: boolean } | undefined;
+  if (!status?.authenticated) throw new Error('Not logged in. Run `npm run login` first.');
 
   // Seed an instrument id from the market snapshot (most traded EGX stock).
   const mw = await api.get<{ assets?: Array<{ asset_id: string; total_value?: number }> }>(
