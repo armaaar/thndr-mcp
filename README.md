@@ -1,6 +1,6 @@
 # thndr-mcp
 
-[![CI](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/armaaar/thndr-mcp?sort=semver)](https://github.com/armaaar/thndr-mcp/releases)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
