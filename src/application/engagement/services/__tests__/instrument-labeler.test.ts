@@ -67,6 +67,21 @@ describe('InstrumentLabeler.label', () => {
   });
 });
 
+describe('InstrumentLabeler without a whole-market snapshot', () => {
+  it('never asks for one in the US or the UAE, and reads Egypt’s for the simulator', async () => {
+    const market = new FakeMarketDataRepository({
+      instruments: [anInstrument({ ticker: 'NVDA', market: 'us' })],
+      quotes: { egypt: [aQuote({ ticker: 'COMI', last: 125 })] },
+    });
+    const { labeler } = setup(market);
+    expect((await labeler.label([id('NVDA')], 'us')).get(id('NVDA')).ticker).toBe('NVDA');
+    expect(await labeler.currentPrice(id('NVDA'), 'uae')).toBeNull();
+    expect(market.calls.getMarketQuotes).toEqual([]);
+    expect(await labeler.currentPrice(id('COMI'), 'simulator')).toBe(125);
+    expect(market.calls.getMarketQuotes).toEqual(['egypt']);
+  });
+});
+
 describe('InstrumentLabeler.currentPrice', () => {
   it('reads the last price from the snapshot', async () => {
     const market = new FakeMarketDataRepository({
