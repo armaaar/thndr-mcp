@@ -22,12 +22,16 @@ import type { LoginDependencies } from './application/identity/dependencies';
 import { GetAuthStatus } from './application/identity/queries/get-auth-status';
 import { SessionTokenProvider } from './application/identity/services/session-token-provider';
 import type { MarketDataDependencies } from './application/market-data/dependencies';
+import { GetEconomicIndicators } from './application/market-data/queries/get-economic-indicators';
+import { GetFinancials } from './application/market-data/queries/get-financials';
 import { GetIndexConstituents } from './application/market-data/queries/get-index-constituents';
 import { GetInstrumentDetails } from './application/market-data/queries/get-instrument-details';
 import { GetMarketDepth } from './application/market-data/queries/get-market-depth';
 import { GetMarketStatus } from './application/market-data/queries/get-market-status';
+import { GetNews } from './application/market-data/queries/get-news';
 import { GetPeers } from './application/market-data/queries/get-peers';
 import { GetPriceHistory } from './application/market-data/queries/get-price-history';
+import { GetPricePerformance } from './application/market-data/queries/get-price-performance';
 import { GetPriceSnapshot } from './application/market-data/queries/get-price-snapshot';
 import { GetRecentTrades } from './application/market-data/queries/get-recent-trades';
 import { GetScreeners } from './application/market-data/queries/get-screeners';
@@ -65,6 +69,7 @@ import { HttpThndrAuthGateway } from './repositories/thndr/auth-gateway';
 import { ThndrEngagementRepository } from './repositories/thndr/engagement-repository';
 import { ThndrMarketDataRepository } from './repositories/thndr/market-data-repository';
 import { ThndrPortfolioRepository } from './repositories/thndr/portfolio-repository';
+import { ThndrResearchRepository } from './repositories/thndr/research-repository';
 
 export interface CompositionOverrides {
   fetch?: FetchFn;
@@ -104,6 +109,8 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   const tokens = new SessionTokenProvider(sessions, authGateway, clock, logger);
   const api = http(config.apiBaseUrl, tokens);
   const krakend = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-x`, tokens);
+  /** ThndrX's own routes on x.thndr.app/api (financials, macros), with the full-access token. */
+  const web = http(config.webBaseUrl, tokens);
   const login: LoginDependencies = {
     gateway: authGateway,
     identity,
@@ -118,7 +125,14 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   const resolver = new InstrumentResolver(marketRepository);
   const quotes = new MarketQuotesCache(marketRepository, clock);
   const indices = new IndexMembership(marketRepository, quotes, clock);
-  const market: MarketDataDependencies = { repository: marketRepository, resolver, quotes, indices, clock };
+  const market: MarketDataDependencies = {
+    repository: marketRepository,
+    research: new ThndrResearchRepository(api, web),
+    resolver,
+    quotes,
+    indices,
+    clock,
+  };
 
   // Portfolio
   const portfolio: PortfolioDependencies = {
@@ -156,6 +170,10 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     new GetScreeners(market),
     new GetIndexConstituents(market),
     new GetPeers(market),
+    new GetPricePerformance(market),
+    new GetFinancials(market),
+    new GetNews(market),
+    new GetEconomicIndicators(market),
     new GetAccountSummary(portfolio),
     new GetPositions(portfolio),
     new GetPosition(portfolio),

@@ -72,6 +72,10 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | `get_screeners` | `thndr get-screeners` | `GetScreeners` (`market-data/queries/get-screeners.ts`) | `GET prod /users-service/screeners` (+ ThndrX's built-in presets) | — |
 | `get_index_constituents` | `thndr get-index-constituents <index>` | `GetIndexConstituents` (`market-data/queries/get-index-constituents.ts`) | `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` (`constituents`) | — |
 | `get_peers` | `thndr get-peers <symbol>` | `GetPeers` (`market-data/queries/get-peers.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/recommendations` + `GET prod /assets-service/assets/marketwatch` | `get_company_connections` (closest) |
+| `get_price_performance` | `thndr get-price-performance <symbol>` | `GetPricePerformance` (`market-data/queries/get-price-performance.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` (1D, ~5 years) + `GET prod /assets-service/assets/{id}?include_yearly_return=true` | — (PortfolioAnalyst-style statistics) |
+| `get_financials` | `thndr get-financials <symbol>` | `GetFinancials` (`market-data/queries/get-financials.ts`) | (resolve) + `GET web /financials`; sector comparison: + `GET prod /assets-service/assets/marketwatch` + `GET web /financials?symbols=` | — (fundamentals) |
+| `get_news` | `thndr get-news [symbol]` | `GetNews` (`market-data/queries/get-news.ts`) | (resolve) + `GET prod /api/post/news/` | — |
+| `get_economic_indicators` | `thndr get-economic-indicators` | `GetEconomicIndicators` (`market-data/queries/get-economic-indicators.ts`) | `GET web /macros` | — |
 
 "(resolve)" = `InstrumentResolver`: cache, else `GET /assets-service/assets/search` (ticker) or
 `GET /assets-service/assets/{id}` (asset id). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
