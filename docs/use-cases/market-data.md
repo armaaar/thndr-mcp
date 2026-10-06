@@ -1,7 +1,8 @@
 # Market Data use cases
 
 Code: one `Query` class per use case in `src/application/market-data/queries/`; shared `InstrumentResolver` and
-`MarketQuotesCache` in `src/application/market-data/services/` — Market Data's Open Host Service, which the
+`MarketQuotesCache` in `src/application/market-data/services/`; fundamentals, news and macro data come from the
+`research` dependency (`ResearchRepository`, ADR 0018) — Market Data's Open Host Service, which the
 Portfolio and Engagement use cases also consume
 ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these
 classes; CLI positionals come from `src/presentation/cli/positionals.ts`.
@@ -22,7 +23,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   - Invalid ticker/asset id format → `VALIDATION_ERROR`.
   - Ticker with no exact match → `NOT_FOUND` (with up to five suggestions).
   - Thndr HTTP error, network error, KrakenD embedded error or unexpected payload → `UPSTREAM_ERROR`.
-- Hosts: `prod` = `https://prod.thndr.app`, `krakend` = `https://prod.thndr.app/krakend-thndr-x`.
+- Hosts: `prod` = `https://prod.thndr.app`, `krakend` = `https://prod.thndr.app/krakend-thndr-x`, `web` =
+  `https://x.thndr.app/api` (ThndrX's own routes, same full-access token).
 
 ---
 
@@ -153,3 +155,107 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Alternative/error flows:** common errors. No matches → `total: 0`, empty `results`.
 - **Output:** `market`, `total` (matches before the limit), `results` (quotes + `relativeVolume`).
 - **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch`.
+
+## Price performance — `get_price_performance` (`GetPricePerformance`)
+
+- **Use case:** `GetPricePerformance` (`Query`) in `src/application/market-data/queries/get-price-performance.ts`
+  (calculations: `pricePerformance` in `src/domain/market-data/performance.ts`)
+- **Invoke:** MCP `get_price_performance {"symbol": "COMI"}` · CLI `thndr get-price-performance COMI`
+- **Goal:** trailing performance and risk statistics of one instrument (IBKR has none; ADR 0018).
+- **Input:** `symbol`, `market`.
+- **Main flow:**
+  1. Resolve the symbol.
+  2. In parallel: daily candles from 5 years + 10 days ago up to now, and Thndr's own one-year return (asset details
+     with `include_yearly_return=true`).
+  3. Keep one session per Cairo market day (positive closes only), oldest first.
+  4. Returns for `1W`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `3Y`, `5Y`: close to close, from the last close on or before the
+     period start (calendar months, clamped at month ends; YTD from the last close of the previous year) to the
+     latest close. Null when history does not reach back that far.
+  5. Annualised historical volatility for the last 30, 90 and 252 sessions: sample standard deviation of daily log
+     returns × √252, in percent (null with too few sessions).
+  6. 52-week high/low from the daily highs/lows of the last 12 months; maximum drawdown on closes from the 1Y base
+     close.
+- **Alternative/error flows:** common errors. No candles → nulls and empty lists.
+- **Output:** `ticker`, `name`, `currency`, `asOf` (day of the latest close), `lastClose`, `returns`
+  (`[{period, startDate, baseDate, baseClose, returnPercent}]`), `volatility` (`[{window, tradingDays,
+  annualisedPercent}]`), `week52` (`{high, highDate, low, lowDate}`), `maxDrawdown1Y` (`{percent, peakDate,
+  troughDate}`), `thndrOneYearReturn` (`{percent, direction}` or null), `history` (`firstDate`, `sessions`), `method`.
+  Percentages are rounded to 2 decimals and prices to 4. Thndr's daily candles look adjusted for corporate actions
+  (fractional prices), so these figures can differ from raw closes. `thndrOneYearReturn` is Thndr's own figure; its
+  method is not published.
+- **Thndr endpoints:** (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades?resolution=1D` +
+  `GET prod /assets-service/assets/{id}?include_yearly_return=true`.
+
+## Company financials — `get_financials` (`GetFinancials`)
+
+- **Use case:** `GetFinancials` (`Query`) in `src/application/market-data/queries/get-financials.ts` (sector
+  comparison: `compareWithSector` in `src/domain/market-data/sector-comparison.ts`)
+- **Invoke:** MCP `get_financials {"symbol": "COMI", "metrics": ["revenues", "net_income", "roe_%"], "compareToSector": true}` ·
+  CLI `thndr get-financials COMI --metrics revenues,net_income,roe_% --compare-to-sector`
+- **Goal:** a listed company's financial statements and ratios by period, optionally ranked against its sector the
+  way ThndrX does.
+- **Input:** `symbol`, `market`, `mode` (`ttm` default: trailing twelve months, comparable across companies and
+  seasons; `qoq` single quarters, ThndrX's default view; `yoy` fiscal years), `metrics` (Thndr metric keys; default
+  a compact core set: revenues, gross/operating profit, EBITDA, net income, EPS, net interest income, total assets/
+  liabilities/equity/debt, customer deposits, loans, CFO, FCFF, margins, ROE, ROA, revenue and EPS growth, BVPS;
+  `["all"]` for every metric Thndr reports), `periods` (most recent N, 1–40, default 8; sent as `dataPointCount`),
+  `compareToSector` (default false).
+- **Main flow:**
+  1. Resolve the symbol; fetch the company's financials for `mode` and `periods`.
+  2. Keep the requested metrics (those the company lacks go to `unavailable`), each with its last `periods` points
+     and its latest point.
+  3. With `compareToSector`: take the company's marketwatch sector (`eng_desc`) and every company of that sector with
+     listed shares; fetch their financials in one batch call; for every ThndrX comparison metric compute the
+     company's value and the sector's median/min/max (zero and missing values dropped) and the percentile 1–100
+     (100 = best, reversed when lower is better); rate each category with the rounded mean percentile of its rated
+     metrics. Valuation multiples use today's price against the latest period (docs/api/market-data.md §8a).
+- **Alternative/error flows:** Thndr has no financials for the company (HTTP 404 "Symbol not found", or an empty
+  answer) → `NOT_FOUND` ("Thndr has no financials for X."). No sector in the market snapshot → `sectorComparison:
+  null` with a note. Banks: compared the same way, with a note that ThndrX does not show this panel for banks.
+  Common errors.
+- **Output:** `ticker`, `name`, `currency`, `mode`, `basis` (what the periods mean), `latestPeriod`, `units`,
+  `metrics` (`{<key>: {latest: {period, value}, series: [{period, value}]}}`), `unavailable?`, `availableMetrics`,
+  and with `compareToSector` `sectorComparison` (`sector`, `companies`, `companiesWithData`, `method`, `ratings`
+  `[{category, percentile, band}]`, `metrics` `[{key, category, unit, lowerIsBetter, value, sectorCount, median, min,
+  max, percentile}]`) and `notes?`. Free-cash-flow yield and CFO/revenue are given in percent (ThndrX shows the bare
+  ratio); this does not change the ranks.
+- **Thndr endpoints:** (resolve) + `GET web /financials?symbol=&mode=&dataPointCount=`; with `compareToSector`
+  also `GET prod /assets-service/assets/marketwatch` (cached 10 s) and `GET web /financials?symbols=A,B,…&mode=`.
+
+## News — `get_news` (`GetNews`)
+
+- **Use case:** `GetNews` (`Query`) in `src/application/market-data/queries/get-news.ts`
+- **Invoke:** MCP `get_news {"symbol": "COMI"}` · CLI `thndr get-news COMI [--page 2] [--locale ar] [--content-chars 0]`;
+  market-wide: `thndr get-news`
+- **Goal:** recent news and exchange disclosures, for one instrument or market-wide.
+- **Input:** `symbol` (optional; omit for market-wide news across Thndr's markets), `market` (to resolve the
+  symbol), `page` (default 1, 25 per page), `locale` (`en` default, `ar`), `contentChars` (truncate each article's
+  content to N characters, default 500, 0 omits it, up to 20000).
+- **Main flow:**
+  1. Resolve the symbol when given.
+  2. Fetch the page of news (newest first).
+  3. Truncate content longer than `contentChars` (adds `…` and `contentTruncated: true`).
+- **Alternative/error flows:** a page past the last one → empty `items`, `hasMore: false`. Common errors.
+- **Output:** `ticker` (or null), `locale`, `page`, `total` (Thndr's count across pages), `hasMore`, `items`
+  (`[{id, title, content?, contentTruncated?, source, link, publishedAt, market, tickers}]`). Many EGX disclosures
+  have empty content: their text is the PDF at `link`.
+- **Thndr endpoints:** (resolve) + `GET prod /api/post/news/?asset_id=&locale=&page=`.
+
+## Egypt economic indicators — `get_economic_indicators` (`GetEconomicIndicators`)
+
+- **Use case:** `GetEconomicIndicators` (`Query`) in `src/application/market-data/queries/get-economic-indicators.ts`
+- **Invoke:** MCP `get_economic_indicators {"points": 6}` · CLI `thndr get-economic-indicators --points 6`
+- **Goal:** Egypt's macro backdrop as ThndrX shows it: inflation, CBE rates, treasury-bill yields, unemployment, GDP.
+- **Input:** `points` (latest N points of each series, 1–500, default 12).
+- **Main flow:**
+  1. Fetch Thndr's macro data (one call).
+  2. Keep the latest `points` of each series (series are sorted oldest first).
+- **Alternative/error flows:** common errors.
+- **Output:** `description`, `extractedAt` (when Thndr extracted the data), `sources` (Thndr's description of each
+  series), `overview` (`headlineInflationYearly`, `coreInflationYearly`, `unemployment`, `depositRate`,
+  `lendingRate`, `treasuryBills12m`: `{value, date, period, change}`), `gdp` (`gdpEgp`, `gdpUsd`, `gdpGrowthEgp`,
+  `gdpGrowthUsd`), `inflationYearly` / `inflationMonthly` (`{date, headline, core, goodsAndServices,
+  fruitsAndVegetables}`), `overnightRates` (`{date, depositRate, lendingRate}`), `treasuryBills` (`{date, oneMonth,
+  threeMonths, sixMonths, nineMonths, twelveMonths}`), `unemployment` (`{period, year, quarter, rate}`), `units`.
+  Values are percent; `change` is Thndr's `growth` (the change from the previous reading).
+- **Thndr endpoints:** `GET web /macros`.

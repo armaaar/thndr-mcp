@@ -10,6 +10,7 @@ import type { MarketDataRepository } from '../../domain/market-data/repository';
 import { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
+import { FakeResearchRepository } from './fake-research';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */
 export const COMI_ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
@@ -240,15 +241,17 @@ export class FakeMarketDataRepository implements MarketDataRepository {
   }
 }
 
-/** Market Data use-case dependencies over a fake repository (real resolver and quotes cache). */
+/** Market Data use-case dependencies over fake repositories (real resolver and quotes cache). */
 export function setupMarketData(
   repository = new FakeMarketDataRepository(),
   now: string | Date = '2026-01-15T12:00:00Z',
-): MarketDataDependencies & { repository: FakeMarketDataRepository } {
+  research = new FakeResearchRepository(),
+): MarketDataDependencies & { repository: FakeMarketDataRepository; research: FakeResearchRepository } {
   const clock = fixedClock(now);
   const quotes = new MarketQuotesCache(repository, clock);
   return {
     repository,
+    research,
     clock,
     resolver: new InstrumentResolver(repository),
     quotes,

@@ -41,6 +41,17 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | **Tape** (time & sales) | Executed trades (`TapeTrade`: price, quantity, side `BUY`/`SELL`/`UNKNOWN`, time, cursor). Paged backwards with a cursor. |
 | **Market session** | Whether the market is open now, with today's open/close times. |
 | **Screen** | Filtering and ranking the marketwatch snapshot by criteria (gainers, losers, most active, unusual volume, value…). |
+| **Financial statement metric** | One line of a company's financials as Thndr reports it, by key (`revenues`, `net_income`, `total_assets`, `roe_%`, `revenue_growth_1y`…) with one value per period. Keys ending in `_%` and growth rates are percent. |
+| **Reporting basis** (`FinancialMode`) | How periods are cut: **TTM** (`ttm`, trailing twelve months at each quarter end, "TTM Q2 26": flows are 12-month sums; our default, comparable across companies), **QoQ** (`qoq`, single quarters, "Q2 26"; ThndrX's default view), **YoY** (`yoy`, fiscal years, "2025"). |
+| **Latest value** | The last element of a metric's series (as ThndrX reads it); the **latest period** is the most recent period any metric reports. |
+| **Valuation multiples** | P/E, P/B, P/S, PEG, EV/EBITDA, EV/EBIT computed at today's price against the latest period (`valuation()`), as ThndrX does; EV = market cap + debt − cash − short-term investments. |
+| **Sector comparison** | ThndrX's ranking of a company against every company of the same marketwatch sector with listed shares: per metric the sector median/min/max (zeros dropped) and a **percentile rank** 1–100 (100 = best, reversed when lower is better); per category a **rating** = rounded mean percentile of rated metrics, banded green/lightGreen/yellow/orange/red. |
+| **Period return** | Close-to-close change over a trailing period (`1W` … `5Y`, `YTD`) from the **base close**: the last close on or before the period start (YTD: the last close of the previous year). |
+| **Historical volatility** | Annualised standard deviation of daily log returns over the last 30, 90 or 252 sessions: sample stdev × √252, in percent. |
+| **Drawdown** | Fall of the close from its running peak; the **maximum drawdown** (1Y) is the largest one from the 1Y base close to the latest close. |
+| **Thndr one-year return** | Thndr's own one-year figure on the asset details (`annual_return`: value + gain/loss), shown for reference; its method is not published. |
+| **News article** | An item of Thndr's news feed: a news story or an exchange disclosure (`source` `egx`, often a PDF `link` with empty content), tagged with tickers. |
+| **Macro indicator** | Egypt's macroeconomic data as ThndrX shows it: headline/core inflation (monthly and yearly), CBE overnight deposit/lending rates, treasury-bill average returns by tenor, quarterly unemployment, GDP. Overview readings carry Thndr's `growth` as `change` from the previous reading. |
 
 ## Model and invariants
 
@@ -56,6 +67,11 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | `OrderBook` | read model | Bids best (highest) first, asks best (lowest) first. `spread(book)` is null when a side is empty or best bid ≤ 0. |
 | `TapeTrade` | read model | Each trade carries the cursor used to page further back. |
 | `MarketSession` | read model | `market`, `isOpen`, `opensAt`, `closesAt` (open/close nullable). |
+| `FinancialStatements` (`financials.ts`, `createFinancialStatements`) | read model | `currency`, `mode`, `series` (metric key → `{period, value}` oldest first, values nullable). Frozen. `comparePeriods` orders "2025" / "Q2 26" / "TTM Q2 26" labels; `latestPeriod`, `latestValue`, `valueAt`, safe `ratio`. |
+| `valuation(statements, market)` | domain service | Market cap needs listed shares and a price; P/E dropped when negative; P/B falls back to price / BVPS; nothing without a period. |
+| `compareWithSector(company, sector, mode)` (`sector-comparison.ts`) | domain service | ThndrX's comparison metrics (`COMPARISON_METRICS`: category, lowerIsBetter, rated, hidden in `qoq`), `sectorStats`, `percentileRank` (null with < 2 values), `ratingBand`. |
+| `pricePerformance(candles)` (`performance.ts`) | domain service | One session per Cairo market day (`marketDay`), positive closes only; `shiftDay` clamps month ends; returns null when history is too short; volatility null with fewer returns than the window. |
+| `NewsArticle`, `NewsPage`, `EconomicIndicators`, `YearlyReturn` (`research.ts`) | read models | News ids are strings, tickers a list; macro series sorted oldest first. |
 
 Thndr reference symbols that don't fit the `Ticker` pattern (e.g. `USD/EGP`, `EGX70 EWI`) are sanitised by the
 anti-corruption layer (`USD-EGP`, `EGX70-EWI`) for indices and asset details.
@@ -126,3 +142,14 @@ it as the `repository` dependency:
 | `getMarketIndicators(market)` | `GET /assets-service/assets/market-indicators?market&page_count=100` |
 
 All on `https://prod.thndr.app`; KrakenD responses pass through `assertNoKrakendError`.
+
+`ResearchRepository` (`src/domain/market-data/research-repository.ts`), implemented by `ThndrResearchRepository`
+(`src/repositories/thndr/research-repository.ts`, ADR 0018) and given to use cases as the `research` dependency:
+
+| Method | Thndr endpoint |
+| --- | --- |
+| `getFinancials(ticker, mode, dataPointCount?)` | `GET x.thndr.app/api/financials?symbol&mode&dataPointCount` (404 or no series → `NOT_FOUND`) |
+| `getFinancialsBatch(tickers, mode)` | `GET x.thndr.app/api/financials?symbols=A,B&mode` (404 → empty) |
+| `getNews({assetId?, locale, page})` | `GET prod.thndr.app/api/post/news/?asset_id&locale&page` (404 past the last page → empty) |
+| `getEconomicIndicators()` | `GET x.thndr.app/api/macros` |
+| `getYearlyReturn(id)` | `GET prod.thndr.app/assets-service/assets/{id}?include_yearly_return=true` (`annual_return`) |
