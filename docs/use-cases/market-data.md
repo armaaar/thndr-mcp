@@ -1,11 +1,12 @@
 # Market Data use cases
 
-Code: one `Query` class per use case in `src/application/market-data/queries/`; shared `InstrumentResolver`,
-`MarketQuotesCache` and `IndexMembership` in `src/application/market-data/services/`; fundamentals, news and macro
-data come from the `research` dependency (`ResearchRepository`, ADR 0018) — Market Data's Open Host Service, which the
-Portfolio and Engagement use cases also consume
-([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these
-classes; CLI positionals come from `src/presentation/cli/positionals.ts`.
+Code: one `Query` class per use case in `src/application/market-data/queries/`. Market Data's Open Host Service is
+`src/application/market-data/services/*` (`InstrumentResolver`, `MarketQuotesCache`, `IndexMembership`) together
+with its domain types (`src/domain/market-data/`): the Portfolio and Engagement use cases consume those, never these
+use cases ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). Fundamentals, news and
+macro data come from the `research` dependency (`ResearchRepository`, ADR 0018), a Market Data dependency used only by
+the Market Data use cases below. MCP tools and CLI commands are generated from these classes; CLI positionals come
+from `src/presentation/cli/positionals.ts`.
 Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-data.md](../api/market-data.md).
 
 **Actor** for every use case: the LLM agent (MCP) or a user at a terminal (CLI `thndr`), acting on behalf of the
@@ -243,16 +244,20 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   3. Keep one session per Cairo market day (positive closes only), oldest first.
   4. Returns for `1W`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `3Y`, `5Y`: close to close, from the last close on or before the
      period start (calendar months, clamped at month ends; YTD from the last close of the previous year) to the
-     latest close. Null when history does not reach back that far.
+     latest close. When no close is on or before the start, the base is the first close at most 7 days after it:
+     Thndr serves about 5 years of candles, so the 5Y start (often a weekend or holiday) usually precedes the first
+     one. `baseDate` gives the day actually used. Null when history does not reach back that far.
   5. Annualised historical volatility for the last 30, 90 and 252 sessions: sample standard deviation of daily log
      returns × √252, in percent (null with too few sessions).
-  6. 52-week high/low from the daily highs/lows of the last 12 months; maximum drawdown on closes from the 1Y base
-     close.
-- **Alternative/error flows:** common errors. No candles → nulls and empty lists.
+  6. 52-week high/low from the daily highs/lows after the 1Y start day (a low ≤ 0 is a bad bar: the session's close
+     counts instead); maximum drawdown on closes from the 1Y base close (tied peaks keep the first).
+- **Alternative/error flows:** common errors. No candles → nulls and empty lists. Thndr's one-year return fails
+  (upstream or not-found error) → `thndrOneYearReturn: null` and a note; the statistics are still returned.
 - **Output:** `ticker`, `name`, `currency`, `asOf` (day of the latest close), `lastClose`, `returns`
   (`[{period, startDate, baseDate, baseClose, returnPercent}]`), `volatility` (`[{window, tradingDays,
   annualisedPercent}]`), `week52` (`{high, highDate, low, lowDate}`), `maxDrawdown1Y` (`{percent, peakDate,
-  troughDate}`), `thndrOneYearReturn` (`{percent, direction}` or null), `history` (`firstDate`, `sessions`), `method`.
+  troughDate}`), `thndrOneYearReturn` (`{percent, direction}` or null), `history` (`firstDate`, `sessions`), `method`,
+  `notes?`.
   Percentages are rounded to 2 decimals and prices to 4. Thndr's daily candles look adjusted for corporate actions
   (fractional prices), so these figures can differ from raw closes. `thndrOneYearReturn` is Thndr's own figure; its
   method is not published.
@@ -271,8 +276,10 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   seasons; `qoq` single quarters, ThndrX's default view; `yoy` fiscal years), `metrics` (Thndr metric keys; default
   a compact core set: revenues, gross/operating profit, EBITDA, net income, EPS, net interest income, total assets/
   liabilities/equity/debt, customer deposits, loans, CFO, FCFF, margins, ROE, ROA, revenue and EPS growth, BVPS;
-  `["all"]` for every metric Thndr reports), `periods` (most recent N, 1–40, default 8; sent as `dataPointCount`),
-  `compareToSector` (default false).
+  `["all"]` for every metric Thndr reports; Thndr serves no valuation multiples such as `pe_ratio`, `pb_ratio` or
+  `ev_ebitda` — ThndrX derives them in the browser, and so does the sector comparison), `periods` (most recent N,
+  1–40, default 8; sent as `dataPointCount`), `compareToSector` (default false). `metrics` does not affect the
+  comparison, which always covers ThndrX's full metric set.
 - **Main flow:**
   1. Resolve the symbol; fetch the company's financials for `mode` and `periods`.
   2. Keep the requested metrics (those the company lacks go to `unavailable`), each with its last `periods` points
@@ -281,19 +288,33 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
      listed shares; fetch their financials in one batch call; for every ThndrX comparison metric compute the
      company's value and the sector's median/min/max (zero and missing values dropped) and the percentile 1–100
      (100 = best, reversed when lower is better); rate each category with the rounded mean percentile of its rated
-     metrics. Valuation multiples use today's price against the latest period (docs/api/market-data.md §8a).
+     metrics (banded on the unrounded mean). Valuation multiples and free-cash-flow yield are derived against the
+     latest period (docs/api/market-data.md §8a). As in ThndrX, the company's own values use the close of the last
+     daily candle on or before the end of its latest period (quarters end 31 Mar/30 Jun/30 Sep/31 Dec, years
+     31 Dec; daily candles from 3 years ago, 8 for `yoy`), while the peers — the company's own sample entry
+     included — use the current marketwatch price. The company's price-based values are therefore usually not in
+     the sample, so their percentile can fall slightly outside 1–100 (ThndrX's formula, unclamped).
 - **Alternative/error flows:** Thndr has no financials for the company (HTTP 404 "Symbol not found", or an empty
   answer) → `NOT_FOUND` ("Thndr has no financials for X."). No sector in the market snapshot → `sectorComparison:
-  null` with a note. Banks: compared the same way, with a note that ThndrX does not show this panel for banks.
-  Common errors.
+  null` with a note. The sector batch call fails upstream (429 after the retry, 5xx) → `sectorComparison: null`
+  with a note; the statements are still returned. Daily candles empty or failing upstream → the company is valued
+  at the current price (`valuationPrice.basis: "currentPrice"`, as ThndrX does) with a note. Candles that do not
+  reach back to the period end (Thndr serves about 5 years; only a company whose latest period ended earlier) →
+  current price with a note, where ThndrX leaves the multiples empty. Banks: compared the same way, with a note
+  that ThndrX does not show this panel for banks. Common errors.
 - **Output:** `ticker`, `name`, `currency`, `mode`, `basis` (what the periods mean), `latestPeriod`, `units`,
   `metrics` (`{<key>: {latest: {period, value}, series: [{period, value}]}}`), `unavailable?`, `availableMetrics`,
-  and with `compareToSector` `sectorComparison` (`sector`, `companies`, `companiesWithData`, `method`, `ratings`
-  `[{category, percentile, band}]`, `metrics` `[{key, category, unit, lowerIsBetter, value, sectorCount, median, min,
-  max, percentile}]`) and `notes?`. Free-cash-flow yield and CFO/revenue are given in percent (ThndrX shows the bare
-  ratio); this does not change the ranks.
+  and with `compareToSector` `sectorComparison` (`sector`, `companies`, `companiesWithData`, `method`,
+  `valuationPrice` (`{period, periodEnd, basis: "periodEndClose" | "currentPrice", price, priceDate, reason?}`),
+  `ratings` `[{category, percentile, band}]`, `metrics` `[{key, category, unit, lowerIsBetter, source, value,
+  sectorCount, median, min, max, percentile, companyPrice?}]`) and `notes?`. `source` is the Thndr metric key a value
+  is read from (`roe_%`) or the formula it is derived with (`price / eps (left out when negative)`); `companyPrice`
+  (price-based metrics only: P/E, P/B, EV/EBITDA, P/S, PEG, free-cash-flow yield) is the `valuationPrice.basis`.
+  Free-cash-flow yield and CFO/revenue are given in percent (ThndrX shows the bare ratio); this does not change the
+  ranks.
 - **Thndr endpoints:** (resolve) + `GET web /financials?symbol=&mode=&dataPointCount=`; with `compareToSector`
-  also `GET prod /assets-service/assets/marketwatch` (cached 10 s) and `GET web /financials?symbols=A,B,…&mode=`.
+  also `GET prod /assets-service/assets/marketwatch` (cached 10 s), `GET web /financials?symbols=A,B,…&mode=` and
+  `GET krakend /feed/advanced-charts/v2/{id}/trades?resolution=1D` (3 or 8 years, like ThndrX).
 
 ## News — `get_news` (`GetNews`)
 
@@ -301,8 +322,9 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Invoke:** MCP `get_news {"symbol": "COMI"}` · CLI `thndr get-news COMI [--page 2] [--locale ar] [--content-chars 0]`;
   market-wide: `thndr get-news`
 - **Goal:** recent news and exchange disclosures, for one instrument or market-wide.
-- **Input:** `symbol` (optional; omit for market-wide news across Thndr's markets), `market` (to resolve the
-  symbol), `page` (default 1, 25 per page), `locale` (`en` default, `ar`), `contentChars` (truncate each article's
+- **Input:** `symbol` (optional; omit for market-wide news across Thndr's markets), `market` (only to resolve the
+  symbol: market-wide news cannot be filtered by market — the endpoint ignores a `market` parameter and mixes EGX
+  and US items, live-verified 2026-10-06), `page` (default 1, 25 per page), `locale` (`en` default, `ar`), `contentChars` (truncate each article's
   content to N characters, default 500, 0 omits it, up to 20000).
 - **Main flow:**
   1. Resolve the symbol when given.

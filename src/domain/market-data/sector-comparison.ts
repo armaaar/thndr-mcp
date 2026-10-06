@@ -28,6 +28,16 @@ export interface ComparisonMetric {
   readonly hiddenInQoq?: boolean;
   /** Unit of the value (`%` = percent points, `x` = multiple/ratio). */
   readonly unit: '%' | 'x';
+  /** The Thndr metric key it is read from, or how it is derived (Thndr serves no valuation multiples). */
+  readonly source: string;
+  /** Depends on the share price (market cap), so the company's own value uses its valuation price. */
+  readonly priceBased?: boolean;
+}
+
+interface MetricOptions {
+  rated?: boolean;
+  hiddenInQoq?: boolean;
+  priceBased?: boolean;
 }
 
 const m = (
@@ -35,47 +45,71 @@ const m = (
   category: ComparisonCategory,
   lowerIsBetter: boolean,
   unit: '%' | 'x',
-  rated = true,
-  hiddenInQoq = false,
+  source: string,
+  { rated = true, hiddenInQoq = false, priceBased = false }: MetricOptions = {},
 ): ComparisonMetric =>
-  Object.freeze({ key, category, lowerIsBetter, rated, unit, ...(hiddenInQoq ? { hiddenInQoq } : {}) });
+  Object.freeze({
+    key,
+    category,
+    lowerIsBetter,
+    rated,
+    unit,
+    source,
+    ...(hiddenInQoq ? { hiddenInQoq } : {}),
+    ...(priceBased ? { priceBased } : {}),
+  });
 
-/** The metrics ThndrX compares with the sector, in its display order (bundle chunk 6076 / chunk 334 builders). */
+const MARKET_CAP = 'market cap (listed shares × price)';
+const EV = `EV (${MARKET_CAP} + total_debt − total_cash_and_cash_equivalents − st_investments)`;
+
+/**
+ * The metrics ThndrX compares with the sector, in its display order (bundle chunk 334 metric builders; lower-is-better
+ * map `en` and the `includeInRating` flags in chunk 6076).
+ */
 export const COMPARISON_METRICS: readonly ComparisonMetric[] = Object.freeze([
-  m('netDebtTotalEquity', 'financialHealth', true, 'x'),
-  m('netDebtEbitda', 'financialHealth', true, 'x'),
-  m('interestCoverageRatio', 'financialHealth', false, 'x'),
-  m('quickRatio', 'financialHealth', false, 'x'),
-  m('freeCashFlowYield', 'efficiency', false, '%'),
-  m('cfoToRevenue', 'efficiency', false, '%'),
-  m('assetsTurnover', 'efficiency', false, 'x'),
-  m('receivablesTurnover', 'efficiency', false, 'x'),
-  m('inventoryTurnover', 'efficiency', false, 'x'),
-  m('revenueGrowth', 'growth', false, '%'),
-  m('avgRevenueGrowth3y', 'growth', false, '%', false, true),
-  m('epsGrowth', 'growth', false, '%'),
-  m('avgEpsGrowth3y', 'growth', false, '%', false, true),
-  m('assetsGrowth', 'growth', false, '%'),
-  m('equityGrowth', 'growth', false, '%'),
-  m('roe', 'profitability', false, '%', false),
-  m('roa', 'profitability', false, '%', false),
-  m('roic', 'profitability', false, '%'),
-  m('grossMargin', 'profitability', false, '%', false),
-  m('operatingMargin', 'profitability', false, '%'),
-  m('netMargin', 'profitability', false, '%'),
-  m('roae', 'profitability', false, '%'),
-  m('pe', 'valuation', true, 'x'),
-  m('pb', 'valuation', true, 'x'),
-  m('evEbitda', 'valuation', true, 'x'),
-  m('ps', 'valuation', true, 'x', false),
-  m('peg', 'valuation', true, 'x', false),
-  m('dividendYield', 'valuation', false, '%', false),
+  m('netDebtTotalEquity', 'financialHealth', true, 'x', 'net_debt_total_equity'),
+  m('netDebtEbitda', 'financialHealth', true, 'x', 'net_debt_ebitda'),
+  m('interestCoverageRatio', 'financialHealth', false, 'x', 'interest_coverage_ratio'),
+  m('quickRatio', 'financialHealth', false, 'x', 'quick_ratio'),
+  m('freeCashFlowYield', 'efficiency', false, '%', `fcff / ${EV} × 100`, { priceBased: true }),
+  m('cfoToRevenue', 'efficiency', false, '%', 'cfo / revenues × 100'),
+  m('assetsTurnover', 'efficiency', false, 'x', 'assets_turnover'),
+  m('receivablesTurnover', 'efficiency', false, 'x', 'receivables_turnover'),
+  m('inventoryTurnover', 'efficiency', false, 'x', 'inventory_turnover'),
+  m('revenueGrowth', 'growth', false, '%', 'revenue_growth_1y'),
+  m('avgRevenueGrowth3y', 'growth', false, '%', 'avg_revenue_growth_3y', { rated: false, hiddenInQoq: true }),
+  m('epsGrowth', 'growth', false, '%', 'eps_growth_%'),
+  m('avgEpsGrowth3y', 'growth', false, '%', 'avg_eps_growth_3y', { rated: false, hiddenInQoq: true }),
+  m('assetsGrowth', 'growth', false, '%', 'assets_growth_1y'),
+  m('equityGrowth', 'growth', false, '%', 'equity_growth_1y'),
+  m('roe', 'profitability', false, '%', 'roe_%', { rated: false }),
+  m('roa', 'profitability', false, '%', 'roa_%', { rated: false }),
+  m('roic', 'profitability', false, '%', 'roic_%'),
+  m('grossMargin', 'profitability', false, '%', 'gross_margin_%', { rated: false }),
+  m('operatingMargin', 'profitability', false, '%', 'operating_margin_%'),
+  m('netMargin', 'profitability', false, '%', 'net_margin_%'),
+  m('roae', 'profitability', false, '%', 'roae_%'),
+  m('pe', 'valuation', true, 'x', 'price / eps (left out when negative)', { priceBased: true }),
+  m(
+    'pb',
+    'valuation',
+    true,
+    'x',
+    `${MARKET_CAP} / (total_equity − minority_interest_bs), else price / bvps`,
+    { priceBased: true },
+  ),
+  m('evEbitda', 'valuation', true, 'x', `${EV} / ebitda`, { priceBased: true }),
+  m('ps', 'valuation', true, 'x', `${MARKET_CAP} / revenues`, { rated: false, priceBased: true }),
+  m('peg', 'valuation', true, 'x', 'P/E / eps_growth_%', { rated: false, priceBased: true }),
+  m('dividendYield', 'valuation', false, '%', 'marketwatch dividend_yield_perc (today)', { rated: false }),
 ]);
 
 /**
  * One company's value of every comparison metric, computed like ThndrX: the last reported value of each series,
- * valuation multiples at today's price (see {@link valuation}), free-cash-flow yield = FCFF / (market cap + debt −
- * cash − short-term investments) and CFO / revenue (both expressed here in percent; ThndrX shows the bare ratio).
+ * valuation multiples at `market.price` against the latest period (see {@link valuation}; ThndrX passes the
+ * period-end close for the company itself and the current price for its peers), free-cash-flow yield = FCFF /
+ * (market cap + debt − cash − short-term investments) and CFO / revenue (both expressed here in percent; ThndrX shows
+ * the bare ratio).
  */
 export function comparisonValues(
   statements: FinancialStatements,
@@ -181,6 +215,8 @@ export interface MetricComparison {
   category: ComparisonCategory;
   unit: '%' | 'x';
   lowerIsBetter: boolean;
+  /** The Thndr metric key, or how the value is derived. */
+  source: string;
   value: number | null;
   /** Sector values used (non-zero values of every sector company Thndr has data for, this one included). */
   sectorCount: number;
@@ -210,7 +246,8 @@ export interface SectorMember {
 /**
  * Compares one company with its sector the way ThndrX's "metrics details" panel does: every metric's value against
  * the median/min/max of the sector companies' values (zero and missing values left out), a percentile rank, and per
- * category the rounded mean percentile of the rated metrics.
+ * category the rounded mean percentile of the rated metrics (banded on the unrounded mean). `company.market.price`
+ * is the company's valuation price; the sector members (the company among them) carry their current price.
  */
 export function compareWithSector(
   company: SectorMember,
@@ -232,6 +269,7 @@ export function compareWithSector(
       category: metric.category,
       unit: metric.unit,
       lowerIsBetter: metric.lowerIsBetter,
+      source: metric.source,
       value,
       sectorCount: values.length,
       ...sectorStats(values),

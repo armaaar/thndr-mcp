@@ -69,6 +69,39 @@ describe('pricePerformance', () => {
     expect(stats.returns.map((r) => r.period)).toEqual(['1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y', '5Y']);
   });
 
+  it('bases a period on the first close within 7 days after its start when none is on or before it', () => {
+    // 5Y starts 2021-10-06; Thndr's ~5 years of candles begin a few days later.
+    const inWindow = pricePerformance([c('2021-10-13', 50), c('2026-10-06', 100)]);
+    expect(inWindow.returns.find((r) => r.period === '5Y')).toEqual({
+      period: '5Y',
+      startDate: '2021-10-06',
+      baseDate: '2021-10-13',
+      baseClose: 50,
+      returnPercent: 100,
+    });
+    const tooLate = pricePerformance([c('2021-10-14', 50), c('2026-10-06', 100)]);
+    expect(tooLate.returns.find((r) => r.period === '5Y')).toMatchObject({
+      baseDate: null,
+      returnPercent: null,
+    });
+    // A close on or before the start still wins over a later one.
+    const before = pricePerformance([c('2021-10-04', 40), c('2021-10-07', 50), c('2026-10-06', 100)]);
+    expect(before.returns.find((r) => r.period === '5Y')).toMatchObject({
+      baseDate: '2021-10-04',
+      baseClose: 40,
+    });
+  });
+
+  it('groups candles by Cairo day across the UTC midnight boundary', () => {
+    const stats = pricePerformance([
+      aCandle({ time: new Date('2026-01-14T21:30:00Z'), close: 9, high: 9, low: 9 }), // 23:30 on the 14th in Cairo
+      aCandle({ time: new Date('2026-01-14T22:30:00Z'), close: 10, high: 10, low: 10 }), // 00:30 on the 15th in Cairo
+      aCandle({ time: new Date('2026-01-15T09:00:00Z'), close: 12, high: 12, low: 12 }),
+    ]);
+    expect(stats).toMatchObject({ sessions: 2, firstDate: '2026-01-14', asOf: '2026-01-15', lastClose: 12 });
+    expect(stats.returns.find((r) => r.period === '1W')).toMatchObject({ baseClose: 9 });
+  });
+
   it('keeps one session per market day (the latest candle) and ignores non-positive closes', () => {
     const stats = pricePerformance([
       aCandle({ time: new Date('2026-10-06T07:00:00Z'), close: 10, high: 10, low: 10 }),
@@ -99,6 +132,32 @@ describe('pricePerformance', () => {
       c('2026-10-06', 100, 110, 85),
     ]);
     expect(stats.week52).toEqual({ high: 140, highDate: '2026-03-01', low: 80, lowDate: '2026-06-01' });
+  });
+
+  it('starts the 52-week range the day after the 1Y start and ignores lows ≤ 0', () => {
+    const stats = pricePerformance([
+      c('2025-10-06', 100, 900, 1), // exactly 12 months back: outside the range
+      c('2025-10-07', 100, 130, 0), // bad low: the close counts instead
+      c('2026-03-01', 100, 140, 95),
+      c('2026-10-06', 99, 110, -5), // bad low: the close counts instead
+    ]);
+    expect(stats.week52).toEqual({ high: 140, highDate: '2026-03-01', low: 95, lowDate: '2026-03-01' });
+    const lowClose = pricePerformance([c('2026-03-01', 100, 140, 95), c('2026-10-06', 90, 110, 0)]);
+    expect(lowClose.week52).toMatchObject({ low: 90, lowDate: '2026-10-06' });
+  });
+
+  it('keeps the first of tied peaks for the drawdown', () => {
+    const stats = pricePerformance([
+      c('2026-01-01', 100),
+      c('2026-02-01', 100),
+      c('2026-03-01', 80),
+      c('2026-10-06', 90),
+    ]);
+    expect(stats.maxDrawdown1Y).toEqual({
+      percent: expect.closeTo(-20, 10),
+      peakDate: '2026-01-01',
+      troughDate: '2026-03-01',
+    });
   });
 
   it('measures the 1-year maximum drawdown on closes from the 1Y base', () => {

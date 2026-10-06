@@ -93,12 +93,14 @@ export class ThndrHttpClient {
     if (method === 'GET' && response.status === 429) {
       const wait = rateLimitWaitMs(response.headers.get('retry-after'));
       this.options.logger?.info('thndr: rate limited, retrying once', { method, path, waitMs: wait });
+      await discard(response);
       await (this.options.sleep ?? delay)(wait);
       response = await this.send(method, path, options, auth);
     }
     if (auth === 'full' && (response.status === 401 || response.status === 403)) {
       this.options.logger?.info('thndr: token rejected, refreshing and retrying once', { method, path });
       this.requireTokenProvider().invalidate();
+      await discard(response);
       response = await this.send(method, path, options, auth);
       if (response.status === 401) {
         throw new NotAuthenticatedError('Thndr rejected the session. Please log in again (login_start).');
@@ -189,6 +191,15 @@ export class ThndrHttpClient {
       );
     }
     return payload as T;
+  }
+}
+
+/** Releases the body of a response we retry instead of reading, so its connection can be reused. */
+async function discard(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Already consumed or errored: nothing left to release.
   }
 }
 

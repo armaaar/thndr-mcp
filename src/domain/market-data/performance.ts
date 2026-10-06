@@ -5,6 +5,12 @@ import { MARKET_TIME_ZONE } from './market-calendar';
 export const PERFORMANCE_PERIODS = ['1W', '1M', '3M', '6M', 'YTD', '1Y', '3Y', '5Y'] as const;
 export type PerformancePeriod = (typeof PERFORMANCE_PERIODS)[number];
 
+/**
+ * When no close exists on or before a period start (Thndr serves ~5 years of candles, so the 5Y start often falls
+ * just before the first one, or on a weekend), the base is the first close at most this many days after the start.
+ */
+export const BASE_FORWARD_DAYS = 7;
+
 /** Volatility windows, in trading days (daily returns). */
 export const VOLATILITY_WINDOWS = { '30D': 30, '90D': 90, '1Y': 252 } as const;
 export type VolatilityWindow = keyof typeof VOLATILITY_WINDOWS;
@@ -16,7 +22,10 @@ export interface PeriodReturn {
   period: PerformancePeriod;
   /** Calendar day the period starts (Cairo market day). */
   startDate: string;
-  /** Day of the base close: the last close on or before `startDate`; null when history does not reach back. */
+  /**
+   * Day of the base close: the last close on or before `startDate`, else the first close at most
+   * {@link BASE_FORWARD_DAYS} days after it; null when history does not reach back that far.
+   */
   baseDate: string | null;
   baseClose: number | null;
   /** Close-to-close return in percent; null when history is too short. */
@@ -53,7 +62,7 @@ export interface PricePerformance {
   sessions: number;
   returns: PeriodReturn[];
   volatility: Volatility[];
-  /** Highest high and lowest low of the daily candles over the last 52 weeks. */
+  /** Highest high and lowest low of the daily candles over the last 52 weeks (lows ≤ 0 replaced by the close). */
   week52: RangeExtremes | null;
   /** Over the last year (from the 1Y base close), on closes. */
   maxDrawdown1Y: Drawdown | null;
@@ -124,6 +133,14 @@ function lastOnOrBefore(series: readonly Session[], day: string): number {
   return -1;
 }
 
+/** The base session of a period: the last on or before `start`, else the first within {@link BASE_FORWARD_DAYS} after. */
+function baseSession(series: readonly Session[], start: string): Session | undefined {
+  const before = series[lastOnOrBefore(series, start)];
+  if (before) return before;
+  const first = series[0];
+  return first && first.day <= shiftDay(start, 0, BASE_FORWARD_DAYS) ? first : undefined;
+}
+
 /** Sample standard deviation (n − 1). */
 function stdev(values: readonly number[]): number {
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
@@ -132,7 +149,7 @@ function stdev(values: readonly number[]): number {
 
 /**
  * Trailing performance statistics from daily candles: close-to-close returns per period (base = last close on or
- * before the period start), annualised historical volatility, the 52-week range and the 1-year maximum drawdown.
+ * before the period start, else the first close within a week after it), annualised historical volatility, the 52-week range and the 1-year maximum drawdown.
  */
 export function pricePerformance(candles: readonly Candle[]): PricePerformance {
   const series = sessions(candles);
@@ -151,7 +168,7 @@ export function pricePerformance(candles: readonly Candle[]): PricePerformance {
   }
   const returns = PERFORMANCE_PERIODS.map((period): PeriodReturn => {
     const startDate = periodStart(period, last.day);
-    const base = series[lastOnOrBefore(series, startDate)];
+    const base = baseSession(series, startDate);
     return {
       period,
       startDate,
@@ -177,9 +194,11 @@ export function pricePerformance(candles: readonly Candle[]): PricePerformance {
   const lastYear = series.filter((s) => s.day > yearStart);
   let week52: RangeExtremes | null = null;
   for (const s of lastYear) {
-    if (!week52) week52 = { high: s.high, highDate: s.day, low: s.low, lowDate: s.day };
+    // A low ≤ 0 is a bad bar (closes are positive): fall back to the session's close.
+    const low = s.low > 0 ? s.low : s.close;
+    if (!week52) week52 = { high: s.high, highDate: s.day, low, lowDate: s.day };
     if (s.high > week52.high) Object.assign(week52, { high: s.high, highDate: s.day });
-    if (s.low < week52.low) Object.assign(week52, { low: s.low, lowDate: s.day });
+    if (low < week52.low) Object.assign(week52, { low, lowDate: s.day });
   }
 
   const from = Math.max(lastOnOrBefore(series, yearStart), 0);

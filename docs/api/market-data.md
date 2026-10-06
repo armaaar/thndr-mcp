@@ -988,14 +988,36 @@ Percent keys (`_%` and growth rates) are already in percent.
    included), sorted by `listed_shares × last_trade_price` descending. ThndrX sends one batch request
    `symbols=<all their reuters>&mode=<mode>`, with no size limit and no `dataPointCount`.
 2. For each company, each metric is the **last element** of its series (`series.at(-1).value`). Valuation is computed
-   at today's price against the latest period (period labels sorted by year, quarter, then TTM):
+   against the latest period (period labels sorted by year, quarter, then TTM) at a price that depends on who is
+   valued:
+   - **the company itself** (module 36255 `valuateForPeriod`, fed by the `w()` hook, query key
+     `valuation-price-bars`): the close of the last daily candle whose time is ≤ the end of the latest period. The
+     hook loads `GET /feed/advanced-charts/v2/{id}/trades?resolution=1D` from now − 365 × 3 days (`qoq`/`ttm`) or
+     now − 365 × 8 days (`yoy`) to now. The period end comes from module 13280 `cD`: a quarter ends at
+     `Date.UTC(year, 3 × quarter, 0, 23:59:59.999)` (31 Mar, 30 Jun, 30 Sep, 31 Dec; TTM periods with their
+     quarter), a year at 31 Dec 23:59:59.999 UTC. Without a period end, or while the candles are loading or empty,
+     it uses the marketwatch price; when candles exist but none is at or before the period end, the price is
+     `undefined` and the multiples stay empty;
+   - **the sector peers** (the company's own sample entry included): the current marketwatch price (the builders are
+     called without candles).
    - market cap = `listed_shares × price`;
    - EV = market cap + `total_debt` − `total_cash_and_cash_equivalents` − `st_investments`;
    - P/E = price / `eps` (dropped when negative);
    - P/B = market cap / (`total_equity` − `minority_interest_bs`), else price / `bvps`;
    - P/S = market cap / `revenues`; PEG = P/E / `eps_growth_%`; EV/EBITDA; EV/EBIT;
-   - free-cash-flow yield = `fcff` / (market cap + debt − cash − short-term investments); CFO/revenue = `cfo` /
-     `revenues`; dividend yield = the marketwatch `dividend_yield_perc`.
+   - free-cash-flow yield = `fcff` / (market cap + debt − cash − short-term investments), with the company's market
+     cap at its period-end price as above; CFO/revenue = `cfo` / `revenues`; dividend yield = the marketwatch
+     `dividend_yield_perc` (today's, for everyone).
+
+   Because the company is valued at its period-end close while its own entry in the sample uses today's price, its
+   price-based values are usually absent from the sample: their percentile is then computed with `ties = 0` and can
+   fall slightly outside 1–100.
+
+   Our adapter (`get_financials` with `compareToSector`) does the same, requesting the same candle window, with one
+   deviation: when the candles do not reach back to the period end it values the company at the current price and
+   says so (`valuationPrice.reason = "beforeHistory"`, a note) instead of leaving the multiples empty. Thndr serves
+   about 5 years of daily candles, so this only happens for a company whose latest reported period ended earlier
+   than that. Candles that fail to load (an upstream error) also fall back to the current price, with a note.
 3. For each metric, the sector sample keeps only truthy values (zero and missing values are dropped). The statistics
    are the median (the mean of the two middle values for an even count), the minimum and the maximum.
 4. The percentile of the company's value in the ascending sample: `rank` = 1 + the count of values below it, `ties` =
@@ -1044,7 +1066,8 @@ Client `aP` with `authorizationAuth`, so the UI sends `Authorization: Auth <full
 works too, and is what we send. Evidence: `chunks_4856-b1391c64ea89d9ab.js:1512-1530`; fields read at `:1689-1720`.
 
 - Params: `asset_id` (omit it for market-wide news across Thndr's markets, e.g. `egypt` and `us`: 166k items on
-  2026-10-06), `locale` (`en|ar`), `page` (1-based, 25 per page).
+  2026-10-06), `locale` (`en|ar`), `page` (1-based, 25 per page). There is no market filter: a `market` parameter
+  is ignored and market-wide pages mix EGX and US items (live-verified 2026-10-06).
 - Pagination: Django REST. `next` is null on the last page; a page past the end answers 404 (`Invalid page.`) [I].
 
 ```ts

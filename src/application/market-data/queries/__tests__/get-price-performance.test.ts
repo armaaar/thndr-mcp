@@ -5,6 +5,7 @@ import {
   setupMarketData,
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
+import { NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
 import { GetPricePerformance } from '../get-price-performance';
 
 const NOW = new Date('2026-10-06T12:00:00Z');
@@ -76,6 +77,36 @@ describe('GetPricePerformance', () => {
       maxDrawdown1Y: null,
       thndrOneYearReturn: null,
     });
+  });
+
+  it('answers without Thndr’s one-year return, with a note, when that call fails', async () => {
+    const deps = setup();
+    deps.repository.candles = [c('2026-10-05', 10), c('2026-10-06', 11)];
+    deps.research.failures.getYearlyReturn = new UpstreamError('Thndr API error 503 on GET /assets', 503);
+    const out = await new GetPricePerformance(deps).run({ symbol: 'COMI' });
+    expect(out).toMatchObject({ lastClose: 11, thndrOneYearReturn: null });
+    expect(out.notes).toEqual([expect.stringContaining('503')]);
+
+    deps.research.failures.getYearlyReturn = new NotFoundError('Asset not found');
+    expect((await new GetPricePerformance(deps).run({ symbol: 'COMI' })).thndrOneYearReturn).toBeNull();
+
+    deps.research.failures.getYearlyReturn = new NotAuthenticatedError();
+    await expect(new GetPricePerformance(deps).run({ symbol: 'COMI' })).rejects.toMatchObject({
+      code: 'NOT_AUTHENTICATED',
+    });
+  });
+
+  it('documents the forward base for history that starts just after the 5Y start', async () => {
+    const deps = setup();
+    deps.repository.candles = [c('2021-10-10', 50), c('2026-10-06', 75)];
+    const out = await new GetPricePerformance(deps).run({ symbol: 'COMI' });
+    expect(out.returns.find((r) => r.period === '5Y')).toMatchObject({
+      startDate: '2021-10-06',
+      baseDate: '2021-10-10',
+      returnPercent: 50,
+    });
+    expect(out.method).toContain('7 days after the start');
+    expect(out.notes).toBeUndefined();
   });
 
   it('rounds the volatility and a drawdown', async () => {
