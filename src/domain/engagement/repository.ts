@@ -1,8 +1,8 @@
-import type { AssetId } from '../market-data/asset-id.js';
-import type { Market } from '../market-data/market.js';
-import type { Notification } from './notification.js';
-import type { AlertDirection, AlertFrequency, PriceAlert } from './price-alert.js';
-import type { Watchlist, WatchlistName } from './watchlist.js';
+import type { AssetId } from '../market-data/asset-id';
+import type { Market } from '../market-data/market';
+import type { Notification } from './notification';
+import type { AlertDirection, AlertFrequency, PriceAlert } from './price-alert';
+import type { Watchlist, WatchlistName } from './watchlist';
 
 export interface PageRequest {
   /** 1-based page number. */

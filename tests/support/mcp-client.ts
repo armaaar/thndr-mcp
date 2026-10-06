@@ -1,9 +1,9 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-import type { Logger } from '../../src/application/ports/logger.js';
-import type { AnyTool } from '../../src/interfaces/catalog/operation.js';
-import { createMcpServer } from '../../src/interfaces/mcp/server.js';
+import type { Logger } from '../../src/application/ports/logger';
+import type { UseCase } from '../../src/application/use-case';
+import { createMcpServer } from '../../src/presentation/mcp/server';
 
 export interface ConnectedClient {
   client: Client;
@@ -12,8 +12,8 @@ export interface ConnectedClient {
 }
 
 /** Spins up the real MCP server in-process and connects a real MCP client to it. */
-export async function connect(tools: AnyTool[], logger?: Logger): Promise<ConnectedClient> {
-  const server = createMcpServer({ version: '0.0.0-test', tools, logger });
+export async function connect(useCases: readonly UseCase[], logger?: Logger): Promise<ConnectedClient> {
+  const server = createMcpServer({ version: '0.0.0-test', useCases, logger });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseReturnsInterval, summarizeReturnsSeries } from '../../../src/domain/portfolio/returns.js';
+import { parseReturnsInterval, summarizeReturnsSeries } from '../../../src/domain/portfolio/returns';
 
 describe('parseReturnsInterval', () => {
   it('defaults to 1M and normalises case', () => {

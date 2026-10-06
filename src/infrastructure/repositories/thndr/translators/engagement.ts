@@ -1,4 +1,4 @@
-import { createNotification, type Notification } from '../../../../domain/engagement/notification.js';
+import { createNotification, type Notification } from '../../../../domain/engagement/notification';
 import {
   ALERT_DIRECTIONS,
   ALERT_FREQUENCIES,
@@ -6,16 +6,16 @@ import {
   type AlertFrequency,
   createPriceAlert,
   type PriceAlert,
-} from '../../../../domain/engagement/price-alert.js';
-import { createWatchlist, type Watchlist } from '../../../../domain/engagement/watchlist.js';
-import type { AssetId } from '../../../../domain/market-data/asset-id.js';
+} from '../../../../domain/engagement/price-alert';
+import { createWatchlist, type Watchlist } from '../../../../domain/engagement/watchlist';
+import type { AssetId } from '../../../../domain/market-data/asset-id';
 import type {
   NotificationDto,
   PriceAlertDto,
   WatchlistDto,
-} from '../../../data-sources/thndr/dto/engagement.js';
-import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire.js';
-import { mapRows, parseAssetIdOrNull, parseTickerOrNull } from './market-data.js';
+} from '../../../data-sources/thndr/dto/engagement';
+import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire';
+import { mapRows, parseAssetIdOrNull, parseTickerOrNull } from './market-data';
 
 function idOrNull(raw: unknown): string | null {
   const id = toStringOrNull(raw)?.trim();

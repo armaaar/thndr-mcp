@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { REDACTED, redact } from '../../../src/infrastructure/logging/redact.js';
-import { parseLogLevel, StderrLogger } from '../../../src/infrastructure/logging/stderr-logger.js';
+import { REDACTED, redact } from '../../../src/infrastructure/logging/redact';
+import { parseLogLevel, StderrLogger } from '../../../src/infrastructure/logging/stderr-logger';
 
 const JWT = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc-DEF_123';
 

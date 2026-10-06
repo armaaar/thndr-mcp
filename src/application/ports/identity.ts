@@ -1,5 +1,5 @@
-import type { ApprovalStatus, DeviceApprovalRequest } from '../../domain/identity/device-approval.js';
-import type { RefreshCredential } from '../../domain/identity/refresh-credential.js';
+import type { ApprovalStatus, DeviceApprovalRequest } from '../../domain/identity/device-approval';
+import type { RefreshCredential } from '../../domain/identity/refresh-credential';
 
 /** Result of exchanging an approved request, or of refreshing. */
 export interface IssuedAccess {

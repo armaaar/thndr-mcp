@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   defaultSessionPath,
   SessionFile,
-} from '../../../../src/infrastructure/data-sources/local/session-file.js';
+} from '../../../../src/infrastructure/data-sources/local/session-file';
 
 let dir: string;
 

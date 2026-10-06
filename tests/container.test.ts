@@ -2,11 +2,11 @@ import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { loadConfig } from '../src/config.js';
-import { compose } from '../src/container.js';
-import type { RecordedRequest } from './support/fake-fetch.js';
-import { fakeFetch, json } from './support/fake-fetch.js';
-import { type ConnectedClient, connect } from './support/mcp-client.js';
+import { loadConfig } from '../src/config';
+import { compose } from '../src/container';
+import type { RecordedRequest } from './support/fake-fetch';
+import { fakeFetch, json } from './support/fake-fetch';
+import { type ConnectedClient, connect } from './support/mcp-client';
 
 const NOW = new Date('2026-03-01T10:00:00Z');
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
@@ -90,7 +90,7 @@ describe('composition root (end to end, fake network)', () => {
 
   it('wires every read-only tool and no order-entry tool', () => {
     const { app } = build();
-    const names = app.tools.map((t) => t.name);
+    const names = app.useCases.map((t) => t.name);
     expect(names).toContain('login_start');
     expect(names).toContain('get_price_history');
     expect(names).toContain('get_account_summary');
@@ -100,7 +100,7 @@ describe('composition root (end to end, fake network)', () => {
 
   it('logs in through the MCP tools, persists the session and calls an authenticated endpoint', async () => {
     const { app, fetch, config } = build();
-    conn = await connect(app.tools, silent);
+    conn = await connect(app.useCases, silent);
 
     expect((await conn.call('get_account_summary')).json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
 
@@ -109,7 +109,7 @@ describe('composition root (end to end, fake network)', () => {
     });
     const approval = (await conn.call('login_verify_code', { code: '123456' })).json as { deepLink: string };
     expect(approval.deepLink).toContain('requestId=req-1');
-    expect((await conn.call('login_complete', { timeout_seconds: 0 })).json).toMatchObject({
+    expect((await conn.call('login_complete', { timeoutSeconds: 0 })).json).toMatchObject({
       authenticated: true,
     });
 
@@ -129,6 +129,6 @@ describe('composition root (end to end, fake network)', () => {
 
   it('builds with the real Firebase provider and default logger', () => {
     const app = compose({ ...loadConfig({}), sessionFile: join(dir, 's.json'), logLevel: 'silent' });
-    expect(app.tools.length).toBeGreaterThan(20);
+    expect(app.useCases.length).toBeGreaterThan(20);
   });
 });

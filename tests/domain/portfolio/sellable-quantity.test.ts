@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { quantityBucket } from '../../../src/domain/portfolio/sellable-quantity.js';
+import { quantityBucket } from '../../../src/domain/portfolio/sellable-quantity';
 
 describe('quantityBucket', () => {
   it('computes available quantity, never negative', () => {

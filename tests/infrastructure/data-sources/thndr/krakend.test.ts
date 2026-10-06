@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { UpstreamError } from '../../../../src/application/errors.js';
-import { assertNoKrakendError } from '../../../../src/infrastructure/data-sources/thndr/krakend.js';
+import { UpstreamError } from '../../../../src/application/errors';
+import { assertNoKrakendError } from '../../../../src/infrastructure/data-sources/thndr/krakend';
 
 function caught(payload: unknown, context?: string): UpstreamError {
   try {

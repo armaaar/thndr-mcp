@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker';
 
 describe('Ticker', () => {
   it('normalises to upper case', () => {

@@ -4,9 +4,9 @@ import {
   uniqueAssetIds,
   WATCHLIST_NAME_MAX_LENGTH,
   WatchlistName,
-} from '../../../src/domain/engagement/watchlist.js';
-import { AssetId } from '../../../src/domain/market-data/asset-id.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+} from '../../../src/domain/engagement/watchlist';
+import { AssetId } from '../../../src/domain/market-data/asset-id';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 const A = AssetId.of('1923d036-45ad-480b-8c6b-1d1296862f6e');
 const B = AssetId.of('b0a4c53e-b12f-4e93-b94b-759b8eeaef14');

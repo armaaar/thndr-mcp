@@ -1,5 +1,5 @@
 import type { Persistence } from '@firebase/auth';
-import type { SessionFile } from '../local/session-file.js';
+import type { SessionFile } from '../local/session-file';
 
 /**
  * Builds a Firebase Auth persistence class backed by our session file (ADR 0010).

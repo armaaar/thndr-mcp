@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared-kernel/errors.js';
+import { ValidationError } from '../shared-kernel/errors';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

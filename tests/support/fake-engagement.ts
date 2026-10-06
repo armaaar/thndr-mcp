@@ -1,19 +1,18 @@
-import { createNotification, type Notification } from '../../src/domain/engagement/notification.js';
-import { createPriceAlert, type PriceAlert } from '../../src/domain/engagement/price-alert.js';
+import type { EngagementDependencies } from '../../src/application/engagement/dependencies';
+import { InstrumentResolver } from '../../src/application/market-data/services/instrument-resolver';
+import { MarketQuotesCache } from '../../src/application/market-data/services/market-quotes-cache';
+import { createNotification, type Notification } from '../../src/domain/engagement/notification';
+import { createPriceAlert, type PriceAlert } from '../../src/domain/engagement/price-alert';
 import type {
   EngagementRepository,
   NewPriceAlert,
   PageRequest,
-} from '../../src/domain/engagement/repository.js';
-import {
-  createWatchlist,
-  type Watchlist,
-  type WatchlistName,
-} from '../../src/domain/engagement/watchlist.js';
-import { AssetId } from '../../src/domain/market-data/asset-id.js';
-import type { Market } from '../../src/domain/market-data/market.js';
-import { Ticker } from '../../src/domain/shared-kernel/ticker.js';
-import { idFor } from './fake-market-data.js';
+} from '../../src/domain/engagement/repository';
+import { createWatchlist, type Watchlist, type WatchlistName } from '../../src/domain/engagement/watchlist';
+import { AssetId } from '../../src/domain/market-data/asset-id';
+import type { Market } from '../../src/domain/market-data/market';
+import { Ticker } from '../../src/domain/shared-kernel/ticker';
+import { anInstrument, aQuote, FakeMarketDataRepository, fixedClock, idFor } from './fake-market-data';
 
 type WatchlistOverrides = Partial<Omit<Watchlist, 'instrumentIds'>> & { tickers?: string[]; ids?: string[] };
 
@@ -214,4 +213,35 @@ export class FakeEngagementRepository implements EngagementRepository {
     const once = this.failOnCall[method];
     if (once && once.call === call) throw once.error;
   }
+}
+
+const ENGAGEMENT_NOW = new Date('2026-01-15T12:00:00Z');
+const ENGAGEMENT_TICKERS = ['COMI', 'HRHO', 'ETEL', 'SWDY'];
+
+/** Market data for engagement tests: COMI/HRHO/ETEL/SWDY quoted at 100..103 (EGX30 has no quote). */
+export function engagementMarket(): FakeMarketDataRepository {
+  return new FakeMarketDataRepository({
+    instruments: [...ENGAGEMENT_TICKERS, 'EGX30'].map((ticker) => anInstrument({ ticker })),
+    quotes: {
+      egypt: ENGAGEMENT_TICKERS.map((ticker, i) => aQuote({ ticker, last: 100 + i, changePercent: i })),
+    },
+  });
+}
+
+export interface EngagementSetup extends EngagementDependencies {
+  repository: FakeEngagementRepository;
+  market: FakeMarketDataRepository;
+}
+
+/** Engagement dependencies over fakes, with a real resolver and quotes cache. */
+export function engagementSetup(
+  repository = new FakeEngagementRepository(),
+  market = engagementMarket(),
+): EngagementSetup {
+  return {
+    repository,
+    market,
+    resolver: new InstrumentResolver(market),
+    quotes: new MarketQuotesCache(market, fixedClock(ENGAGEMENT_NOW)),
+  };
 }

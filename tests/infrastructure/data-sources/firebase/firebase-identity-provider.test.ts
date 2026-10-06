@@ -4,7 +4,7 @@ import {
   type FirebaseAuthSdk,
   FirebaseIdentityProvider,
   THNDR_FIREBASE_CONFIG,
-} from '../../../../src/infrastructure/data-sources/firebase/firebase-identity-provider.js';
+} from '../../../../src/infrastructure/data-sources/firebase/firebase-identity-provider';
 
 const persistence = { type: 'LOCAL' } as unknown as Persistence;
 

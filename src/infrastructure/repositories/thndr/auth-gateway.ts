@@ -1,15 +1,15 @@
-import { SessionExpiredError, UpstreamError } from '../../../application/errors.js';
-import type { Clock } from '../../../application/ports/clock.js';
-import type { IssuedAccess, ThndrAuthGateway } from '../../../application/ports/identity.js';
-import { DEFAULT_ACCESS_TOKEN_TTL_MS } from '../../../domain/identity/access-token.js';
+import { SessionExpiredError, UpstreamError } from '../../../application/errors';
+import type { Clock } from '../../../application/ports/clock';
+import type { IssuedAccess, ThndrAuthGateway } from '../../../application/ports/identity';
+import { DEFAULT_ACCESS_TOKEN_TTL_MS } from '../../../domain/identity/access-token';
 import {
   type ApprovalStatus,
   DeviceApprovalRequest,
   parseApprovalStatus,
-} from '../../../domain/identity/device-approval.js';
-import type { RefreshCredential } from '../../../domain/identity/refresh-credential.js';
-import type { HttpResponse, ThndrHttpClient } from '../../data-sources/thndr/http-client.js';
-import { decodeJwtPayload, parseSetCookie, parseTimestamp } from '../../data-sources/thndr/wire.js';
+} from '../../../domain/identity/device-approval';
+import type { RefreshCredential } from '../../../domain/identity/refresh-credential';
+import type { HttpResponse, ThndrHttpClient } from '../../data-sources/thndr/http-client';
+import { decodeJwtPayload, parseSetCookie, parseTimestamp } from '../../data-sources/thndr/wire';
 
 /** Scopes requested by ThndrX web (docs/api/auth.md §2.1). */
 export const THNDRX_SCOPES = [

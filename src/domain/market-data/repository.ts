@@ -1,8 +1,8 @@
-import type { AssetId } from './asset-id.js';
-import type { Candle, CandleResolution } from './candle.js';
-import type { Instrument, Quote } from './instrument.js';
-import type { Market } from './market.js';
-import type { MarketSession, OrderBook, TapeTrade } from './order-book.js';
+import type { AssetId } from './asset-id';
+import type { Candle, CandleResolution } from './candle';
+import type { Instrument, Quote } from './instrument';
+import type { Market } from './market';
+import type { MarketSession, OrderBook, TapeTrade } from './order-book';
 
 export interface MarketDataRepository {
   searchInstruments(query: string, market: Market): Promise<Instrument[]>;

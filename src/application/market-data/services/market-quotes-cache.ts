@@ -1,7 +1,7 @@
-import type { Quote } from '../../domain/market-data/instrument.js';
-import type { Market } from '../../domain/market-data/market.js';
-import type { MarketDataRepository } from '../../domain/market-data/repository.js';
-import type { Clock } from '../ports/clock.js';
+import type { Quote } from '../../../domain/market-data/instrument';
+import type { Market } from '../../../domain/market-data/market';
+import type { MarketDataRepository } from '../../../domain/market-data/repository';
+import type { Clock } from '../../ports/clock';
 
 /**
  * Short-lived cache of the whole-market snapshot. One marketwatch call serves every quote, screen and mover

@@ -4,9 +4,9 @@ import {
   isOpenOrderStatus,
   type OrderInput,
   parseOrderStatusFilter,
-} from '../../../src/domain/portfolio/order.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
-import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
+} from '../../../src/domain/portfolio/order';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker';
 
 function input(overrides: Partial<OrderInput> = {}): OrderInput {
   return {

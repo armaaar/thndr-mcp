@@ -1,5 +1,5 @@
-import type { Logger } from '../../application/ports/logger.js';
-import { redact } from './redact.js';
+import type { Logger } from '../../application/ports/logger';
+import { redact } from './redact';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent';
 const ORDER: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40, silent: 100 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Email } from '../../../src/domain/identity/email.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { Email } from '../../../src/domain/identity/email';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 describe('Email', () => {
   it('normalises case and whitespace', () => {

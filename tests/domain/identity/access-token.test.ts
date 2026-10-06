@@ -3,8 +3,8 @@ import {
   ACCESS_TOKEN_REFRESH_WINDOW_MS,
   AccessToken,
   DEFAULT_ACCESS_TOKEN_TTL_MS,
-} from '../../../src/domain/identity/access-token.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+} from '../../../src/domain/identity/access-token';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 const expiresAt = new Date('2026-01-01T00:15:00Z');
 
@@ -54,7 +54,7 @@ describe('AccessToken', () => {
 describe('AccessToken serialisation', () => {
   it('never exposes the secret via JSON or util.inspect', async () => {
     const { inspect } = await import('node:util');
-    const { AccessToken: Token } = await import('../../../src/domain/identity/access-token.js');
+    const { AccessToken: Token } = await import('../../../src/domain/identity/access-token');
     const token = Token.of('super-secret', new Date('2026-01-01T00:00:00Z'));
     expect(JSON.stringify({ token })).toBe('{"token":"[REDACTED AccessToken]"}');
     expect(inspect(token)).toBe('[REDACTED AccessToken]');

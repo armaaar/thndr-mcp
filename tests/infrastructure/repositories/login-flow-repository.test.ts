@@ -2,12 +2,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DeviceApprovalRequest } from '../../../src/domain/identity/device-approval.js';
-import { Email } from '../../../src/domain/identity/email.js';
-import { LoginFlow } from '../../../src/domain/identity/login-flow.js';
-import { SessionFile } from '../../../src/infrastructure/data-sources/local/session-file.js';
-import { FileLoginFlowRepository } from '../../../src/infrastructure/repositories/local/login-flow-repository.js';
-import { InMemoryLoginFlowRepository } from '../../../src/infrastructure/repositories/memory/login-flow-repository.js';
+import { DeviceApprovalRequest } from '../../../src/domain/identity/device-approval';
+import { Email } from '../../../src/domain/identity/email';
+import { LoginFlow } from '../../../src/domain/identity/login-flow';
+import { SessionFile } from '../../../src/infrastructure/data-sources/local/session-file';
+import { FileLoginFlowRepository } from '../../../src/infrastructure/repositories/local/login-flow-repository';
+import { InMemoryLoginFlowRepository } from '../../../src/infrastructure/repositories/memory/login-flow-repository';
 
 const approval = DeviceApprovalRequest.of({
   id: 'req-1',

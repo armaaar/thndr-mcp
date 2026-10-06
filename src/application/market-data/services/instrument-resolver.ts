@@ -1,9 +1,9 @@
-import { AssetId } from '../../domain/market-data/asset-id.js';
-import type { Instrument } from '../../domain/market-data/instrument.js';
-import type { Market } from '../../domain/market-data/market.js';
-import type { MarketDataRepository } from '../../domain/market-data/repository.js';
-import { Ticker } from '../../domain/shared-kernel/ticker.js';
-import { NotFoundError } from '../errors.js';
+import { AssetId } from '../../../domain/market-data/asset-id';
+import type { Instrument } from '../../../domain/market-data/instrument';
+import type { Market } from '../../../domain/market-data/market';
+import type { MarketDataRepository } from '../../../domain/market-data/repository';
+import { Ticker } from '../../../domain/shared-kernel/ticker';
+import { NotFoundError } from '../../errors';
 
 /**
  * Resolves what a user types (`COMI`, `comi`, or a Thndr asset UUID) to an instrument.

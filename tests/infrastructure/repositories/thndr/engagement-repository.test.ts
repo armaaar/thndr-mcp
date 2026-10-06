@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { UpstreamError } from '../../../../src/application/errors.js';
-import { WatchlistName } from '../../../../src/domain/engagement/watchlist.js';
-import { AssetId } from '../../../../src/domain/market-data/asset-id.js';
-import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client.js';
-import { ThndrEngagementRepository } from '../../../../src/infrastructure/repositories/thndr/engagement-repository.js';
-import { fakeFetch, json, type Responder } from '../../../support/fake-fetch.js';
+import { UpstreamError } from '../../../../src/application/errors';
+import { WatchlistName } from '../../../../src/domain/engagement/watchlist';
+import { AssetId } from '../../../../src/domain/market-data/asset-id';
+import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client';
+import { ThndrEngagementRepository } from '../../../../src/infrastructure/repositories/thndr/engagement-repository';
+import { fakeFetch, json, type Responder } from '../../../support/fake-fetch';
 
 const A = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 const B = 'b0a4c53e-b12f-4e93-b94b-759b8eeaef14';

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { SessionExpiredError, UpstreamError } from '../../../../src/application/errors.js';
-import { DeviceApprovalRequest } from '../../../../src/domain/identity/device-approval.js';
-import { RefreshCredential } from '../../../../src/domain/identity/refresh-credential.js';
-import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client.js';
+import { SessionExpiredError, UpstreamError } from '../../../../src/application/errors';
+import { DeviceApprovalRequest } from '../../../../src/domain/identity/device-approval';
+import { RefreshCredential } from '../../../../src/domain/identity/refresh-credential';
+import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client';
 import {
   HttpThndrAuthGateway,
   THNDRX_SCOPES,
-} from '../../../../src/infrastructure/repositories/thndr/auth-gateway.js';
-import { fakeFetch, json, type Responder } from '../../../support/fake-fetch.js';
+} from '../../../../src/infrastructure/repositories/thndr/auth-gateway';
+import { fakeFetch, json, type Responder } from '../../../support/fake-fetch';
 
 const now = new Date('2026-01-01T00:00:00Z');
 const clock = { now: () => now };

@@ -1,5 +1,5 @@
-import type { LoginFlow } from './login-flow.js';
-import type { ThndrSession } from './thndr-session.js';
+import type { LoginFlow } from './login-flow';
+import type { ThndrSession } from './thndr-session';
 
 /** Persists the authenticated session aggregate. */
 export interface SessionRepository {

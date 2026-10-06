@@ -3,7 +3,7 @@
  * Every field is optional and loosely typed: the API is private, mappers must tolerate missing or re-typed values.
  * Order-entry payloads are intentionally absent (ADR 0006).
  */
-import type { WireNumber } from './market-data.js';
+import type { WireNumber } from './market-data';
 
 /** §1.1 / §1.2 position. */
 export interface PositionDto {

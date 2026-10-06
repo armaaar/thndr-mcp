@@ -1,8 +1,8 @@
-import { DeviceApprovalRequest } from '../../../domain/identity/device-approval.js';
-import { Email } from '../../../domain/identity/email.js';
-import { LoginFlow } from '../../../domain/identity/login-flow.js';
-import type { LoginFlowRepository } from '../../../domain/identity/repository.js';
-import type { LoginFlowRecord, SessionFile } from '../../data-sources/local/session-file.js';
+import { DeviceApprovalRequest } from '../../../domain/identity/device-approval';
+import { Email } from '../../../domain/identity/email';
+import { LoginFlow } from '../../../domain/identity/login-flow';
+import type { LoginFlowRepository } from '../../../domain/identity/repository';
+import type { LoginFlowRecord, SessionFile } from '../../data-sources/local/session-file';
 
 /** Stores the pending login in the owner-only session file so CLI steps and MCP restarts can resume it. */
 export class FileLoginFlowRepository implements LoginFlowRepository {

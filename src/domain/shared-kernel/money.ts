@@ -1,5 +1,5 @@
-import { ValidationError } from './errors.js';
-import { assertFiniteNumber, roundTo } from './guards.js';
+import { ValidationError } from './errors';
+import { assertFiniteNumber, roundTo } from './guards';
 
 export const CURRENCIES = ['EGP', 'USD'] as const;
 export type Currency = (typeof CURRENCIES)[number];

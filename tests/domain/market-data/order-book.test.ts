@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type OrderBook, spread } from '../../../src/domain/market-data/order-book.js';
+import { type OrderBook, spread } from '../../../src/domain/market-data/order-book';
 
 const book = (bid?: number, ask?: number): OrderBook => ({
   bids: bid === undefined ? [] : [{ price: bid, quantity: 1, orders: null }],

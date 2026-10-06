@@ -1,11 +1,14 @@
-import type { Clock } from '../../src/application/ports/clock.js';
-import { AssetId } from '../../src/domain/market-data/asset-id.js';
-import type { Candle, CandleResolution } from '../../src/domain/market-data/candle.js';
-import type { Instrument, Quote } from '../../src/domain/market-data/instrument.js';
-import type { Market } from '../../src/domain/market-data/market.js';
-import type { MarketSession, OrderBook, TapeTrade } from '../../src/domain/market-data/order-book.js';
-import type { MarketDataRepository } from '../../src/domain/market-data/repository.js';
-import { Ticker } from '../../src/domain/shared-kernel/ticker.js';
+import type { MarketDataDependencies } from '../../src/application/market-data/dependencies';
+import { InstrumentResolver } from '../../src/application/market-data/services/instrument-resolver';
+import { MarketQuotesCache } from '../../src/application/market-data/services/market-quotes-cache';
+import type { Clock } from '../../src/application/ports/clock';
+import { AssetId } from '../../src/domain/market-data/asset-id';
+import type { Candle, CandleResolution } from '../../src/domain/market-data/candle';
+import type { Instrument, Quote } from '../../src/domain/market-data/instrument';
+import type { Market } from '../../src/domain/market-data/market';
+import type { MarketSession, OrderBook, TapeTrade } from '../../src/domain/market-data/order-book';
+import type { MarketDataRepository } from '../../src/domain/market-data/repository';
+import { Ticker } from '../../src/domain/shared-kernel/ticker';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */
 export const COMI_ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
@@ -224,4 +227,23 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     const error = this.failures[method];
     if (error) throw error;
   }
+}
+
+/** Market Data use-case dependencies over a fake repository (real resolver and quotes cache). */
+export function setupMarketData(
+  repository = new FakeMarketDataRepository(),
+  now: string | Date = '2026-01-15T12:00:00Z',
+): MarketDataDependencies & { repository: FakeMarketDataRepository } {
+  const clock = fixedClock(now);
+  return {
+    repository,
+    clock,
+    resolver: new InstrumentResolver(repository),
+    quotes: new MarketQuotesCache(repository, clock),
+  };
+}
+
+/** A fake repository listing one Egyptian instrument per ticker. */
+export function withInstruments(...tickers: string[]): FakeMarketDataRepository {
+  return new FakeMarketDataRepository({ instruments: tickers.map((ticker) => anInstrument({ ticker })) });
 }

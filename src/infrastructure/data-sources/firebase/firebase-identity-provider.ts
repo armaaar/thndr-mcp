@@ -7,7 +7,7 @@ import {
   signInWithCustomToken,
   signOut,
 } from '@firebase/auth';
-import type { IdentityProvider } from '../../../application/ports/identity.js';
+import type { IdentityProvider } from '../../../application/ports/identity';
 
 /** Public web config of ThndrX's Firebase project (docs/api/auth.md §1). */
 export const THNDR_FIREBASE_CONFIG = {

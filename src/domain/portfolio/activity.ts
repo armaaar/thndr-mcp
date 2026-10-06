@@ -1,4 +1,4 @@
-import type { Ticker } from '../shared-kernel/ticker.js';
+import type { Ticker } from '../shared-kernel/ticker';
 
 /** Coarse grouping of Thndr's account activity types, for filtering and summaries. */
 export const ACTIVITY_CATEGORIES = [

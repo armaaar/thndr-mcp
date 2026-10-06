@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categorizeActivity, createAccountActivity } from '../../../src/domain/portfolio/activity.js';
+import { categorizeActivity, createAccountActivity } from '../../../src/domain/portfolio/activity';
 
 describe('categorizeActivity', () => {
   it.each([

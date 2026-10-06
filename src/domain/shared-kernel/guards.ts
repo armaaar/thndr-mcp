@@ -1,4 +1,4 @@
-import { ValidationError } from './errors.js';
+import { ValidationError } from './errors';
 
 export function assertFiniteNumber(value: number, label: string): void {
   if (typeof value !== 'number' || !Number.isFinite(value)) {

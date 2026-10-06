@@ -5,10 +5,10 @@ import {
   deriveAlertDirection,
   parseAlertDirection,
   parseAlertFrequency,
-} from '../../../src/domain/engagement/price-alert.js';
-import { AssetId } from '../../../src/domain/market-data/asset-id.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
-import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
+} from '../../../src/domain/engagement/price-alert';
+import { AssetId } from '../../../src/domain/market-data/asset-id';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker';
 
 const ID = AssetId.of('1923d036-45ad-480b-8c6b-1d1296862f6e');
 

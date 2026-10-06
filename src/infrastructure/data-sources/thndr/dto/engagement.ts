@@ -2,7 +2,7 @@
  * Wire formats of Thndr's watchlist, price-alert and notification endpoints (docs/api/market-data.md §4, §5.2 and
  * misc §5). Loosely typed on purpose: mappers must tolerate missing or re-typed values.
  */
-import type { WireNumber } from './market-data.js';
+import type { WireNumber } from './market-data';
 
 /** One custom watchlist (§4.1). The detail endpoint may return only `asset_ids`. */
 export interface WatchlistDto {

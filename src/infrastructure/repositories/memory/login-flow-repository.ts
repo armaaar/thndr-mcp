@@ -1,5 +1,5 @@
-import { LoginFlow } from '../../../domain/identity/login-flow.js';
-import type { LoginFlowRepository } from '../../../domain/identity/repository.js';
+import { LoginFlow } from '../../../domain/identity/login-flow';
+import type { LoginFlowRepository } from '../../../domain/identity/repository';
 
 /** Process-local login flow store (tests, embedding). */
 export class InMemoryLoginFlowRepository implements LoginFlowRepository {

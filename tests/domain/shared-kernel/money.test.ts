@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
-import { isCurrency, Money } from '../../../src/domain/shared-kernel/money.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
+import { isCurrency, Money } from '../../../src/domain/shared-kernel/money';
 
 describe('Money', () => {
   it('defaults to EGP and rounds away float artefacts', () => {

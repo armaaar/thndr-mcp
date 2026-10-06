@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MarketwatchAssetDto } from '../../../../../src/infrastructure/data-sources/thndr/dto/market-data.js';
+import type { MarketwatchAssetDto } from '../../../../../src/infrastructure/data-sources/thndr/dto/market-data';
 import {
   indicatorToQuote,
   mapCurrency,
@@ -13,7 +13,7 @@ import {
   toQuote,
   toTapeTrade,
   WIRE_RESOLUTION,
-} from '../../../../../src/infrastructure/repositories/thndr/translators/market-data.js';
+} from '../../../../../src/infrastructure/repositories/thndr/translators/market-data';
 
 const ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 

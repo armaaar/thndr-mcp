@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig, THNDRX_RUNTIME_VERSION } from '../src/config.js';
+import { loadConfig, THNDRX_RUNTIME_VERSION } from '../src/config';
 
 describe('loadConfig', () => {
   it('uses defaults', () => {

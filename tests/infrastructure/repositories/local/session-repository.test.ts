@@ -2,11 +2,11 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { AccessToken } from '../../../../src/domain/identity/access-token.js';
-import { RefreshCredential } from '../../../../src/domain/identity/refresh-credential.js';
-import { ThndrSession } from '../../../../src/domain/identity/thndr-session.js';
-import { SessionFile } from '../../../../src/infrastructure/data-sources/local/session-file.js';
-import { FileSessionRepository } from '../../../../src/infrastructure/repositories/local/session-repository.js';
+import { AccessToken } from '../../../../src/domain/identity/access-token';
+import { RefreshCredential } from '../../../../src/domain/identity/refresh-credential';
+import { ThndrSession } from '../../../../src/domain/identity/thndr-session';
+import { SessionFile } from '../../../../src/infrastructure/data-sources/local/session-file';
+import { FileSessionRepository } from '../../../../src/infrastructure/repositories/local/session-repository';
 
 let dir: string;
 let path: string;

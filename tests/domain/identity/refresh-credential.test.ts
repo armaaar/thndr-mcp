@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RefreshCredential } from '../../../src/domain/identity/refresh-credential.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { RefreshCredential } from '../../../src/domain/identity/refresh-credential';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 const expiry = new Date('2026-01-01T06:00:00Z');
 
@@ -63,9 +63,7 @@ describe('RefreshCredential', () => {
 describe('RefreshCredential serialisation', () => {
   it('never exposes cookies via JSON or util.inspect', async () => {
     const { inspect } = await import('node:util');
-    const { RefreshCredential: Credential } = await import(
-      '../../../src/domain/identity/refresh-credential.js'
-    );
+    const { RefreshCredential: Credential } = await import('../../../src/domain/identity/refresh-credential');
     const credential = Credential.of({ rt: 'secret' });
     expect(JSON.stringify(credential)).toBe('"[REDACTED RefreshCredential]"');
     expect(inspect(credential)).toBe('[REDACTED RefreshCredential]');

@@ -6,7 +6,7 @@ import {
   NotFoundError,
   SessionExpiredError,
   UpstreamError,
-} from '../../src/application/errors.js';
+} from '../../src/application/errors';
 
 describe('application errors', () => {
   it('NotAuthenticatedError has a default and custom message', () => {

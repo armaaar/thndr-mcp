@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { AccessToken } from '../../../src/domain/identity/access-token.js';
-import { RefreshCredential } from '../../../src/domain/identity/refresh-credential.js';
-import { ThndrSession } from '../../../src/domain/identity/thndr-session.js';
+import { AccessToken } from '../../../src/domain/identity/access-token';
+import { RefreshCredential } from '../../../src/domain/identity/refresh-credential';
+import { ThndrSession } from '../../../src/domain/identity/thndr-session';
 
 const now = new Date('2026-01-01T00:00:00Z');
 const refresh = RefreshCredential.of({ sid: 'r1' });

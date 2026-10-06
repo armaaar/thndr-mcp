@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeVolume } from '../../../src/domain/market-data/instrument.js';
+import { relativeVolume } from '../../../src/domain/market-data/instrument';
 
 describe('relativeVolume', () => {
   it('is volume as a percentage of the 30-day average', () => {

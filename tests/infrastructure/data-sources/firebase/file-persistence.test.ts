@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createFilePersistence } from '../../../../src/infrastructure/data-sources/firebase/file-persistence.js';
-import { SessionFile } from '../../../../src/infrastructure/data-sources/local/session-file.js';
+import { createFilePersistence } from '../../../../src/infrastructure/data-sources/firebase/file-persistence';
+import { SessionFile } from '../../../../src/infrastructure/data-sources/local/session-file';
 
 interface PersistenceInstance {
   type: string;

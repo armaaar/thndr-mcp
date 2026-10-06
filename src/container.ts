@@ -1,75 +1,63 @@
 import type { Persistence } from '@firebase/auth';
-import {
-  CreateAlert,
-  CreateWatchlist,
-  DeleteAlert,
-  DeleteWatchlist,
-  EditWatchlist,
-  type EngagementDependencies,
-  GetAlert,
-  GetAlerts,
-  GetNotifications,
-  GetWatchlist,
-  GetWatchlists,
-  MarkNotificationsRead,
-  UpdateAlert,
-} from './application/engagement/use-cases.js';
-import {
-  CompleteLogin,
-  GetAuthStatus,
-  ImportSession,
-  type LoginDependencies,
-  Logout,
-  RequestDeviceApproval,
-  StartLogin,
-  VerifyLoginCode,
-} from './application/identity/login.js';
-import { SessionTokenProvider } from './application/identity/session-token-provider.js';
-import { InstrumentResolver } from './application/market-data/instrument-resolver.js';
-import { MarketQuotesCache } from './application/market-data/quote-cache.js';
-import {
-  GetInstrumentDetails,
-  GetMarketDepth,
-  GetMarketStatus,
-  GetPriceHistory,
-  GetPriceSnapshot,
-  GetRecentTrades,
-  type MarketDataDependencies,
-  ScreenMarket,
-  SearchInstruments,
-} from './application/market-data/use-cases.js';
-import {
-  GetAccountSummary,
-  GetClosedTrades,
-  GetPosition,
-  GetPositions,
-  GetRealizedReturns,
-  GetSellJournal,
-  GetTradingMetrics,
-  ListAccountActivity,
-  ListOrders,
-  type PortfolioDependencies,
-} from './application/portfolio/use-cases.js';
-import { type Clock, systemClock } from './application/ports/clock.js';
-import type { IdentityProvider } from './application/ports/identity.js';
-import type { Logger } from './application/ports/logger.js';
-import type { AppConfig } from './config.js';
-import { createFilePersistence } from './infrastructure/data-sources/firebase/file-persistence.js';
-import { FirebaseIdentityProvider } from './infrastructure/data-sources/firebase/firebase-identity-provider.js';
-import { SessionFile } from './infrastructure/data-sources/local/session-file.js';
-import { type FetchFn, ThndrHttpClient } from './infrastructure/data-sources/thndr/http-client.js';
-import { StderrLogger } from './infrastructure/logging/stderr-logger.js';
-import { FileLoginFlowRepository } from './infrastructure/repositories/local/login-flow-repository.js';
-import { FileSessionRepository } from './infrastructure/repositories/local/session-repository.js';
-import { HttpThndrAuthGateway } from './infrastructure/repositories/thndr/auth-gateway.js';
-import { ThndrEngagementRepository } from './infrastructure/repositories/thndr/engagement-repository.js';
-import { ThndrMarketDataRepository } from './infrastructure/repositories/thndr/market-data-repository.js';
-import { ThndrPortfolioRepository } from './infrastructure/repositories/thndr/portfolio-repository.js';
-import { engagementTools } from './interfaces/catalog/engagement.js';
-import { identityTools } from './interfaces/catalog/identity.js';
-import { marketDataTools } from './interfaces/catalog/market-data.js';
-import type { AnyTool } from './interfaces/catalog/operation.js';
-import { portfolioTools } from './interfaces/catalog/portfolio.js';
+import { CreateAlert } from './application/engagement/commands/create-alert';
+import { CreateWatchlist } from './application/engagement/commands/create-watchlist';
+import { DeleteAlert } from './application/engagement/commands/delete-alert';
+import { DeleteWatchlist } from './application/engagement/commands/delete-watchlist';
+import { EditWatchlist } from './application/engagement/commands/edit-watchlist';
+import { MarkNotificationsRead } from './application/engagement/commands/mark-notifications-read';
+import { UpdateAlert } from './application/engagement/commands/update-alert';
+import type { EngagementDependencies } from './application/engagement/dependencies';
+import { GetAlert } from './application/engagement/queries/get-alert';
+import { GetAlerts } from './application/engagement/queries/get-alerts';
+import { GetNotifications } from './application/engagement/queries/get-notifications';
+import { GetWatchlist } from './application/engagement/queries/get-watchlist';
+import { GetWatchlists } from './application/engagement/queries/get-watchlists';
+import { CompleteLogin } from './application/identity/commands/complete-login';
+import { ImportSession } from './application/identity/commands/import-session';
+import { Logout } from './application/identity/commands/logout';
+import { RequestDeviceApproval } from './application/identity/commands/request-device-approval';
+import { StartLogin } from './application/identity/commands/start-login';
+import { VerifyLoginCode } from './application/identity/commands/verify-login-code';
+import type { LoginDependencies } from './application/identity/dependencies';
+import { GetAuthStatus } from './application/identity/queries/get-auth-status';
+import { SessionTokenProvider } from './application/identity/services/session-token-provider';
+import type { MarketDataDependencies } from './application/market-data/dependencies';
+import { GetInstrumentDetails } from './application/market-data/queries/get-instrument-details';
+import { GetMarketDepth } from './application/market-data/queries/get-market-depth';
+import { GetMarketStatus } from './application/market-data/queries/get-market-status';
+import { GetPriceHistory } from './application/market-data/queries/get-price-history';
+import { GetPriceSnapshot } from './application/market-data/queries/get-price-snapshot';
+import { GetRecentTrades } from './application/market-data/queries/get-recent-trades';
+import { ScreenMarket } from './application/market-data/queries/screen-market';
+import { SearchInstruments } from './application/market-data/queries/search-instruments';
+import { InstrumentResolver } from './application/market-data/services/instrument-resolver';
+import { MarketQuotesCache } from './application/market-data/services/market-quotes-cache';
+import type { PortfolioDependencies } from './application/portfolio/dependencies';
+import { GetAccountSummary } from './application/portfolio/queries/get-account-summary';
+import { GetClosedTrades } from './application/portfolio/queries/get-closed-trades';
+import { GetPosition } from './application/portfolio/queries/get-position';
+import { GetPositions } from './application/portfolio/queries/get-positions';
+import { GetRealizedReturns } from './application/portfolio/queries/get-realized-returns';
+import { GetSellJournal } from './application/portfolio/queries/get-sell-journal';
+import { GetTradingMetrics } from './application/portfolio/queries/get-trading-metrics';
+import { ListAccountActivity } from './application/portfolio/queries/list-account-activity';
+import { ListOrders } from './application/portfolio/queries/list-orders';
+import { type Clock, systemClock } from './application/ports/clock';
+import type { IdentityProvider } from './application/ports/identity';
+import type { Logger } from './application/ports/logger';
+import type { UseCase } from './application/use-case';
+import type { AppConfig } from './config';
+import { createFilePersistence } from './infrastructure/data-sources/firebase/file-persistence';
+import { FirebaseIdentityProvider } from './infrastructure/data-sources/firebase/firebase-identity-provider';
+import { SessionFile } from './infrastructure/data-sources/local/session-file';
+import { type FetchFn, ThndrHttpClient } from './infrastructure/data-sources/thndr/http-client';
+import { StderrLogger } from './infrastructure/logging/stderr-logger';
+import { FileLoginFlowRepository } from './infrastructure/repositories/local/login-flow-repository';
+import { FileSessionRepository } from './infrastructure/repositories/local/session-repository';
+import { HttpThndrAuthGateway } from './infrastructure/repositories/thndr/auth-gateway';
+import { ThndrEngagementRepository } from './infrastructure/repositories/thndr/engagement-repository';
+import { ThndrMarketDataRepository } from './infrastructure/repositories/thndr/market-data-repository';
+import { ThndrPortfolioRepository } from './infrastructure/repositories/thndr/portfolio-repository';
 
 export interface CompositionOverrides {
   fetch?: FetchFn;
@@ -78,17 +66,20 @@ export interface CompositionOverrides {
   identity?: (persistence: Persistence) => IdentityProvider;
 }
 
-/** Composition root: wires adapters to use cases to MCP tools (manual DI, ADR 0003). */
+/**
+ * Composition root (ADR 0011): builds data sources, repositories and application services, and returns the list of
+ * use cases that both delivery mechanisms (MCP server and CLI) expose.
+ */
 export function compose(config: AppConfig, overrides: CompositionOverrides = {}) {
   const clock = overrides.clock ?? systemClock;
   const logger = overrides.logger ?? new StderrLogger(config.logLevel);
+
+  // Data sources
   const sessionFile = new SessionFile(config.sessionFile);
-  const sessions = new FileSessionRepository(sessionFile);
   const persistence = createFilePersistence(sessionFile);
   const identity = overrides.identity
     ? overrides.identity(persistence)
     : new FirebaseIdentityProvider(persistence);
-
   const http = (baseUrl: string, tokenProvider?: SessionTokenProvider) =>
     new ThndrHttpClient({
       baseUrl,
@@ -100,12 +91,13 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
       logger,
     });
 
+  // Identity & Access
+  const sessions = new FileSessionRepository(sessionFile);
   const authGateway = new HttpThndrAuthGateway(http(config.apiBaseUrl), http(config.webBaseUrl), clock);
   const tokens = new SessionTokenProvider(sessions, authGateway, clock, logger);
   const api = http(config.apiBaseUrl, tokens);
   const krakend = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-x`, tokens);
-
-  const loginDeps: LoginDependencies = {
+  const login: LoginDependencies = {
     gateway: authGateway,
     identity,
     sessions,
@@ -113,82 +105,66 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     clock,
     userAgent: config.userAgent,
   };
-  const identityUseCases = {
-    getAuthStatus: new GetAuthStatus(loginDeps),
-    startLogin: new StartLogin(loginDeps),
-    verifyLoginCode: new VerifyLoginCode(loginDeps),
-    requestDeviceApproval: new RequestDeviceApproval(loginDeps),
-    completeLogin: new CompleteLogin(loginDeps),
-    importSession: new ImportSession(loginDeps),
-    logout: new Logout(loginDeps),
-  };
 
+  // Market Data
   const marketRepository = new ThndrMarketDataRepository(api, krakend);
   const resolver = new InstrumentResolver(marketRepository);
   const quotes = new MarketQuotesCache(marketRepository, clock);
-  const marketDeps: MarketDataDependencies = { repository: marketRepository, resolver, quotes, clock };
-  const marketUseCases = {
-    searchInstruments: new SearchInstruments(marketDeps),
-    getInstrumentDetails: new GetInstrumentDetails(marketDeps),
-    getPriceSnapshot: new GetPriceSnapshot(marketDeps),
-    getPriceHistory: new GetPriceHistory(marketDeps),
-    getMarketDepth: new GetMarketDepth(marketDeps),
-    getRecentTrades: new GetRecentTrades(marketDeps),
-    getMarketStatus: new GetMarketStatus(marketDeps),
-    screenMarket: new ScreenMarket(marketDeps),
-  };
+  const market: MarketDataDependencies = { repository: marketRepository, resolver, quotes, clock };
 
-  const portfolioDeps: PortfolioDependencies = {
+  // Portfolio
+  const portfolio: PortfolioDependencies = {
     repository: new ThndrPortfolioRepository(api, krakend),
     resolver,
     clock,
   };
-  const portfolioUseCases = {
-    getAccountSummary: new GetAccountSummary(portfolioDeps),
-    getPositions: new GetPositions(portfolioDeps),
-    getPosition: new GetPosition(portfolioDeps),
-    listOrders: new ListOrders(portfolioDeps),
-    getRealizedReturns: new GetRealizedReturns(portfolioDeps),
-    getClosedTrades: new GetClosedTrades(portfolioDeps),
-    getSellJournal: new GetSellJournal(portfolioDeps),
-    getTradingMetrics: new GetTradingMetrics(portfolioDeps),
-    listAccountActivity: new ListAccountActivity(portfolioDeps),
-  };
 
-  const engagementDeps: EngagementDependencies = {
+  // Engagement
+  const engagement: EngagementDependencies = {
     repository: new ThndrEngagementRepository(api, krakend),
     resolver,
     quotes,
   };
-  const engagementUseCases = {
-    getWatchlists: new GetWatchlists(engagementDeps),
-    getWatchlist: new GetWatchlist(engagementDeps),
-    createWatchlist: new CreateWatchlist(engagementDeps),
-    editWatchlist: new EditWatchlist(engagementDeps),
-    deleteWatchlist: new DeleteWatchlist(engagementDeps),
-    getAlerts: new GetAlerts(engagementDeps),
-    getAlert: new GetAlert(engagementDeps),
-    createAlert: new CreateAlert(engagementDeps),
-    updateAlert: new UpdateAlert(engagementDeps),
-    deleteAlert: new DeleteAlert(engagementDeps),
-    getNotifications: new GetNotifications(engagementDeps),
-    markNotificationsRead: new MarkNotificationsRead(engagementDeps),
-  };
 
-  const tools: AnyTool[] = [
-    ...identityTools(identityUseCases),
-    ...marketDataTools(marketUseCases),
-    ...portfolioTools(portfolioUseCases),
-    ...engagementTools(engagementUseCases),
+  /** Every use case of the application, in the order they are listed to users. */
+  const useCases: UseCase[] = [
+    new GetAuthStatus(login),
+    new StartLogin(login),
+    new VerifyLoginCode(login),
+    new RequestDeviceApproval(login),
+    new CompleteLogin(login),
+    new ImportSession(login),
+    new Logout(login),
+    new SearchInstruments(market),
+    new GetInstrumentDetails(market),
+    new GetPriceSnapshot(market),
+    new GetPriceHistory(market),
+    new GetMarketDepth(market),
+    new GetRecentTrades(market),
+    new GetMarketStatus(market),
+    new ScreenMarket(market),
+    new GetAccountSummary(portfolio),
+    new GetPositions(portfolio),
+    new GetPosition(portfolio),
+    new ListOrders(portfolio),
+    new GetRealizedReturns(portfolio),
+    new GetClosedTrades(portfolio),
+    new GetSellJournal(portfolio),
+    new GetTradingMetrics(portfolio),
+    new ListAccountActivity(portfolio),
+    new GetWatchlists(engagement),
+    new GetWatchlist(engagement),
+    new CreateWatchlist(engagement),
+    new EditWatchlist(engagement),
+    new DeleteWatchlist(engagement),
+    new GetAlerts(engagement),
+    new GetAlert(engagement),
+    new CreateAlert(engagement),
+    new UpdateAlert(engagement),
+    new DeleteAlert(engagement),
+    new GetNotifications(engagement),
+    new MarkNotificationsRead(engagement),
   ];
-  return {
-    tools,
-    logger,
-    identityUseCases,
-    marketUseCases,
-    portfolioUseCases,
-    engagementUseCases,
-    api,
-    krakend,
-  };
+
+  return { useCases, logger, api, krakend };
 }

@@ -1,5 +1,5 @@
-import { UpstreamError } from '../../../application/errors.js';
-import type { KrakendBackendErrorDto } from './dto/market-data.js';
+import { UpstreamError } from '../../../application/errors';
+import type { KrakendBackendErrorDto } from './dto/market-data';
 
 /**
  * Replicates ThndrX's `M.p4` response interceptor (docs/api/market-data.md §0.2). Krakend aggregates several

@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AssetId } from '../../../src/domain/market-data/asset-id.js';
+import { AssetId } from '../../../src/domain/market-data/asset-id';
 import {
   computeAllocation,
   createPosition,
   type PositionInput,
   positionWeight,
-} from '../../../src/domain/portfolio/position.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
-import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
+} from '../../../src/domain/portfolio/position';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 

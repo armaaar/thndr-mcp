@@ -1,7 +1,7 @@
-import type { AssetId } from '../market-data/asset-id.js';
-import { ValidationError } from '../shared-kernel/errors.js';
-import { assertFiniteNumber, roundTo } from '../shared-kernel/guards.js';
-import type { Ticker } from '../shared-kernel/ticker.js';
+import type { AssetId } from '../market-data/asset-id';
+import { ValidationError } from '../shared-kernel/errors';
+import { assertFiniteNumber, roundTo } from '../shared-kernel/guards';
+import type { Ticker } from '../shared-kernel/ticker';
 
 /**
  * Read-only view of a broker order (order history / status). This model deliberately has no behaviour to place,

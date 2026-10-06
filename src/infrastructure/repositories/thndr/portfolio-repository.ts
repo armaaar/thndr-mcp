@@ -1,24 +1,24 @@
-import { UpstreamError } from '../../../application/errors.js';
-import type { AssetId } from '../../../domain/market-data/asset-id.js';
-import type { Market } from '../../../domain/market-data/market.js';
-import type { ActivityPage } from '../../../domain/portfolio/activity.js';
+import { UpstreamError } from '../../../application/errors';
+import type { AssetId } from '../../../domain/market-data/asset-id';
+import type { Market } from '../../../domain/market-data/market';
+import type { ActivityPage } from '../../../domain/portfolio/activity';
 import type {
   ClosedTrade,
   DateRange,
   JournalPage,
   SellJournalEntry,
   TradingMetrics,
-} from '../../../domain/portfolio/journal.js';
-import type { OrderStatusFilter, OrdersPage } from '../../../domain/portfolio/order.js';
-import type { Position } from '../../../domain/portfolio/position.js';
+} from '../../../domain/portfolio/journal';
+import type { OrderStatusFilter, OrdersPage } from '../../../domain/portfolio/order';
+import type { Position } from '../../../domain/portfolio/position';
 import type {
   AccountSnapshot,
   JournalQuery,
   OrdersQuery,
   PortfolioRepository,
-} from '../../../domain/portfolio/repository.js';
-import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from '../../../domain/portfolio/returns.js';
-import type { SellableQuantity } from '../../../domain/portfolio/sellable-quantity.js';
+} from '../../../domain/portfolio/repository';
+import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from '../../../domain/portfolio/returns';
+import type { SellableQuantity } from '../../../domain/portfolio/sellable-quantity';
 import type {
   AccountActivitiesResponseDto,
   BlockedQuantitiesDto,
@@ -30,11 +30,11 @@ import type {
   ReturnsPointDto,
   TradingMetricsDto,
   WalletAndPortfolioDto,
-} from '../../data-sources/thndr/dto/portfolio.js';
-import type { ThndrHttpClient } from '../../data-sources/thndr/http-client.js';
-import { assertNoKrakendError } from '../../data-sources/thndr/krakend.js';
-import { toNumber, toStringOrNull } from '../../data-sources/thndr/wire.js';
-import { mapRows } from './translators/market-data.js';
+} from '../../data-sources/thndr/dto/portfolio';
+import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
+import { assertNoKrakendError } from '../../data-sources/thndr/krakend';
+import { toNumber, toStringOrNull } from '../../data-sources/thndr/wire';
+import { mapRows } from './translators/market-data';
 import {
   toAccountActivity,
   toAccountSnapshot,
@@ -46,7 +46,7 @@ import {
   toSellableQuantity,
   toSellJournalEntry,
   toTradingMetrics,
-} from './translators/portfolio.js';
+} from './translators/portfolio';
 
 /** Domain status filter → `status` query value of `GET /market-service/v3/orders` (§3.1). */
 export const WIRE_ORDER_STATUS: Record<OrderStatusFilter, string | undefined> = {

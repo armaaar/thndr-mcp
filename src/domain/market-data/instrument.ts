@@ -1,7 +1,7 @@
-import type { Currency } from '../shared-kernel/money.js';
-import type { Ticker } from '../shared-kernel/ticker.js';
-import type { AssetId } from './asset-id.js';
-import type { AssetClass, Market } from './market.js';
+import type { Currency } from '../shared-kernel/money';
+import type { Ticker } from '../shared-kernel/ticker';
+import type { AssetId } from './asset-id';
+import type { AssetClass, Market } from './market';
 
 /** A tradable (or reference) instrument listed on a market. */
 export interface Instrument {

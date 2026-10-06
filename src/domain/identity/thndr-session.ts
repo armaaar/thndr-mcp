@@ -1,5 +1,5 @@
-import type { AccessToken } from './access-token.js';
-import type { RefreshCredential } from './refresh-credential.js';
+import type { AccessToken } from './access-token';
+import type { RefreshCredential } from './refresh-credential';
 
 /** An authenticated ThndrX session: a refresh credential plus (optionally) a cached access token. */
 export class ThndrSession {

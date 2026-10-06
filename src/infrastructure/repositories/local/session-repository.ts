@@ -1,8 +1,8 @@
-import { AccessToken } from '../../../domain/identity/access-token.js';
-import { RefreshCredential } from '../../../domain/identity/refresh-credential.js';
-import type { SessionRepository } from '../../../domain/identity/repository.js';
-import { ThndrSession } from '../../../domain/identity/thndr-session.js';
-import type { SessionFile, ThndrSessionRecord } from '../../data-sources/local/session-file.js';
+import { AccessToken } from '../../../domain/identity/access-token';
+import { RefreshCredential } from '../../../domain/identity/refresh-credential';
+import type { SessionRepository } from '../../../domain/identity/repository';
+import { ThndrSession } from '../../../domain/identity/thndr-session';
+import type { SessionFile, ThndrSessionRecord } from '../../data-sources/local/session-file';
 
 export class FileSessionRepository implements SessionRepository {
   constructor(private readonly file: SessionFile) {}

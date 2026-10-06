@@ -1,0 +1,38 @@
+import { z } from 'zod';
+import { parseMarket } from '../../domain/market-data/market';
+import { parseMarketDate } from '../../domain/market-data/market-calendar';
+import { journalRange } from '../../domain/portfolio/journal';
+import type { JournalQuery } from '../../domain/portfolio/repository';
+import { Ticker } from '../../domain/shared-kernel/ticker';
+import { dateInput, marketInput, pageInput } from '../inputs';
+import type { Clock } from '../ports/clock';
+import type { InputOf } from '../use-case';
+import { clamp } from './paging';
+
+/** Input contract shared by the trading-journal queries. */
+export const journalInput = {
+  market: marketInput,
+  symbol: z.string().optional().describe('Only this ticker'),
+  from: dateInput.optional(),
+  to: dateInput.optional(),
+  page: pageInput,
+  limit: z.number().int().min(1).max(100).default(20),
+};
+
+export type JournalInput = InputOf<typeof journalInput>;
+
+/** Builds a validated journal query; date-only bounds are Cairo market days. */
+export function journalQuery(params: JournalInput, clock: Clock): JournalQuery {
+  const range = journalRange(
+    parseMarketDate(params.from, 'start'),
+    parseMarketDate(params.to, 'end'),
+    clock.now(),
+  );
+  return {
+    market: parseMarket(params.market),
+    page: clamp(params.page, 1, 1, 10_000),
+    limit: clamp(params.limit, 20, 1, 100),
+    ...range,
+    ...(params.symbol ? { ticker: Ticker.of(params.symbol).value } : {}),
+  };
+}

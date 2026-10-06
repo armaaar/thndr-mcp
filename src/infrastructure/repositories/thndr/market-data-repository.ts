@@ -1,10 +1,10 @@
-import { UpstreamError } from '../../../application/errors.js';
-import type { AssetId } from '../../../domain/market-data/asset-id.js';
-import type { Candle, CandleResolution } from '../../../domain/market-data/candle.js';
-import type { Instrument, Quote } from '../../../domain/market-data/instrument.js';
-import type { Market } from '../../../domain/market-data/market.js';
-import type { MarketSession, OrderBook, TapeTrade } from '../../../domain/market-data/order-book.js';
-import type { MarketDataRepository } from '../../../domain/market-data/repository.js';
+import { UpstreamError } from '../../../application/errors';
+import type { AssetId } from '../../../domain/market-data/asset-id';
+import type { Candle, CandleResolution } from '../../../domain/market-data/candle';
+import type { Instrument, Quote } from '../../../domain/market-data/instrument';
+import type { Market } from '../../../domain/market-data/market';
+import type { MarketSession, OrderBook, TapeTrade } from '../../../domain/market-data/order-book';
+import type { MarketDataRepository } from '../../../domain/market-data/repository';
 import type {
   AssetDto,
   AssetSearchResponseDto,
@@ -15,10 +15,10 @@ import type {
   MarketStatusDto,
   MarketwatchResponseDto,
   TradesBookResponseDto,
-} from '../../data-sources/thndr/dto/market-data.js';
-import type { ThndrHttpClient } from '../../data-sources/thndr/http-client.js';
-import { assertNoKrakendError } from '../../data-sources/thndr/krakend.js';
-import { parseTimestamp } from '../../data-sources/thndr/wire.js';
+} from '../../data-sources/thndr/dto/market-data';
+import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
+import { assertNoKrakendError } from '../../data-sources/thndr/krakend';
+import { parseTimestamp } from '../../data-sources/thndr/wire';
 import {
   indicatorToQuote,
   mapRows,
@@ -28,7 +28,7 @@ import {
   toQuote,
   toTapeTrade,
   WIRE_RESOLUTION,
-} from './translators/market-data.js';
+} from './translators/market-data';
 
 const FEED = { include_feed: true, feed_detail: true } as const;
 

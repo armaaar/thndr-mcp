@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createNotification } from '../../../src/domain/engagement/notification.js';
+import { createNotification } from '../../../src/domain/engagement/notification';
 
 describe('createNotification', () => {
   it('defaults missing fields', () => {

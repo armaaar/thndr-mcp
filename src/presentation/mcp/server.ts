@@ -1,6 +1,10 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { Logger } from '../../application/ports/logger.js';
-import { type AnyTool, registerTools } from '../catalog/operation.js';
+import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
+import type { Logger } from '../../application/ports/logger';
+import { Command, type UseCase } from '../../application/use-case';
+import { runAndPresent } from '../presenters/outcome';
+import { isRecord } from '../presenters/view';
 
 export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Exchange broker), built on the private API of ThndrX.
 - Read-only for money: it can analyse markets, the account, positions, orders and activity, and manage watchlists
@@ -9,10 +13,63 @@ export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Ex
   login_complete. When a tool returns SESSION_EXPIRED use login_request_approval then login_complete.
 - Instruments can be referenced by ticker (e.g. COMI) or Thndr asset id. Default market is "egypt"; prices are EGP.`;
 
+/** MCP tool annotations derived from the use case's CQRS kind and flags. */
+export function annotationsFor(useCase: UseCase): ToolAnnotations {
+  const isCommand = useCase instanceof Command;
+  return {
+    title: useCase.title,
+    readOnlyHint: !isCommand,
+    destructiveHint: isCommand && useCase.destructive,
+    idempotentHint: !isCommand || useCase.idempotent,
+    openWorldHint: !useCase.local,
+  };
+}
+
+/**
+ * The schema handed to the MCP SDK. It *advertises* the use case's contract (JSON Schema of the strict input object)
+ * but *accepts* any object, so validation happens in `UseCase.run` only. Otherwise the SDK would validate first —
+ * silently dropping unknown fields and answering invalid input with a plain-text protocol error instead of the
+ * `INVALID_INPUT` error view the CLI prints (ADR 0012: identical results for identical input).
+ */
+export function toolInputSchema(useCase: UseCase): z.ZodType {
+  const { $schema: _, ...contract } = z.toJSONSchema(z.object(useCase.input).strict(), {
+    io: 'input',
+    target: 'draft-7',
+  });
+  return z.looseObject({}).meta(contract);
+}
+
+function text(value: unknown): CallToolResult['content'] {
+  return [{ type: 'text', text: JSON.stringify(value, null, 2) }];
+}
+
+/** Driving adapter: exposes every use case as an MCP tool with the use case's own name, description and schema. */
+export function registerUseCases(server: McpServer, useCases: readonly UseCase[], logger?: Logger): void {
+  for (const useCase of useCases) {
+    server.registerTool(
+      useCase.name,
+      {
+        title: useCase.title,
+        description: useCase.description,
+        inputSchema: toolInputSchema(useCase),
+        annotations: annotationsFor(useCase),
+      },
+      async (args: unknown): Promise<CallToolResult> => {
+        const outcome = await runAndPresent(useCase, args, logger);
+        if (!outcome.ok) return { isError: true, content: text(outcome.error) };
+        return {
+          content: text(outcome.view),
+          ...(isRecord(outcome.view) ? { structuredContent: outcome.view } : {}),
+        };
+      },
+    );
+  }
+}
+
 export interface ServerOptions {
   name?: string;
   version: string;
-  tools: ReadonlyArray<AnyTool>;
+  useCases: readonly UseCase[];
   logger?: Logger;
 }
 
@@ -21,6 +78,6 @@ export function createMcpServer(options: ServerOptions): McpServer {
     { name: options.name ?? 'thndr-mcp', version: options.version },
     { instructions: SERVER_INSTRUCTIONS },
   );
-  registerTools(server, options.tools, options.logger);
+  registerUseCases(server, options.useCases, options.logger);
   return server;
 }

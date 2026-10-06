@@ -1,30 +1,25 @@
-import { UpstreamError } from '../../../../application/errors.js';
-import { type Market, parseAssetClass } from '../../../../domain/market-data/market.js';
-import { accountCurrency, createAccountSummary } from '../../../../domain/portfolio/account-summary.js';
-import { type AccountActivity, createAccountActivity } from '../../../../domain/portfolio/activity.js';
+import { UpstreamError } from '../../../../application/errors';
+import { type Market, parseAssetClass } from '../../../../domain/market-data/market';
+import { accountCurrency, createAccountSummary } from '../../../../domain/portfolio/account-summary';
+import { type AccountActivity, createAccountActivity } from '../../../../domain/portfolio/activity';
 import {
   type ClosedTrade,
   createOverallTradingStats,
   type InstrumentTradingStats,
   type SellJournalEntry,
   type TradingMetrics,
-} from '../../../../domain/portfolio/journal.js';
-import {
-  type BracketLeg,
-  createOrder,
-  type Order,
-  type OrderType,
-} from '../../../../domain/portfolio/order.js';
-import { createPosition, type Position } from '../../../../domain/portfolio/position.js';
-import type { AccountSnapshot } from '../../../../domain/portfolio/repository.js';
-import type { RealizedReturns, ReturnsPoint } from '../../../../domain/portfolio/returns.js';
+} from '../../../../domain/portfolio/journal';
+import { type BracketLeg, createOrder, type Order, type OrderType } from '../../../../domain/portfolio/order';
+import { createPosition, type Position } from '../../../../domain/portfolio/position';
+import type { AccountSnapshot } from '../../../../domain/portfolio/repository';
+import type { RealizedReturns, ReturnsPoint } from '../../../../domain/portfolio/returns';
 import {
   CUSTODIANS,
   type Custodian,
   quantityBucket,
   type SellableQuantity,
-} from '../../../../domain/portfolio/sellable-quantity.js';
-import { DomainError } from '../../../../domain/shared-kernel/errors.js';
+} from '../../../../domain/portfolio/sellable-quantity';
+import { DomainError } from '../../../../domain/shared-kernel/errors';
 import type {
   AccountActivityDto,
   BlockedQuantitiesDto,
@@ -38,9 +33,9 @@ import type {
   SymbolStatsDto,
   TradingMetricsDto,
   WalletAndPortfolioDto,
-} from '../../../data-sources/thndr/dto/portfolio.js';
-import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire.js';
-import { mapCurrency, mapRows, parseAssetIdOrNull, sanitizeTicker } from './market-data.js';
+} from '../../../data-sources/thndr/dto/portfolio';
+import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire';
+import { mapCurrency, mapRows, parseAssetIdOrNull, sanitizeTicker } from './market-data';
 
 function isObject<T>(value: T | null | undefined): value is T & object {
   return value !== null && typeof value === 'object' && !Array.isArray(value);

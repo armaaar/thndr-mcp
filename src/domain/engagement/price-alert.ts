@@ -1,7 +1,7 @@
-import type { AssetId } from '../market-data/asset-id.js';
-import { ValidationError } from '../shared-kernel/errors.js';
-import { assertPositive } from '../shared-kernel/guards.js';
-import type { Ticker } from '../shared-kernel/ticker.js';
+import type { AssetId } from '../market-data/asset-id';
+import { ValidationError } from '../shared-kernel/errors';
+import { assertPositive } from '../shared-kernel/guards';
+import type { Ticker } from '../shared-kernel/ticker';
 
 /** Which way the price must cross the target for the alert to fire. */
 export const ALERT_DIRECTIONS = ['UP', 'DOWN'] as const;

@@ -1,4 +1,4 @@
-import { ValidationError } from './errors.js';
+import { ValidationError } from './errors';
 
 const TICKER_PATTERN = /^[A-Z0-9][A-Z0-9._-]{0,14}$/;
 

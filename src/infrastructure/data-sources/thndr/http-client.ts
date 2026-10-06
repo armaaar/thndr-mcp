@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { NotAuthenticatedError, UpstreamError } from '../../../application/errors.js';
-import type { AccessTokenProvider } from '../../../application/ports/access-token-provider.js';
-import type { Logger } from '../../../application/ports/logger.js';
+import { NotAuthenticatedError, UpstreamError } from '../../../application/errors';
+import type { AccessTokenProvider } from '../../../application/ports/access-token-provider';
+import type { Logger } from '../../../application/ports/logger';
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type QueryValue = string | number | boolean | undefined | null | ReadonlyArray<string | number>;

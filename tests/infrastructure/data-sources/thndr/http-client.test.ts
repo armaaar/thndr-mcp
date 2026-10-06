@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NotAuthenticatedError, UpstreamError } from '../../../../src/application/errors.js';
+import { NotAuthenticatedError, UpstreamError } from '../../../../src/application/errors';
 import {
   describeError,
   ThndrHttpClient,
-} from '../../../../src/infrastructure/data-sources/thndr/http-client.js';
-import { fakeFetch, json } from '../../../support/fake-fetch.js';
+} from '../../../../src/infrastructure/data-sources/thndr/http-client';
+import { fakeFetch, json } from '../../../support/fake-fetch';
 
 function tokens(...values: string[]) {
   let i = 0;

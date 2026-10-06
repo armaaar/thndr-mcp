@@ -12,7 +12,9 @@ export abstract class ApplicationError extends Error {
 export class NotAuthenticatedError extends ApplicationError {
   readonly code = 'NOT_AUTHENTICATED';
 
-  constructor(message = 'Not logged in to Thndr. Run the login_start tool (or `thndr-mcp login`) first.') {
+  constructor(
+    message = 'Not logged in to Thndr. Log in first (MCP tool login_start, or `thndr login` in the CLI).',
+  ) {
     super(message);
   }
 }
@@ -46,7 +48,7 @@ export class SessionExpiredError extends ApplicationError {
   readonly code = 'SESSION_EXPIRED';
 
   constructor(
-    message = 'Your Thndr session expired. Call login_request_approval (or login_start) and approve on your phone.',
+    message = 'Your Thndr session expired. Request a new approval (MCP tool login_request_approval, or `thndr login`) and approve it on your phone.',
   ) {
     super(message);
   }

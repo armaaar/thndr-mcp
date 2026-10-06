@@ -1,6 +1,6 @@
-import { BusinessRuleViolation } from '../shared-kernel/errors.js';
-import type { DeviceApprovalRequest } from './device-approval.js';
-import type { Email } from './email.js';
+import { BusinessRuleViolation } from '../shared-kernel/errors';
+import type { DeviceApprovalRequest } from './device-approval';
+import type { Email } from './email';
 
 export type LoginStage = 'IDLE' | 'CODE_SENT' | 'AWAITING_APPROVAL';
 

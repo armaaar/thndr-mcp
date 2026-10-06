@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { UpstreamError } from '../../../../src/application/errors.js';
-import { AssetId } from '../../../../src/domain/market-data/asset-id.js';
-import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client.js';
-import { ThndrPortfolioRepository } from '../../../../src/infrastructure/repositories/thndr/portfolio-repository.js';
+import { UpstreamError } from '../../../../src/application/errors';
+import { AssetId } from '../../../../src/domain/market-data/asset-id';
+import { ThndrHttpClient } from '../../../../src/infrastructure/data-sources/thndr/http-client';
+import { ThndrPortfolioRepository } from '../../../../src/infrastructure/repositories/thndr/portfolio-repository';
 import {
   toAccountSnapshot,
   toClosedTrade,
   toOrder,
   toPosition,
   toSellJournalEntry,
-} from '../../../../src/infrastructure/repositories/thndr/translators/portfolio.js';
-import { fakeFetch, json, type Responder } from '../../../support/fake-fetch.js';
+} from '../../../../src/infrastructure/repositories/thndr/translators/portfolio';
+import { fakeFetch, json, type Responder } from '../../../support/fake-fetch';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 const ID2 = '66666666-7777-8888-9999-000000000000';

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BusinessRuleViolation, ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { BusinessRuleViolation, ValidationError } from '../../../src/domain/shared-kernel/errors';
 import {
   assertFiniteNumber,
   assertNonEmpty,
   assertPositive,
   assertPositiveInteger,
   roundTo,
-} from '../../../src/domain/shared-kernel/guards.js';
+} from '../../../src/domain/shared-kernel/guards';
 
 describe('guards', () => {
   it('assertFiniteNumber', () => {

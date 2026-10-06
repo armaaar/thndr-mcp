@@ -1,15 +1,10 @@
-import { AssetId } from '../../../../domain/market-data/asset-id.js';
-import { type Candle, type CandleResolution, createCandle } from '../../../../domain/market-data/candle.js';
-import type { Instrument, Quote } from '../../../../domain/market-data/instrument.js';
-import { MARKETS, type Market, parseAssetClass } from '../../../../domain/market-data/market.js';
-import type {
-  BookLevel,
-  OrderBook,
-  TapeTrade,
-  TradeSide,
-} from '../../../../domain/market-data/order-book.js';
-import type { Currency } from '../../../../domain/shared-kernel/money.js';
-import { Ticker } from '../../../../domain/shared-kernel/ticker.js';
+import { AssetId } from '../../../../domain/market-data/asset-id';
+import { type Candle, type CandleResolution, createCandle } from '../../../../domain/market-data/candle';
+import type { Instrument, Quote } from '../../../../domain/market-data/instrument';
+import { MARKETS, type Market, parseAssetClass } from '../../../../domain/market-data/market';
+import type { BookLevel, OrderBook, TapeTrade, TradeSide } from '../../../../domain/market-data/order-book';
+import type { Currency } from '../../../../domain/shared-kernel/money';
+import { Ticker } from '../../../../domain/shared-kernel/ticker';
 import type {
   AssetDto,
   CandleDto,
@@ -18,8 +13,8 @@ import type {
   MarketIndicatorDto,
   MarketwatchAssetDto,
   TradeDto,
-} from '../../../data-sources/thndr/dto/market-data.js';
-import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire.js';
+} from '../../../data-sources/thndr/dto/market-data';
+import { parseTimestamp, toNumber, toStringOrNull } from '../../../data-sources/thndr/wire';
 
 /** Domain candle resolution → Thndr `resolution` query value (§2.2). */
 export const WIRE_RESOLUTION: Record<CandleResolution, string> = {

@@ -6,7 +6,7 @@ import {
   toNotification,
   toPriceAlert,
   toWatchlist,
-} from '../../../../../src/infrastructure/repositories/thndr/translators/engagement.js';
+} from '../../../../../src/infrastructure/repositories/thndr/translators/engagement';
 
 const A = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 const B = 'b0a4c53e-b12f-4e93-b94b-759b8eeaef14';

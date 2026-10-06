@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { dateArg, parseDateArg, utcOffset } from '../../../src/interfaces/catalog/dates.js';
+import { describe, expect, it, vi } from 'vitest';
+import { parseMarketDate, utcOffset } from '../../../src/domain/market-data/market-calendar';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 describe('date arguments', () => {
   it('knows Cairo winter and summer (DST) offsets, and falls back to UTC', () => {
@@ -8,18 +9,24 @@ describe('date arguments', () => {
     expect(utcOffset('2026-07-15', 'UTC')).toBe('+00:00');
   });
 
+  it('falls back to UTC when the runtime reports no time-zone name', () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'formatToParts').mockReturnValue([]);
+    expect(utcOffset('2026-07-15')).toBe('+00:00');
+  });
+
   it('interprets date-only bounds as whole Cairo market days', () => {
-    expect(parseDateArg('2026-07-15', 'start')?.toISOString()).toBe('2026-07-14T21:00:00.000Z');
-    expect(parseDateArg('2026-07-15', 'end')?.toISOString()).toBe('2026-07-15T20:59:59.999Z');
+    expect(parseMarketDate('2026-07-15', 'start')?.toISOString()).toBe('2026-07-14T21:00:00.000Z');
+    expect(parseMarketDate('2026-07-15', 'end')?.toISOString()).toBe('2026-07-15T20:59:59.999Z');
   });
 
   it('passes datetimes through and keeps undefined', () => {
-    expect(parseDateArg('2026-01-31T10:00:00+02:00', 'end')?.toISOString()).toBe('2026-01-31T08:00:00.000Z');
-    expect(parseDateArg(undefined, 'start')).toBeUndefined();
+    expect(parseMarketDate('2026-01-31T10:00:00+02:00', 'end')?.toISOString()).toBe(
+      '2026-01-31T08:00:00.000Z',
+    );
+    expect(parseMarketDate(undefined, 'start')).toBeUndefined();
   });
 
-  it('validates input strings', () => {
-    expect(dateArg.safeParse('2026-01-31').success).toBe(true);
-    expect(dateArg.safeParse('soon').success).toBe(false);
+  it('rejects unparsable dates', () => {
+    expect(() => parseMarketDate('soon', 'start')).toThrow(ValidationError);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { accountCurrency, createAccountSummary } from '../../../src/domain/portfolio/account-summary.js';
-import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { accountCurrency, createAccountSummary } from '../../../src/domain/portfolio/account-summary';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors';
 
 const base = {
   buyingPower: 10_000.1,

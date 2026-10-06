@@ -1,12 +1,12 @@
-import type { AssetId } from '../market-data/asset-id.js';
-import type { Market } from '../market-data/market.js';
-import type { AccountSummary } from './account-summary.js';
-import type { ActivityPage } from './activity.js';
-import type { ClosedTrade, DateRange, JournalPage, SellJournalEntry, TradingMetrics } from './journal.js';
-import type { OrderStatusFilter, OrdersPage } from './order.js';
-import type { Position } from './position.js';
-import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from './returns.js';
-import type { SellableQuantity } from './sellable-quantity.js';
+import type { AssetId } from '../market-data/asset-id';
+import type { Market } from '../market-data/market';
+import type { AccountSummary } from './account-summary';
+import type { ActivityPage } from './activity';
+import type { ClosedTrade, DateRange, JournalPage, SellJournalEntry, TradingMetrics } from './journal';
+import type { OrderStatusFilter, OrdersPage } from './order';
+import type { Position } from './position';
+import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from './returns';
+import type { SellableQuantity } from './sellable-quantity';
 
 export interface AccountSnapshot {
   readonly summary: AccountSummary;

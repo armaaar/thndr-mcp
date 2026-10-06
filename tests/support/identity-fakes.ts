@@ -1,14 +1,12 @@
 import { vi } from 'vitest';
-import type { Clock } from '../../src/application/ports/clock.js';
-import type {
-  IdentityProvider,
-  IssuedAccess,
-  ThndrAuthGateway,
-} from '../../src/application/ports/identity.js';
-import type { Logger } from '../../src/application/ports/logger.js';
-import { DeviceApprovalRequest } from '../../src/domain/identity/device-approval.js';
-import type { SessionRepository } from '../../src/domain/identity/repository.js';
-import type { ThndrSession } from '../../src/domain/identity/thndr-session.js';
+import type { LoginDependencies } from '../../src/application/identity/dependencies';
+import type { Clock } from '../../src/application/ports/clock';
+import type { IdentityProvider, IssuedAccess, ThndrAuthGateway } from '../../src/application/ports/identity';
+import type { Logger } from '../../src/application/ports/logger';
+import { DeviceApprovalRequest } from '../../src/domain/identity/device-approval';
+import type { SessionRepository } from '../../src/domain/identity/repository';
+import type { ThndrSession } from '../../src/domain/identity/thndr-session';
+import { InMemoryLoginFlowRepository } from '../../src/infrastructure/repositories/memory/login-flow-repository';
 
 export const T0 = new Date('2026-01-01T00:00:00Z');
 
@@ -91,4 +89,35 @@ export function fakeIdentity(idToken: string | null = 'id-token') {
 
 export function fakeLogger() {
   return { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() } satisfies Logger;
+}
+
+export const USER_AGENT = 'thndr-mcp/0.1.0';
+
+/** Login use-case dependencies built from fakes; `sleep` advances the mutable clock. */
+export function loginDeps(
+  overrides: {
+    gateway?: ReturnType<typeof fakeGateway>;
+    identity?: ReturnType<typeof fakeIdentity>;
+    pollIntervalMs?: number;
+  } = {},
+) {
+  const clock = mutableClock();
+  return {
+    gateway: overrides.gateway ?? fakeGateway(),
+    identity: overrides.identity ?? fakeIdentity(),
+    sessions: new InMemorySessionRepository(),
+    flow: new InMemoryLoginFlowRepository(),
+    clock,
+    sleep: vi.fn(async (ms: number) => clock.advance(ms)),
+    userAgent: USER_AGENT,
+    ...(overrides.pollIntervalMs === undefined ? {} : { pollIntervalMs: overrides.pollIntervalMs }),
+  } satisfies LoginDependencies;
+}
+
+/** Puts the login flow in AWAITING_APPROVAL for `request`. */
+export function awaitingApproval(
+  d: ReturnType<typeof loginDeps>,
+  request: DeviceApprovalRequest = approvalRequest,
+) {
+  void d.flow.save(d.flow.current.awaitingApproval(request));
 }

@@ -1,14 +1,10 @@
-import { UpstreamError } from '../../../application/errors.js';
-import type { Notification } from '../../../domain/engagement/notification.js';
-import type { PriceAlert } from '../../../domain/engagement/price-alert.js';
-import type {
-  EngagementRepository,
-  NewPriceAlert,
-  PageRequest,
-} from '../../../domain/engagement/repository.js';
-import type { Watchlist, WatchlistName } from '../../../domain/engagement/watchlist.js';
-import type { AssetId } from '../../../domain/market-data/asset-id.js';
-import type { Market } from '../../../domain/market-data/market.js';
+import { UpstreamError } from '../../../application/errors';
+import type { Notification } from '../../../domain/engagement/notification';
+import type { PriceAlert } from '../../../domain/engagement/price-alert';
+import type { EngagementRepository, NewPriceAlert, PageRequest } from '../../../domain/engagement/repository';
+import type { Watchlist, WatchlistName } from '../../../domain/engagement/watchlist';
+import type { AssetId } from '../../../domain/market-data/asset-id';
+import type { Market } from '../../../domain/market-data/market';
 import type {
   CreatePriceAlertBodyDto,
   CreateWatchlistBodyDto,
@@ -20,11 +16,11 @@ import type {
   WatchAssetsBodyDto,
   WatchlistDto,
   WatchlistsResponseDto,
-} from '../../data-sources/thndr/dto/engagement.js';
-import type { ThndrHttpClient } from '../../data-sources/thndr/http-client.js';
-import { assertNoKrakendError } from '../../data-sources/thndr/krakend.js';
-import { toNotification, toPriceAlert, toWatchlist } from './translators/engagement.js';
-import { mapRows } from './translators/market-data.js';
+} from '../../data-sources/thndr/dto/engagement';
+import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
+import { assertNoKrakendError } from '../../data-sources/thndr/krakend';
+import { toNotification, toPriceAlert, toWatchlist } from './translators/engagement';
+import { mapRows } from './translators/market-data';
 
 const WATCHLISTS = '/users-service/watchlists';
 const ALERTS = '/price-alerts/v1/alerts';
