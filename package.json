@@ -3,6 +3,25 @@
   "version": "0.1.0",
   "description": "Unofficial, community MCP server and CLI for the Thndr broker — not affiliated with Thndr; not financial advice; use at your own risk.",
   "license": "Apache-2.0",
+  "author": "armaaar",
+  "homepage": "https://github.com/armaaar/thndr-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/armaaar/thndr-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/armaaar/thndr-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "thndr",
+    "egx",
+    "egypt",
+    "stocks",
+    "cli",
+    "unofficial"
+  ],
   "type": "module",
   "bin": {
     "thndr-mcp": "dist/thndr-mcp.js",
@@ -18,6 +37,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "prepare": "tsup",
     "dev": "tsx src/presentation/mcp/main.ts",
     "start": "node dist/thndr-mcp.js",
     "login": "tsx src/presentation/cli/main.ts login",
