@@ -66,5 +66,5 @@ every layer.
 
 - The layers and the context map are visible in the tree and checked on every test run.
 - Clients may need one extra query after a command to see the new state. That is the deliberate CQS trade-off.
-- Data sources and presentation stay unaware of the domain beyond the shared kernel's errors, so external SDKs and
-  delivery mechanisms stay swappable.
+- Data sources never import the domain (only application ports and errors), and presentation sees only the shared
+  kernel's errors, so external SDKs and delivery mechanisms stay swappable.

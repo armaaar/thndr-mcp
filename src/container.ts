@@ -67,7 +67,7 @@ export interface CompositionOverrides {
 }
 
 /**
- * Composition root (ADR 0011): builds data sources, repositories and application services, and returns the list of
+ * Composition root (ADR 0015): builds data sources, repositories and application services, and returns the list of
  * use cases that both delivery mechanisms (MCP server and CLI) expose.
  */
 export function compose(config: AppConfig, overrides: CompositionOverrides = {}) {
