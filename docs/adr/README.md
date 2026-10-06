@@ -23,3 +23,4 @@ is changed by adding a new ADR that supersedes the old one.
 | 0015 | [Five-layer Clean Architecture, CQS and an enforced context map](0015-five-layer-clean-architecture-cqs-and-context-map.md) | Accepted |
 | 0016 | [Login on demand via MCP elicitation](0016-login-on-demand-via-mcp-elicitation.md) | Accepted, dialog refined by 0017 |
 | 0017 | [Browser login page for login on demand](0017-browser-login-page.md) | Accepted |
+| 0018 | [Close the IBKR gaps with Thndr data only](0018-analytics-from-thndr-data-only.md) | Accepted |

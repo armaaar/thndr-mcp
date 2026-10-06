@@ -345,4 +345,13 @@ describe('ThndrMarketDataRepository', () => {
       expect(await gateway.getMarketIndicators('us')).toEqual([]);
     });
   });
+
+  describe('getIndexConstituents', () => {
+    it('reads the member ids from the index asset details', async () => {
+      const { fetch, gateway } = setup(() => json({ id: ID, constituents: [{ id: OTHER }, { id: 'bad' }] }));
+      const out = await gateway.getIndexConstituents(AssetId.of(ID));
+      expect(fetch.calls[0]!.url).toBe(`${API}/assets-service/assets/${ID}`);
+      expect(out.map((id) => id.value)).toEqual([OTHER]);
+    });
+  });
 });

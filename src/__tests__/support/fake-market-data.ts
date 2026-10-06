@@ -1,4 +1,5 @@
 import type { MarketDataDependencies } from '../../application/market-data/dependencies';
+import { IndexMembership } from '../../application/market-data/services/index-membership';
 import { InstrumentResolver } from '../../application/market-data/services/instrument-resolver';
 import { MarketQuotesCache } from '../../application/market-data/services/market-quotes-cache';
 import type { Clock } from '../../application/ports/clock';
@@ -51,6 +52,7 @@ export function aQuote(overrides: QuoteOverrides = {}): Quote {
     ticker: Ticker.of(ticker),
     name: `${ticker} Corp`,
     sector: 'Banks',
+    board: 'NOPL',
     currency: 'EGP',
     last: 100,
     previousClose: 98,
@@ -152,6 +154,8 @@ export class FakeMarketDataRepository implements MarketDataRepository {
   orderBook: OrderBook = anOrderBook();
   trades: TapeTrade[] = [];
   session: MarketSession = aMarketSession();
+  /** Index asset id → member asset ids. */
+  constituents: Record<string, string[]> = {};
   /** When set, the named method rejects with this error. */
   failures: Partial<Record<keyof MarketDataRepository, Error>> = {};
 
@@ -164,6 +168,7 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     getRecentTrades: [] as Array<{ id: AssetId; limit: number; before?: string }>,
     getMarketSession: [] as Array<{ market: Market; board?: string | null }>,
     getMarketIndicators: [] as Market[],
+    getIndexConstituents: [] as AssetId[],
   };
 
   constructor(seed: Partial<Pick<FakeMarketDataRepository, 'instruments' | 'quotes'>> = {}) {
@@ -223,6 +228,12 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     return this.indicators[market] ?? [];
   }
 
+  async getIndexConstituents(indexId: AssetId): Promise<AssetId[]> {
+    this.calls.getIndexConstituents.push(indexId);
+    this.fail('getIndexConstituents');
+    return (this.constituents[indexId.value] ?? []).map((id) => AssetId.of(id));
+  }
+
   private fail(method: keyof MarketDataRepository): void {
     const error = this.failures[method];
     if (error) throw error;
@@ -235,11 +246,13 @@ export function setupMarketData(
   now: string | Date = '2026-01-15T12:00:00Z',
 ): MarketDataDependencies & { repository: FakeMarketDataRepository } {
   const clock = fixedClock(now);
+  const quotes = new MarketQuotesCache(repository, clock);
   return {
     repository,
     clock,
     resolver: new InstrumentResolver(repository),
-    quotes: new MarketQuotesCache(repository, clock),
+    quotes,
+    indices: new IndexMembership(repository, quotes, clock),
   };
 }
 

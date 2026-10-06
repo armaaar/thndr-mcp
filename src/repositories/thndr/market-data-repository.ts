@@ -23,6 +23,7 @@ import {
   indicatorToQuote,
   mapRows,
   toCandle,
+  toConstituentIds,
   toInstrument,
   toOrderBook,
   toQuote,
@@ -120,5 +121,10 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
       query: { market, page_count: 100, ...FEED },
     });
     return mapRows(data?.results, indicatorToQuote);
+  }
+
+  async getIndexConstituents(indexId: AssetId): Promise<AssetId[]> {
+    const data = await this.api.get<AssetDto>(`/assets-service/assets/${encodeURIComponent(indexId.value)}`);
+    return toConstituentIds(data);
   }
 }

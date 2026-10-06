@@ -141,6 +141,7 @@ export function toReturnsPoint(dto: ReturnsPointDto | null | undefined): Returns
     date,
     totalReturns: toNumber(dto.total_returns),
     portfolioValue: toNumber(dto.portfolio_value),
+    netDeposits: toNumber(dto.net_deposits),
   });
 }
 

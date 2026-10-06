@@ -67,6 +67,8 @@ export interface ReturnsPointDto {
   snapshot_date?: string | number | null;
   total_returns?: WireNumber;
   portfolio_value?: WireNumber;
+  /** Cumulative deposits minus withdrawals at the snapshot (live capture 2026-10-06). */
+  net_deposits?: WireNumber;
 }
 
 export interface BracketLegDto {

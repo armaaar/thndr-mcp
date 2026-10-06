@@ -31,6 +31,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [0015](adr/0015-five-layer-clean-architecture-cqs-and-context-map.md) | Five layers (`domain/`, `application/`, `repositories/`, `data-sources/`, `presentation/`); CQS — commands return flat receipts, never read models; context map (Market Data = upstream supplier with an Open Host Service, Portfolio and Engagement = customers, Identity independent); all enforced by `src/__tests__/architecture.test.ts`. |
 | [0016](adr/0016-login-on-demand-via-mcp-elicitation.md) | Login on demand: a tool that needs a session triggers the guided login (shared with `thndr login`) and is retried once; dialog refined by 0017. |
 | [0017](adr/0017-browser-login-page.md) | The MCP login runs in a local browser page (127.0.0.1, random token): email, code, then the approval QR code; works with or without elicitation (Claude Code, Claude Desktop, …). |
+| [0018](adr/0018-analytics-from-thndr-data-only.md) | New analytics (allocation, performance, index members, peers, financials, news, macro data, savings, screeners) use only Thndr data and no paid features; no crawling to fake missing endpoints. |
 
 ## Domains — [`domains/`](domains/README.md)
 

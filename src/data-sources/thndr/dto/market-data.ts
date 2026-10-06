@@ -42,6 +42,18 @@ export interface AssetDto {
   symbol_state?: string | null;
   stats?: { symbol_state?: string | null } | null;
   feed?: AssetFeedDto | null;
+  /** Labels such as sector, index ("EGX30"), "sharia" or "Same Day Tradable" (live capture 2026-10-06). */
+  tags?: AssetTagDto[] | null;
+  /** Only on an index's details: its member instruments; ThndrX reads `constituents[].id` (module 50766). */
+  constituents?: Array<{ id?: string | null }> | null;
+}
+
+/** One entry of `asset.tags`. */
+export interface AssetTagDto {
+  id?: number | string | null;
+  slug?: string | null;
+  name?: string | null;
+  hidden?: boolean | null;
 }
 
 export interface AssetSearchResponseDto {
@@ -56,6 +68,8 @@ export interface MarketwatchAssetDto {
   arb_name?: string | null;
   eng_desc?: string | null;
   asset_class?: string | null;
+  /** EGX board: NOPL, OOTC, SME, INDX (indices), FNDS… */
+  market_id?: string | null;
   currency?: number | string | null;
   round_digits?: WireNumber;
   symbol_state?: string | null;

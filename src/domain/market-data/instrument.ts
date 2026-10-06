@@ -20,6 +20,8 @@ export interface Instrument {
   readonly priceDecimals: number | null;
   readonly description?: string | null;
   readonly logoUrl?: string | null;
+  /** Thndr's labels for the instrument (e.g. "Banks", "EGX30", "sharia", "Same Day Tradable"), when known. */
+  readonly tags?: readonly string[];
 }
 
 /** The point-in-time trading snapshot of an instrument (one marketwatch row). */
@@ -28,6 +30,8 @@ export interface Quote {
   readonly ticker: Ticker;
   readonly name: string | null;
   readonly sector: string | null;
+  /** EGX board (`NOPL` main, `INDX` for indices…), when known. */
+  readonly board: string | null;
   readonly currency: Currency | null;
   readonly last: number | null;
   readonly previousClose: number | null;

@@ -15,4 +15,6 @@ export interface MarketDataRepository {
   getMarketSession(market: Market, board?: string | null): Promise<MarketSession>;
   /** Index levels (EGX30, EGX70…) and reference rates. */
   getMarketIndicators(market: Market): Promise<Quote[]>;
+  /** Member instruments of an index (an `INDX` instrument such as EGX30); empty for anything else. */
+  getIndexConstituents(indexId: AssetId): Promise<AssetId[]>;
 }

@@ -375,7 +375,7 @@ describe('ThndrPortfolioRepository returns', () => {
       () => json({ total_returns: '1,500.5', snapshot_date: '2026-01-31' }),
       () =>
         json([
-          { snapshot_date: '2026-01-01', total_returns: 100, portfolio_value: 10_000 },
+          { snapshot_date: '2026-01-01', total_returns: 100, portfolio_value: 10_000, net_deposits: 9_000 },
           { snapshot_date: null, total_returns: 1 },
           null,
         ]),
@@ -388,7 +388,7 @@ describe('ThndrPortfolioRepository returns', () => {
     expect(url(1).pathname).toBe('/market-service/realized-returns/chart/6M');
     expect(url(1).searchParams.get('market')).toBe('egypt');
     expect(chart).toHaveLength(1);
-    expect(chart[0]).toMatchObject({ totalReturns: 100, portfolioValue: 10_000 });
+    expect(chart[0]).toMatchObject({ totalReturns: 100, portfolioValue: 10_000, netDeposits: 9_000 });
   });
 
   it('tolerates empty payloads', async () => {

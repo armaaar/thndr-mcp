@@ -30,6 +30,7 @@ import { GetPriceSnapshot } from './application/market-data/queries/get-price-sn
 import { GetRecentTrades } from './application/market-data/queries/get-recent-trades';
 import { ScreenMarket } from './application/market-data/queries/screen-market';
 import { SearchInstruments } from './application/market-data/queries/search-instruments';
+import { IndexMembership } from './application/market-data/services/index-membership';
 import { InstrumentResolver } from './application/market-data/services/instrument-resolver';
 import { MarketQuotesCache } from './application/market-data/services/market-quotes-cache';
 import type { PortfolioDependencies } from './application/portfolio/dependencies';
@@ -110,7 +111,8 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   const marketRepository = new ThndrMarketDataRepository(api, krakend);
   const resolver = new InstrumentResolver(marketRepository);
   const quotes = new MarketQuotesCache(marketRepository, clock);
-  const market: MarketDataDependencies = { repository: marketRepository, resolver, quotes, clock };
+  const indices = new IndexMembership(marketRepository, quotes, clock);
+  const market: MarketDataDependencies = { repository: marketRepository, resolver, quotes, indices, clock };
 
   // Portfolio
   const portfolio: PortfolioDependencies = {

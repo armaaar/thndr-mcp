@@ -1,5 +1,6 @@
 import type {
   AssetDto,
+  AssetTagDto,
   CandleDto,
   DepthLevelDto,
   MarketDepthResponseDto,
@@ -118,7 +119,25 @@ export function toInstrument(
     priceDecimals: priceDecimals(dto),
     description: stringOrNull(dto.about),
     logoUrl: stringOrNull(dto.logo),
+    ...(Array.isArray(dto.tags) ? { tags: Object.freeze(toTagNames(dto.tags)) } : {}),
   });
+}
+
+/** Visible tag names, in Thndr's order, without duplicates. */
+function toTagNames(tags: readonly AssetTagDto[]): string[] {
+  const names = tags
+    .filter((tag) => tag && typeof tag === 'object' && tag.hidden !== true)
+    .map((tag) => stringOrNull(tag.name)?.trim() ?? stringOrNull(tag.slug)?.trim() ?? null)
+    .filter((name): name is string => name !== null && name !== '');
+  return [...new Set(names)];
+}
+
+/** Member ids of an index (`constituents[].id`); invalid ids are skipped. */
+export function toConstituentIds(dto: AssetDto | null | undefined): AssetId[] {
+  if (!dto || typeof dto !== 'object' || !Array.isArray(dto.constituents)) return [];
+  return dto.constituents
+    .map((member) => (member && typeof member === 'object' ? parseAssetIdOrNull(member.id) : null))
+    .filter((id): id is AssetId => id !== null);
 }
 
 function positiveOrNull(value: number | null): number | null {
@@ -129,7 +148,9 @@ function positiveOrNull(value: number | null): number | null {
 export function toQuote(dto: MarketwatchAssetDto | null | undefined): Quote | null {
   if (!dto || typeof dto !== 'object') return null;
   const instrumentId = parseAssetIdOrNull(dto.asset_id);
-  const ticker = parseTickerOrNull(dto.reuters);
+  const board = stringOrNull(dto.market_id);
+  // Index symbols such as `EGX70 EWI` do not fit the Ticker pattern: sanitise them instead of dropping the row.
+  const ticker = board === 'INDX' ? sanitizeTicker(dto.reuters) : parseTickerOrNull(dto.reuters);
   if (!instrumentId || !ticker) return null;
   // ThndrX: `last_trade_price || close_price` (0 means "no trade yet today").
   const last = positiveOrNull(toNumber(dto.last_trade_price)) ?? toNumber(dto.close_price);
@@ -141,7 +162,8 @@ export function toQuote(dto: MarketwatchAssetDto | null | undefined): Quote | nu
     instrumentId,
     ticker,
     name: stringOrNull(dto.eng_name),
-    sector: stringOrNull(dto.eng_desc),
+    sector: stringOrNull(dto.eng_desc?.trim()),
+    board,
     currency: mapCurrency(dto.currency),
     last,
     previousClose,
@@ -186,6 +208,7 @@ export function indicatorToQuote(dto: MarketIndicatorDto | null | undefined): Qu
     ticker,
     name: stringOrNull(dto.name),
     sector: null,
+    board: stringOrNull(feed.market_id),
     currency: null,
     last,
     previousClose: toNumber(feed.previous_close),

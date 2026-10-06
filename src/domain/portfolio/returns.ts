@@ -25,6 +25,8 @@ export interface ReturnsPoint {
   readonly date: Date;
   readonly totalReturns: number | null;
   readonly portfolioValue: number | null;
+  /** Cumulative deposits minus withdrawals at that date, when Thndr sends it. */
+  readonly netDeposits?: number | null;
 }
 
 export interface ReturnsSeriesSummary {
