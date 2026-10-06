@@ -15,3 +15,24 @@ Thanks for helping with thndr-mcp, an unofficial community project (see [DISCLAI
 - **How we work.** Follow [CLAUDE.md](CLAUDE.md): the five-layer architecture, tests next to the code, `npm run check`
   before every commit (coverage above 95%), Conventional Commits, and an independent review before merging. Record
   architectural decisions as ADRs in [docs/adr](docs/adr/README.md).
+
+## Versions and releases
+
+- Versions follow [Semantic Versioning](https://semver.org) and are cut by
+  [release-please](https://github.com/googleapis/release-please) from commit messages ([ADR
+  0022](docs/adr/0022-distribution-ci-cd-and-versioning.md)): it keeps a "release" pull request open with the next
+  version and the CHANGELOG. Merging that pull request tags `vX.Y.Z`, creates the GitHub Release and attaches the built
+  package. Never edit `package.json`'s version, `src/version.ts` or `CHANGELOG.md` by hand.
+- Your commit type decides the bump. While the version is `0.x`: `feat` → minor (`0.1.0` → `0.2.0`), `fix` and `perf`
+  → patch (`0.1.0` → `0.1.1`), and a breaking change (`feat!:` or a `BREAKING CHANGE:` footer) → minor too. From `1.0.0`
+  a breaking change bumps the major. `docs`, `chore`, `test`, `refactor` and `ci` commits do not trigger a release and
+  stay out of the CHANGELOG.
+- The first release is `0.1.0`: release-please opens it as its first release pull request after the first push to
+  `main` (its CHANGELOG covers the whole history so far).
+- CI runs `npm run check`, the build and a packaging smoke test on every pull request; it must pass before merging. The
+  release pull request is the exception: release-please opens it with the workflow token, which does not trigger CI —
+  it only changes the version, `src/version.ts` and the CHANGELOG, and the publish job re-runs every check on the tag.
+- If the publish job fails after the release was created (the Release exists without its package), fix the cause on
+  `main` if needed, then re-run the failed job from the Actions tab; or attach the package by hand from the tag:
+  `git checkout vX.Y.Z && npm ci && npm pack && sha256sum thndr-mcp-X.Y.Z.tgz > thndr-mcp-X.Y.Z.tgz.sha256 &&
+  gh release upload vX.Y.Z thndr-mcp-X.Y.Z.tgz thndr-mcp-X.Y.Z.tgz.sha256`.

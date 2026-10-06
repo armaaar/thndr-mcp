@@ -1,0 +1,70 @@
+# Versioning and publishing (ADR 0022). release-please keeps a release PR up to date from Conventional Commits;
+# merging it tags vX.Y.Z and creates the GitHub Release, and the publish job attaches the built package to it.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+      VERSION: ${{ needs.release-please.outputs.version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Typecheck, lint, tests with the coverage gate
+        run: npm run check
+      - name: Check the tag matches package.json
+        run: test "$(node -p "require('./package.json').version")" = "$VERSION"
+      - name: Pack
+        run: |
+          npm pack
+          sha256sum "thndr-mcp-$VERSION.tgz" > "thndr-mcp-$VERSION.tgz.sha256"
+      - name: Attach the package to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" "thndr-mcp-$VERSION.tgz" "thndr-mcp-$VERSION.tgz.sha256" --clobber
+      - name: Publish to npm (skipped until the NPM_TOKEN secret exists)
+        if: env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

@@ -11,7 +11,7 @@ describe('renderOverview', () => {
     const out = renderOverview(fakeUseCases(), '9.9.9');
     const lines = out.split('\n');
     expect(lines[0]).toBe(
-      'thndr 9.9.9 — unofficial CLI for Thndr (EGX). Same use cases as the thndr-mcp MCP server.',
+      'thndr 9.9.9 — unofficial CLI for Thndr (Egypt, US, UAE, simulator). Same use cases as the thndr-mcp MCP server.',
     );
     expect(out).toContain('Usage: thndr <command> [arguments] [--json] [--help]');
     const sections = [

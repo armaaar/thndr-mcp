@@ -38,6 +38,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [0019](adr/0019-document-write-operations.md) | Write operations (orders, funding, subscriptions…) are documented with full request shapes in marked sections; implementing any needs a superseding ADR. |
 | [0020](adr/0020-apache-license-and-disclaimer.md) | Apache-2.0 (unmodified) plus NOTICE and DISCLAIMER.md; the disclaimer is shown in the README, CLI, MCP instructions and login page. |
 | [0021](adr/0021-all-thndr-markets.md) | Markets egypt, us, uae and simulator, Thndr's wire codes mapped in the adapters, and a per-market feature table that makes unsupported combinations fail fast. |
+| [0022](adr/0022-distribution-ci-cd-and-versioning.md) | Installs from GitHub (`npx -y github:armaaar/thndr-mcp`), SemVer via release-please release PRs, CI on every PR, packages attached to GitHub Releases, npm publish gated on a secret. |
 
 ## Domains — [`domains/`](domains/README.md)
 

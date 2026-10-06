@@ -1,5 +1,9 @@
 # thndr-mcp
 
+[![CI](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/armaaar/thndr-mcp/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/armaaar/thndr-mcp?sort=semver)](https://github.com/armaaar/thndr-mcp/releases)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 > **Unofficial and not affiliated with Thndr. Not financial advice. Provided "AS IS", at your own risk — to the maximum
 > extent permitted by law, the maintainers accept no responsibility for financial decisions, losses or any other
 > liability arising from its use.**
@@ -34,31 +38,63 @@ orders and never moves funds. Trade in the Thndr app.
 
 ## Install
 
-```bash
-git clone https://github.com/armaaar/thndr-mcp && cd thndr-mcp
-npm install && npm run build
-npm link   # optional: puts `thndr` and `thndr-mcp` on your PATH
-```
+thndr-mcp installs straight from GitHub (an npm package will follow); you need Node.js ≥ 20. `npx` downloads and
+builds it on first use, so there is nothing to clone.
 
 ### Claude Code
 
 ```bash
-claude mcp add thndr -- node /absolute/path/to/thndr-mcp/dist/thndr-mcp.js
+claude mcp add thndr -- npx -y github:armaaar/thndr-mcp
 ```
 
-(Inside this repository the bundled [`.mcp.json`](.mcp.json) already registers it in dev mode.)
-
 ### Claude Desktop
+
+Add to `claude_desktop_config.json` (Settings → Developer → Edit Config) and restart Claude Desktop:
 
 ```json
 {
   "mcpServers": {
-    "thndr": { "command": "node", "args": ["/absolute/path/to/thndr-mcp/dist/thndr-mcp.js"] }
+    "thndr": { "command": "npx", "args": ["-y", "github:armaaar/thndr-mcp"] }
   }
 }
 ```
 
+Any other MCP client that runs local stdio servers works the same way: command `npx`, arguments
+`-y github:armaaar/thndr-mcp`.
+
+### Pin a version
+
+`github:armaaar/thndr-mcp` follows the `main` branch. To pin a [release](https://github.com/armaaar/thndr-mcp/releases),
+use its tag — e.g. `github:armaaar/thndr-mcp#v0.1.0` — or the prebuilt package attached to every release, which starts
+faster because nothing is built:
+
+```bash
+claude mcp add thndr -- npx -y https://github.com/armaaar/thndr-mcp/releases/download/v0.1.0/thndr-mcp-0.1.0.tgz
+```
+
+The [CHANGELOG](CHANGELOG.md) lists what changed in each version.
+
+### First use
+
+Ask your assistant something like "how is my Thndr portfolio doing?". The first tool call opens a login page in your
+browser: enter your email and the code Thndr emails you, then approve the login with the QR code in the Thndr mobile
+app. The session is stored on your computer (see [Logging in](#logging-in)).
+
+### From source
+
+```bash
+git clone https://github.com/armaaar/thndr-mcp && cd thndr-mcp
+npm install && npm run build
+npm link   # optional: puts `thndr` and `thndr-mcp` on your PATH
+claude mcp add thndr -- node "$PWD/dist/thndr-mcp.js"
+```
+
+Inside this repository the bundled [`.mcp.json`](.mcp.json) already registers the server in dev mode.
+
 ### CLI
+
+Run it without installing (`npx -y -p github:armaaar/thndr-mcp thndr help`), or install it once with
+`npm install -g github:armaaar/thndr-mcp`:
 
 ```bash
 thndr help                                   # every command, grouped by bounded context
