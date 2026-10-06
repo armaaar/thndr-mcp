@@ -10,3 +10,4 @@ coverage/
 session*.json
 .claude/settings.local.json
 .cache/
+.claude/scheduled_tasks.lock

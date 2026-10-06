@@ -1,5 +1,20 @@
 import type { Persistence } from '@firebase/auth';
 import {
+  CreateAlert,
+  CreateWatchlist,
+  DeleteAlert,
+  DeleteWatchlist,
+  EditWatchlist,
+  type EngagementDependencies,
+  GetAlert,
+  GetAlerts,
+  GetNotifications,
+  GetWatchlist,
+  GetWatchlists,
+  MarkNotificationsRead,
+  UpdateAlert,
+} from './application/engagement/use-cases.js';
+import {
   CompleteLogin,
   GetAuthStatus,
   ImportSession,
@@ -46,9 +61,11 @@ import { StderrLogger } from './infrastructure/logging/stderr-logger.js';
 import { FileSessionRepository } from './infrastructure/persistence/file-session-repository.js';
 import { SessionFile } from './infrastructure/persistence/session-file.js';
 import { HttpThndrAuthGateway } from './infrastructure/thndr/auth-gateway.js';
+import { HttpEngagementGateway } from './infrastructure/thndr/engagement-gateway.js';
 import { type FetchFn, ThndrHttpClient } from './infrastructure/thndr/http-client.js';
 import { HttpMarketDataGateway } from './infrastructure/thndr/market-data-gateway.js';
 import { HttpPortfolioGateway } from './infrastructure/thndr/portfolio-gateway.js';
+import { engagementTools } from './interface/mcp/engagement-tools.js';
 import { identityTools } from './interface/mcp/identity-tools.js';
 import { marketDataTools } from './interface/mcp/market-data-tools.js';
 import { portfolioTools } from './interface/mcp/portfolio-tools.js';
@@ -138,10 +155,40 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     listAccountActivity: new ListAccountActivity(portfolioDeps),
   };
 
+  const engagementDeps: EngagementDependencies = {
+    gateway: new HttpEngagementGateway(api, krakend),
+    resolver,
+    quotes,
+  };
+  const engagementUseCases = {
+    getWatchlists: new GetWatchlists(engagementDeps),
+    getWatchlist: new GetWatchlist(engagementDeps),
+    createWatchlist: new CreateWatchlist(engagementDeps),
+    editWatchlist: new EditWatchlist(engagementDeps),
+    deleteWatchlist: new DeleteWatchlist(engagementDeps),
+    getAlerts: new GetAlerts(engagementDeps),
+    getAlert: new GetAlert(engagementDeps),
+    createAlert: new CreateAlert(engagementDeps),
+    updateAlert: new UpdateAlert(engagementDeps),
+    deleteAlert: new DeleteAlert(engagementDeps),
+    getNotifications: new GetNotifications(engagementDeps),
+    markNotificationsRead: new MarkNotificationsRead(engagementDeps),
+  };
+
   const tools: AnyTool[] = [
     ...identityTools(identityUseCases),
     ...marketDataTools(marketUseCases),
     ...portfolioTools(portfolioUseCases),
+    ...engagementTools(engagementUseCases),
   ];
-  return { tools, logger, identityUseCases, marketUseCases, portfolioUseCases, api, krakend };
+  return {
+    tools,
+    logger,
+    identityUseCases,
+    marketUseCases,
+    portfolioUseCases,
+    engagementUseCases,
+    api,
+    krakend,
+  };
 }
