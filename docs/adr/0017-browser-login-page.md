@@ -19,29 +19,32 @@ Claude Code showed two problems:
 We will run the whole login in a **local browser page**:
 
 - When a tool needs a session (ADR 0016), the MCP server starts a small HTTP server on `127.0.0.1` (random port) and
-  opens `http://127.0.0.1:<port>/<token>/` in the default browser (`open`, `xdg-open`, `cmd start`, or the Windows
-  browser via `explorer.exe` under WSL). The page asks for the email, then the code, then shows the approval **QR
+  opens `http://127.0.0.1:<port>/<token>/` in the default browser (`open`, `xdg-open`, `rundll32
+  url.dll,FileProtocolHandler` on Windows, or the Windows browser via `explorer.exe` under WSL). The page asks for the email, then the code, then shows the approval **QR
   code** (SVG) with the request number, and reports progress until the login completes — no "Accept" step.
 - The page is one more `LoginDialog` for the shared guided login (`presentation/browser/browser-login.ts` drives
   `runGuidedLogin`), so the steps and messages are the same as `thndr login`. A failed attempt can be retried on the
   page; the page can cancel; it closes 15 minutes after it opened, or 30 seconds after the login ended. Cancelling (or
   expiry) also stops the guided login behind the page: it waits for the approval in 10-second steps and checks for
   cancellation between steps, and a new login starts only after the previous one stopped (they share the login flow).
-- Only the tool call that started the login shows a prompt; concurrent calls join it silently.
+- Only the tool call that started the login can show the prompt; concurrent calls join it silently.
 - The tool call waits for the page. The server **always opens the page itself**. We do not use MCP URL elicitation:
   Claude Code implements it as an "open this URL?" consent prompt, and declining it cancelled the login — an extra
-  step the user does not want. The link is also shown as a fallback: in a short form prompt when the client supports
-  form elicitation (cancelled once logged in; declining it cancels the login), and in MCP progress notifications
-  (every 15 s).
+  step the user does not want. The link is shown in a form prompt **only when the browser could not be opened**:
+  Claude Code does not close a prompt that the server cancels, so a prompt shown next to the open page outlived the
+  login. Whatever the user answers there only hides the link; the page has its own Cancel. MCP progress notifications
+  (every 15 s) always carry the link.
 - A tool call the client cancels or times out leaves the page running; the user finishes and asks again.
 - Security of the page: the URL carries a 192-bit random token; only `127.0.0.1`/`localhost` `Host` headers are
   served (DNS rebinding); state-changing requests must be same-origin `application/json` (no cross-site form posts);
   bodies are capped at 2 KB; responses are `no-store` with `Referrer-Policy: no-referrer`; the page has a strict CSP
-  (nonce-only script, no external resources).
+  (nonce-only inline script; the only external resources are the DM Sans stylesheet and font files from Google
+  Fonts).
 - `thndr login` keeps the terminal dialog (a terminal can show the QR code drawn with half blocks). The model-driven
   `login_*` tools stay as the fallback for machines without a browser.
-- The page uses ThndrX's design tokens (DM Sans, its dark-first palette and indigo primary, rounded surfaces and pill
-  buttons) so it feels familiar, but it is labelled "thndr-mcp — unofficial community tool, not affiliated with
+- The page follows ThndrX's design system (its CSS colour tokens and Ant Design theme): DM Sans, the dark-first
+  palette and diagonal `thndrx-bg` gradient, square corners, transparent outlined inputs, primary buttons in the text
+  colour (white on dark, black on light) and the indigo brand only as an accent, so it feels familiar, but it is labelled "thndr-mcp — unofficial community tool, not affiliated with
   Thndr" and carries no Thndr logo, so it never passes itself off as Thndr's own login page. DM Sans comes from Google
   Fonts (the CSP allows only `fonts.googleapis.com` / `fonts.gstatic.com` besides the page); offline, it falls back to
   the system font.
@@ -57,5 +60,7 @@ We will run the whole login in a **local browser page**:
 - The server now listens on a loopback port while a login is in progress. The token, host and origin checks keep
   other local web pages from driving it; other local processes of the same user are outside the threat model (they
   could read the session file anyway).
+- Opening the page contacts Google Fonts for DM Sans, so Google sees the user's IP address at login time (never the
+  page token: `Referrer-Policy: no-referrer`). Offline, the page falls back to the system font.
 - The QR code needs no explanation in a dialog that may truncate it, and the user does not have to come back and press
   Accept: the page and the tool call both see the approval directly.
