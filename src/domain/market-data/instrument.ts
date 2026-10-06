@@ -58,6 +58,11 @@ export interface Quote {
   readonly listedShares: number | null;
   readonly marketCap: number | null;
   readonly averageVolume30d: number | null;
+  readonly averageVolume5d: number | null;
+  readonly averageVolume90d: number | null;
+  /** Price of today's last trade as Thndr sends it: 0 when nothing traded yet today (then `last` is the close). */
+  readonly lastTradePrice: number | null;
+  readonly lastTradeVolume: number | null;
   readonly suspended: boolean;
   readonly lastTradeAt: Date | null;
 }

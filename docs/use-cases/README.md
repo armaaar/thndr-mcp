@@ -62,16 +62,20 @@ All authenticated calls of the other contexts may additionally trigger `POST web
 | MCP tool | CLI command | Use case | Thndr endpoint(s) | IBKR equivalent |
 | --- | --- | --- | --- | --- |
 | `search_instruments` | `thndr search-instruments <query>` | `SearchInstruments` (`market-data/queries/search-instruments.ts`) | `GET prod /assets-service/assets/search` | `search_contracts` |
-| `get_instrument_details` | `thndr get-instrument-details <symbol>` | `GetInstrumentDetails` (`market-data/queries/get-instrument-details.ts`) | (resolve) + `GET prod /assets-service/assets/{id}` | `search_contracts` (contract details) |
+| `get_instrument_details` | `thndr get-instrument-details <symbol>` | `GetInstrumentDetails` (`market-data/queries/get-instrument-details.ts`) | (resolve) + `GET prod /assets-service/assets/{id}` (+ index membership) | `search_contracts` (contract details) |
 | `get_price_snapshot` | `thndr get-price-snapshot <symbols…>` | `GetPriceSnapshot` (`market-data/queries/get-price-snapshot.ts`) | (resolve) + `GET prod /assets-service/assets/marketwatch` | `get_price_snapshot` |
 | `get_price_history` | `thndr get-price-history <symbol>` | `GetPriceHistory` (`market-data/queries/get-price-history.ts`) | (resolve) + `GET krakend /feed/advanced-charts/v2/{id}/trades` | `get_price_history` |
 | `get_market_depth` | `thndr get-market-depth <symbol>` | `GetMarketDepth` (`market-data/queries/get-market-depth.ts`) | (resolve) + `GET prod /assets-service/market-depth/{id}` | — (not in IBKR MCP) |
 | `get_recent_trades` | `thndr get-recent-trades <symbol>` | `GetRecentTrades` (`market-data/queries/get-recent-trades.ts`) | (resolve) + `GET prod /assets-service/market-depth/v3/trades-book/{id}` | — |
 | `get_market_status` | `thndr get-market-status` | `GetMarketStatus` (`market-data/queries/get-market-status.ts`) | `GET prod /market-service/markets/status`, `/markets/hours`, `GET prod /assets-service/assets/market-indicators` | — (market clock) |
-| `screen_market` | `thndr screen-market` | `ScreenMarket` (`market-data/queries/screen-market.ts`) | `GET prod /assets-service/assets/marketwatch` | — |
+| `screen_market` | `thndr screen-market` | `ScreenMarket` (`market-data/queries/screen-market.ts`) | `GET prod /assets-service/assets/marketwatch` (+ index members, `GET prod /users-service/screeners/{id}` for `screenerId`) | — |
+| `get_screeners` | `thndr get-screeners` | `GetScreeners` (`market-data/queries/get-screeners.ts`) | `GET prod /users-service/screeners` (+ ThndrX's built-in presets) | — |
+| `get_index_constituents` | `thndr get-index-constituents <index>` | `GetIndexConstituents` (`market-data/queries/get-index-constituents.ts`) | `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` (`constituents`) | — |
+| `get_peers` | `thndr get-peers <symbol>` | `GetPeers` (`market-data/queries/get-peers.ts`) | (resolve) + `GET prod /assets-service/assets/{id}/recommendations` + `GET prod /assets-service/assets/marketwatch` | `get_company_connections` (closest) |
 
 "(resolve)" = `InstrumentResolver`: cache, else `GET /assets-service/assets/search` (ticker) or
-`GET /assets-service/assets/{id}` (asset id).
+`GET /assets-service/assets/{id}` (asset id). "Index members" = `IndexMembership`: the `INDX` marketwatch rows and
+each index's `GET /assets-service/assets/{indexId}` (`constituents`), cached 6 h.
 
 ## Portfolio — [details](portfolio.md)
 

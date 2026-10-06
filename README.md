@@ -106,7 +106,7 @@ The session is stored in `~/.config/thndr-mcp/session.json` (mode `0600`). Delet
 | Area | MCP tool names (CLI uses kebab-case) |
 | --- | --- |
 | Session | `auth_status`, `login_start`, `login_verify_code`, `login_request_approval`, `login_complete`, `login_import_session`, `logout` |
-| Market data | `search_instruments`, `get_instrument_details`, `get_price_snapshot`, `get_price_history`, `get_market_depth`, `get_recent_trades`, `get_market_status`, `screen_market` |
+| Market data | `search_instruments`, `get_instrument_details`, `get_price_snapshot`, `get_price_history`, `get_market_depth`, `get_recent_trades`, `get_market_status`, `screen_market`, `get_screeners`, `get_index_constituents`, `get_peers` |
 | Portfolio | `get_account_summary`, `get_account_positions`, `get_position`, `get_account_orders`, `get_realized_returns`, `get_closed_trades`, `get_sell_journal`, `get_trading_metrics`, `get_account_activity` |
 | Engagement | `get_watchlists`, `get_watchlist`, `create_watchlist`, `edit_watchlist`, `delete_watchlist`, `get_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert`, `get_notifications`, `mark_notifications_read` |
 

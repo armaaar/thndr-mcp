@@ -22,12 +22,15 @@ import type { LoginDependencies } from './application/identity/dependencies';
 import { GetAuthStatus } from './application/identity/queries/get-auth-status';
 import { SessionTokenProvider } from './application/identity/services/session-token-provider';
 import type { MarketDataDependencies } from './application/market-data/dependencies';
+import { GetIndexConstituents } from './application/market-data/queries/get-index-constituents';
 import { GetInstrumentDetails } from './application/market-data/queries/get-instrument-details';
 import { GetMarketDepth } from './application/market-data/queries/get-market-depth';
 import { GetMarketStatus } from './application/market-data/queries/get-market-status';
+import { GetPeers } from './application/market-data/queries/get-peers';
 import { GetPriceHistory } from './application/market-data/queries/get-price-history';
 import { GetPriceSnapshot } from './application/market-data/queries/get-price-snapshot';
 import { GetRecentTrades } from './application/market-data/queries/get-recent-trades';
+import { GetScreeners } from './application/market-data/queries/get-screeners';
 import { ScreenMarket } from './application/market-data/queries/screen-market';
 import { SearchInstruments } from './application/market-data/queries/search-instruments';
 import { IndexMembership } from './application/market-data/services/index-membership';
@@ -145,6 +148,9 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     new GetRecentTrades(market),
     new GetMarketStatus(market),
     new ScreenMarket(market),
+    new GetScreeners(market),
+    new GetIndexConstituents(market),
+    new GetPeers(market),
     new GetAccountSummary(portfolio),
     new GetPositions(portfolio),
     new GetPosition(portfolio),

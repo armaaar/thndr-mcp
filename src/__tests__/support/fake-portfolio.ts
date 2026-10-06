@@ -51,6 +51,9 @@ function marketData(): MarketDataRepository {
     getMarketSession: vi.fn(),
     getMarketIndicators: vi.fn(),
     getIndexConstituents: vi.fn(),
+    getSimilarInstruments: vi.fn(),
+    getScreeners: vi.fn(),
+    getScreener: vi.fn(),
   } as unknown as MarketDataRepository;
 }
 

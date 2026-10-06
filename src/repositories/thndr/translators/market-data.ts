@@ -189,6 +189,10 @@ export function toQuote(dto: MarketwatchAssetDto | null | undefined): Quote | nu
     listedShares,
     marketCap: listedShares !== null && last !== null ? listedShares * last : null,
     averageVolume30d: toNumber(dto.avg_30_day),
+    averageVolume5d: toNumber(dto.avg_5_day),
+    averageVolume90d: toNumber(dto.avg_90_day),
+    lastTradePrice: toNumber(dto.last_trade_price),
+    lastTradeVolume: toNumber(dto.last_trade_volume),
     suspended: dto.symbol_state === 'S',
     lastTradeAt: parseTimestamp(dto.last_trade_date),
   });
@@ -234,6 +238,10 @@ export function indicatorToQuote(dto: MarketIndicatorDto | null | undefined): Qu
     listedShares: null,
     marketCap: null,
     averageVolume30d: null,
+    averageVolume5d: null,
+    averageVolume90d: null,
+    lastTradePrice: toNumber(feed.last_trade_price),
+    lastTradeVolume: null,
     suspended: false,
     lastTradeAt: null,
   });

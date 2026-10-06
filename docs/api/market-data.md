@@ -189,8 +189,28 @@ interface AssetDetails {                 // fields observed being read [I unless
   annual_return?: { value: number; return: "gain" | "loss" | string };  // when include_yearly_return=true
   stats?: { symbol_state?: "S" | string; [k: string]: unknown };
   feed?: AssetFeed;
-  tags?: unknown[];
+  tags?: AssetTag[] | null;              // [P] live 2026-10-06; null on some payloads (e.g. constituents)
+  constituents?: IndexConstituent[];     // [P] only on an index's details (asset_class INDEX)
+  market_id?: MarketId | null;           // [P] top-level board too (NOPL for COMI, null for EGX30)
+  is_market_indicator?: boolean;         // [P] true for indices (EGX30: market_indicator_weight 4)
   dividends?: unknown[];
+}
+interface AssetTag {                     // [P] live 2026-10-06 (COMI)
+  id: number;                            // e.g. 186 "Banks", 205 "Same Day Tradable", 183 "EGX30 Index"
+  slug: string;                          // e.g. "Banks", "Same_Day_Tradable", "EGX30"
+  name: string;                          // display name
+  hidden: boolean;                       // thndr-mcp drops hidden tags
+  market: string | null; about: string | null; rank: number; is_featured: boolean | null;
+  small_sq_pic: string | null; small_rect_pic: string | null; large_rect_pic: string | null;
+  background_color: string | null; created_at: string;
+  assets_count: number | null; assets: unknown[];   // always null / [] here: no endpoint lists a tag's instruments
+}
+interface IndexConstituent {             // [P] live 2026-10-06 (EGX30); ThndrX reads only `id` (module 50766) [C]
+  id: string;                            // member asset id (= asset_id)
+  asset_id: string; symbol: string; name: string; asset_class: AssetClass; market: Market;
+  market_id: MarketId; currency: "EGP" | string; logo: string; about: string;
+  tags: null; feed: null;                // no prices: join with marketwatch by id
+  index_id: string;                      // the index's numeric id as a string ("10" for EGX30)
 }
 interface AssetFeed {                    // `feed_detail=true` [I]
   price?: number;                        // live/last price (initial value for realtime subscription)
@@ -207,6 +227,19 @@ interface AssetFeed {                    // `feed_detail=true` [I]
 }
 ```
 Fallback price used by UI: `Number(livePrice) || feed.last_trade_price || feed.price || feed.previous_close` (`chunks_6200…js` module 82868) [C].
+
+**Tags** [P]: instrument details carry `tags` such as the sector ("Banks"), the index ("EGX30 Index"), "sharia",
+"Same Day Tradable" or "dollar_hedge". The ThndrX UI shows only three tag ids, as icons [C]: **205** (icon `t_zero`; live
+this is "Same Day Tradable"), **157** (icon `islamic_star`) and **185** (icon `bank_slash`); the names of 157 and 185
+were not observed live. Tags are informational only: there is no
+endpoint that lists the instruments under a tag (`assets` is always empty), so thndr-mcp shows tags per instrument and
+never crawls instruments to build a tag list (ADR 0018).
+
+**Index constituents** [P]: an index's details (`asset_class: "INDEX"`, `currency: "points"`) carry `constituents`,
+the member assets without prices or weights (EGX30: 30 members). Live 2026-10-06 the indices with constituents are
+EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV, Shariah and Tamayuz (ThndrX's list in module 36064:
+`EGX30CAPPED`, `EGX100 EWI`, `EGX70 EWI`, `EGX30`, `SHARIAH`, `EGX35-LV`, `TAMAYUZ`). thndr-mcp reads
+`constituents[].id` (`IndexMembership`, cached 6 h) and joins the members with marketwatch rows.
 
 ### 1.3 Marketwatch (all instruments with live snapshot) — `GET /assets-service/assets/marketwatch` [C]
 - Client `aP`. Params: `market` (Market). Polled frequently (debug-level logging).
@@ -247,6 +280,16 @@ interface MarketwatchAsset {
   day_trade_limit: number; is_same_day: boolean;
 }
 ```
+Live observations 2026-10-06 [P]: `asset_class` is **absent** from marketwatch rows; `market_id` is the EGX board
+(`NOPL`, `OOTC`, … and **`INDX` for index rows**). Index rows (EGX30, EGX30CAPPED, EGX35-LV, EGX70 EWI, EGX100 EWI,
+SHARIAH, TAMAYUZ) are part of the snapshot: `currency` 0 (points), `eng_name`/`arb_name` null, `eng_desc` blank
+(`" "`), `reuters` may contain spaces (`"EGX70 EWI"`), filler values (`last_trade_date` `1900-01-01…`,
+`listed_shares`/`pe_ratio`/`bid_price`/`ask_price` 0, `low_price_limit` > `high_price_limit`) and huge
+`total_value`/`total_volume` (the whole index's turnover). thndr-mcp keeps them (sanitised symbol, e.g. `EGX70-EWI`)
+for index levels and membership, but never returns them from `screen_market` or `get_peers`. A row whose
+`last_trade_price` is 0 has not traded yet today: `last_change` is then `-previous_close` and `last_change_prc` 0
+(e.g. an OTC row).
+
 Derived values the UI computes (useful for MCP tools): `market_cap = listed_shares * (last_trade_price || close_price)`,
 `relative_volume = total_volume / avg_30_day * 100`, `high_52_week_distance`, `low_52_week_distance` (% distance from last price),
 `last_change = last_trade_price - previous_close`.
@@ -473,13 +516,56 @@ interface ScreenerFilter {
   id?: string;                 // present in built-in presets
 }
 ```
-Derived filter keys [C]: `price` (last_trade_price or close_price), `last_change`, `last_change_prc`, `relative_volume`
-(= total_volume/avg_30_day*100), `high_52_week_distance`, `low_52_week_distance`; any other key reads `row[filter_key]`
-(e.g. `total_value`, `dividend_yield_perc`, `eng_desc`, `pe_ratio`, `eps`, …).
+Live 2026-10-06 [P]: `GET /users-service/screeners?market=egypt` returned `{"screeners": []}` for an account without
+saved screeners (the shape of a stored screener was not observed live; the fields above come from the bundle).
 
-Built-in "recommended screeners" (client-only presets, `chunks_2409…js:47-180`): `momentum-movers`, `breakout-radar`,
-`value-yield`, `steady-performers`, `reversal-watch` — e.g. momentum-movers = total_value ≥ 1,000,000; relative_volume ≥ 100;
-high_52_week_distance ≤ 10; last_change_prc ≥ 2.
+**Evaluator** (module 86697 in `chunks_2409…js`, identical copies in `chunks_6227`, `chunks_7810`) [C]. It keeps the
+marketwatch rows whose `reuters` is **not** one of the index symbols of module 36064 (`EGX30CAPPED`, `EGX100 EWI`,
+`EGX70 EWI`, `EGX30`, `SHARIAH`, `EGX35-LV`, `TAMAYUZ`) and that pass **every** filter. Per filter, the value is:
+
+| `filter_key` | Value (module 29210 `kP`/`U7`/`Jm`, module 62601 `jW`, in `chunks_3073…js`) |
+| --- | --- |
+| `price` | `last_trade_price !== 0 ? last_trade_price : close_price ?? 0` |
+| `last_change` | `(last_trade_price ?? 0) − (previous_close ?? 0)` |
+| `last_change_prc` | `(last_trade_price − previous_close) / previous_close × 100` (so −100 before the first trade of the day) |
+| `relative_volume` | `Jm(total_volume ?? 0, avg_30_day ?? 0)`: `null` when either is 0 (**the row fails the filter**), else `Number((v / a × 100).toFixed(0))` (an integer) |
+| `high_52_week_distance` | `jW(high_52_week ?? 0, last_trade_price ?? 0)`: 0 when either is 0, else `parseInt(abs((last − ref) / ref × 100).toFixed(0))` |
+| `low_52_week_distance` | same with `low_52_week` |
+| anything else | `row[filter_key]` (e.g. `total_value`, `dividend_yield_perc`, `eng_desc`, `pe_ratio`, `eps`, `avg_5_day`…) |
+
+Then by `type`:
+
+- `NumberRange`: `Number(value)` within `[min, max]`, **both inclusive**; a falsy bound (missing, `""`) is open, the
+  string `"0"` is a bound. `Number(null)` is 0, so a null field passes a range that includes 0 (e.g. P/E ≤ 10).
+- `StringArray`: `JSON.parse(filter.value || "[]").includes(fieldValue)` (exact, case-sensitive). A parse error makes the filter
+  pass silently.
+- `StringLoose`: case-insensitive substring. `String`: exact string equality. `Number`: `Number(a) === Number(value)`.
+- Any other type (e.g. `DateRange`): the filter passes.
+
+The filter editor (`chunks_6227…js`) offers the keys `reuters`, `price`, `total_value`, `total_volume`,
+`total_trades`, `last_trade_volume`, `avg_volume` (written as `avg_5_day`/`avg_30_day`/`avg_90_day`),
+`relative_volume`, `high_52_week_distance`, `low_52_week_distance`, `listed_shares`, `last_change_prc`, `pe_ratio`,
+`dividend_yield_perc`, `eps`, `eng_desc` [C].
+
+**thndr-mcp** evaluates presets and saved screeners with these exact rules on its quotes (`matchesScreener` in
+`src/domain/market-data/screener.ts`; key mapping in `repositories/thndr/translators/screener.ts`). Two deliberate
+differences: index rows are excluded by board (`market_id === "INDX"`), and filters it cannot evaluate (an unmapped
+key such as `ref_price`, a `DateRange`, an unparsable `StringArray`) make `screen_market` fail with a message naming
+them instead of passing silently.
+
+**Built-in "recommended screeners"** (client-only presets, module 22462 in `chunks_2409…js:47-180`; English names from
+the `screeners.recommendedScreeners.*` strings) [C]. All filters are `NumberRange` unless stated:
+
+| id | Name | Filters |
+| --- | --- | --- |
+| `momentum-movers` | Momentum Movers | `total_value` ≥ 1,000,000; `relative_volume` ≥ 100; `high_52_week_distance` ≤ 10; `last_change_prc` ≥ 2 |
+| `breakout-radar` | Breakout Radar | `total_value` ≥ 2,000,000; `relative_volume` ≥ 100; `high_52_week_distance` ≤ 5; `last_change_prc` ≥ 0 |
+| `value-yield` | Value & Yield | `high_52_week_distance` ≤ 20; `dividend_yield_perc` ≥ 4; `eng_desc` (`StringArray`) in "Non-bank financial services", "Real Estate", "Textile & Durables", "Basic Resources" |
+| `steady-performers` | Steady Performers | `relative_volume` ≥ 70; `high_52_week_distance` ≤ 15; `last_change_prc` ≥ 0; `dividend_yield_perc` ≥ 2 |
+| `reversal-watch` | Reversal Watch | `relative_volume` ≥ 100; `low_52_week_distance` ≤ 5; `last_change_prc` ≥ −2 |
+
+The screeners page selects a preset or a saved screener with `?screenerId=<id>` (presets first) [C]; presets are
+not market-specific in code.
 
 ### 5.2 Price alerts — `/price-alerts/v1/*` (client `Kc` = krakend) [C]
 
@@ -679,12 +765,23 @@ await y.aP.get(`/assets-service/assets/${t}/recommendations`, { headers:{include
 
 The "similar stocks" widget calls it with `include_feed=true` and `feed_detail=true`.
 
-**Response** [C for `results`, `id`, `symbol`, `name`, `is_ipo`; the feed fields are I]:
+**Response** [C for `results`, `id`, `symbol`, `name`, `is_ipo`; P for the rest, live 2026-10-06 for COMI with
+`recommendations_number=4`]:
 
 ```ts
-interface RecommendationsResponse { results: RecommendedAsset[] }
-interface RecommendedAsset { id: string; symbol: string; name: string; is_ipo?: boolean; logo?: string; feed?: AssetFeed; }
+interface RecommendationsResponse { count: number; results: RecommendedAsset[] }   // count 4 = recommendations_number
+// Each result is a full asset-details payload (§1.2), e.g. ADIB and CANA for COMI (same industry "Banks"):
+interface RecommendedAsset {
+  id: string; symbol: string; name: string; reuters: string /* "ADIB.CA" */; isin: string;
+  asset_class: AssetClass; market: Market; market_id: MarketId; industry: string; currency: "EGP" | string;
+  is_tradable: boolean; is_ipo: boolean; logo: string; about: string; tags: AssetTag[] | null;
+  stats: { market_cap: number; avg_value: number; div_yield_prc: number; pe: number; eps: number; symbol_state: string };
+  feed?: AssetFeed & { market_cap: number; pe: number; div_yield_prc: number; value: number; /* … */ };
+}
 ```
+
+thndr-mcp (`get_peers`) maps the results as instruments (id, symbol, name, industry) and takes prices from
+marketwatch instead of `feed`.
 
 ### 4. Securities batch APIs on krakend (client `Kc`)
 
