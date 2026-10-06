@@ -250,7 +250,12 @@ export async function startBrowserLogin(
   expiry.unref();
   void result.then(() => {
     clearTimeout(expiry);
-    setTimeout(() => server.close(), lingerMs).unref();
+    // close() alone keeps serving connections that are already open (HTTP keep-alive, the default in Node 19+), so a
+    // polling tab or client could still reach the page: end those too.
+    setTimeout(() => {
+      server.close();
+      server.closeAllConnections();
+    }, lingerMs).unref();
   });
 
   return { url: `${origin}${base}`, result, settled: login.then(() => undefined), cancel };
