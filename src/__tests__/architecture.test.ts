@@ -96,6 +96,13 @@ function violations(check: (file: SourceFile, target: string) => string | null):
 }
 
 describe('architecture: Clean Architecture layers', () => {
+  it('the import parser sees the codebase (guards against a silently vacuous suite)', () => {
+    expect(files.flatMap((f) => f.imports).length).toBeGreaterThan(500);
+    expect(files.find((f) => f.path === 'container.ts')?.imports).toContain(
+      'repositories/thndr/auth-gateway',
+    );
+  });
+
   it('has the five layers', () => {
     for (const layer of LAYERS) expect(files.some((f) => layerOf(f.path) === layer)).toBe(true);
   });
@@ -167,6 +174,16 @@ describe('architecture: bounded contexts', () => {
       const from = file.path.startsWith('domain/') ? contextOf(file.path) : null;
       const to = target.startsWith('domain/') ? contextOf(target) : null;
       return from && to && from !== to && !CONTEXT_MAP[from].includes(to) ? `${file.path} → ${target}` : null;
+    });
+    expect(found).toEqual([]);
+  });
+
+  it('context-specific ports are used only by their context and the adapters implementing them', () => {
+    const found = violations((file, target) => {
+      if (target !== 'application/ports/identity' || COMPOSITION.has(file.path)) return null;
+      const layer = layerOf(file.path);
+      const ok = layer === 'repositories' || layer === 'data-sources' || contextOf(file.path) === 'identity';
+      return ok ? null : `${file.path} → ${target}`;
     });
     expect(found).toEqual([]);
   });
