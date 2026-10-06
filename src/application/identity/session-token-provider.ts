@@ -1,9 +1,10 @@
 import { AccessToken } from '../../domain/identity/access-token.js';
+import type { SessionRepository } from '../../domain/identity/repository.js';
 import type { ThndrSession } from '../../domain/identity/thndr-session.js';
 import { NotAuthenticatedError, SessionExpiredError } from '../errors.js';
 import type { AccessTokenProvider } from '../ports/access-token-provider.js';
 import type { Clock } from '../ports/clock.js';
-import type { SessionRepository, ThndrAuthGateway } from '../ports/identity.js';
+import type { ThndrAuthGateway } from '../ports/identity.js';
 import type { Logger } from '../ports/logger.js';
 
 /**

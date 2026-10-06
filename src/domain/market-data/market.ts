@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 /** Markets Thndr trades on (wire values of ThndrX's `market` query parameter). */
 export const MARKETS = ['egypt', 'us'] as const;

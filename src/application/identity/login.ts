@@ -2,12 +2,13 @@ import { AccessToken } from '../../domain/identity/access-token.js';
 import type { ApprovalStatus, DeviceApprovalRequest } from '../../domain/identity/device-approval.js';
 import { Email } from '../../domain/identity/email.js';
 import { RefreshCredential } from '../../domain/identity/refresh-credential.js';
+import type { SessionRepository } from '../../domain/identity/repository.js';
 import { ThndrSession } from '../../domain/identity/thndr-session.js';
-import { ValidationError } from '../../domain/shared/errors.js';
-import { assertNonEmpty } from '../../domain/shared/guards.js';
+import { ValidationError } from '../../domain/shared-kernel/errors.js';
+import { assertNonEmpty } from '../../domain/shared-kernel/guards.js';
 import { NotAuthenticatedError, UpstreamError } from '../errors.js';
 import type { Clock } from '../ports/clock.js';
-import type { IdentityProvider, SessionRepository, ThndrAuthGateway } from '../ports/identity.js';
+import type { IdentityProvider, ThndrAuthGateway } from '../ports/identity.js';
 import type { LoginFlowHolder } from './login-flow-holder.js';
 
 export interface LoginDependencies {

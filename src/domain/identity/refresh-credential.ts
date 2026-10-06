@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 /**
  * The httpOnly refresh cookie(s) issued by `x.thndr.app/api/auth/login`. The cookie name is not visible to the

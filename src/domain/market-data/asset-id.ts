@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

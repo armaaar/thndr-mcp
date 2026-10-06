@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DeviceApprovalRequest } from '../../../src/domain/identity/device-approval.js';
 import { Email } from '../../../src/domain/identity/email.js';
 import { LoginFlow } from '../../../src/domain/identity/login-flow.js';
-import { BusinessRuleViolation } from '../../../src/domain/shared/errors.js';
+import { BusinessRuleViolation } from '../../../src/domain/shared-kernel/errors.js';
 
 const email = Email.of('a@example.com');
 const approval = DeviceApprovalRequest.of({ id: 'r1', secret: 's1', humanId: '1', createdAt: new Date(0) });

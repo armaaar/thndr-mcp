@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'claimed' | 'rejected' | 'expired' | 'unknown';
 

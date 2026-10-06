@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DeviceApprovalRequest, parseApprovalStatus } from '../../../src/domain/identity/device-approval.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const createdAt = new Date('2026-01-01T00:00:00Z');
 

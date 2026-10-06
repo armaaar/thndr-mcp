@@ -71,7 +71,7 @@ always read whole from one upstream call.
 
 ## Port
 
-`PortfolioGateway` (`src/application/ports/portfolio.ts`), implemented by `HttpPortfolioGateway`:
+`PortfolioRepository` (`src/application/ports/portfolio.ts`), implemented by `ThndrPortfolioRepository`:
 
 | Method | Thndr endpoint (`https://prod.thndr.app`) |
 | --- | --- |

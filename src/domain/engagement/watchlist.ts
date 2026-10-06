@@ -1,5 +1,5 @@
 import type { AssetId } from '../market-data/asset-id.js';
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 export const WATCHLIST_NAME_MAX_LENGTH = 50;
 

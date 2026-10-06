@@ -3,11 +3,11 @@ import type { Clock } from '../../src/application/ports/clock.js';
 import type {
   IdentityProvider,
   IssuedAccess,
-  SessionRepository,
   ThndrAuthGateway,
 } from '../../src/application/ports/identity.js';
 import type { Logger } from '../../src/application/ports/logger.js';
 import { DeviceApprovalRequest } from '../../src/domain/identity/device-approval.js';
+import type { SessionRepository } from '../../src/domain/identity/repository.js';
 import type { ThndrSession } from '../../src/domain/identity/thndr-session.js';
 
 export const T0 = new Date('2026-01-01T00:00:00Z');

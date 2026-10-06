@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_MARKET, parseAssetClass, parseMarket } from '../../../src/domain/market-data/market.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 describe('parseMarket', () => {
   it('defaults to egypt when absent', () => {

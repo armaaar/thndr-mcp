@@ -1,9 +1,9 @@
 import { AssetId } from '../../domain/market-data/asset-id.js';
 import type { Instrument } from '../../domain/market-data/instrument.js';
 import type { Market } from '../../domain/market-data/market.js';
-import { Ticker } from '../../domain/shared/ticker.js';
+import type { MarketDataRepository } from '../../domain/market-data/repository.js';
+import { Ticker } from '../../domain/shared-kernel/ticker.js';
 import { NotFoundError } from '../errors.js';
-import type { MarketDataGateway } from '../ports/market-data.js';
 
 /**
  * Resolves what a user types (`COMI`, `comi`, or a Thndr asset UUID) to an instrument.
@@ -13,20 +13,20 @@ export class InstrumentResolver {
   private readonly byTicker = new Map<string, Instrument>();
   private readonly byId = new Map<string, Instrument>();
 
-  constructor(private readonly gateway: MarketDataGateway) {}
+  constructor(private readonly repository: MarketDataRepository) {}
 
   async resolve(symbolOrId: string, market: Market): Promise<Instrument> {
     if (AssetId.isAssetId(symbolOrId)) {
       const id = AssetId.of(symbolOrId);
       const cached = this.byId.get(id.value);
       if (cached) return cached;
-      return this.remember(await this.gateway.getInstrument(id));
+      return this.remember(await this.repository.getInstrument(id));
     }
     const ticker = Ticker.of(symbolOrId);
     const key = `${market}:${ticker.value}`;
     const cached = this.byTicker.get(key);
     if (cached) return cached;
-    const results = await this.gateway.searchInstruments(ticker.value, market);
+    const results = await this.repository.searchInstruments(ticker.value, market);
     const exact = results.find((instrument) => instrument.ticker.equals(ticker));
     if (!exact) {
       const suggestions = results

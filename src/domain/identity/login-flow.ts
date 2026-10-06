@@ -1,4 +1,4 @@
-import { BusinessRuleViolation } from '../shared/errors.js';
+import { BusinessRuleViolation } from '../shared-kernel/errors.js';
 import type { DeviceApprovalRequest } from './device-approval.js';
 import type { Email } from './email.js';
 

@@ -1,6 +1,5 @@
 import type { ApprovalStatus, DeviceApprovalRequest } from '../../domain/identity/device-approval.js';
 import type { RefreshCredential } from '../../domain/identity/refresh-credential.js';
-import type { ThndrSession } from '../../domain/identity/thndr-session.js';
 
 /** Result of exchanging an approved request, or of refreshing. */
 export interface IssuedAccess {
@@ -31,10 +30,4 @@ export interface IdentityProvider {
   /** Current Firebase ID token (refreshed by the SDK when needed), or null if not signed in. */
   getIdToken(): Promise<string | null>;
   signOut(): Promise<void>;
-}
-
-export interface SessionRepository {
-  load(): Promise<ThndrSession | null>;
-  save(session: ThndrSession): Promise<void>;
-  clear(): Promise<void>;
 }

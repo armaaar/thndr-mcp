@@ -13,7 +13,7 @@ import {
   SearchInstruments,
 } from '../../../src/application/market-data/use-cases.js';
 import { MAX_HISTORY_MS } from '../../../src/domain/market-data/candle.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 import {
   aCandle,
   anInstrument,
@@ -21,36 +21,36 @@ import {
   aQuote,
   aTapeTrade,
   COMI_ID,
-  FakeMarketDataGateway,
+  FakeMarketDataRepository,
   fixedClock,
 } from '../../support/fake-market-data.js';
 
 const NOW = new Date('2026-01-15T12:00:00Z');
 
 function setup(
-  gateway = new FakeMarketDataGateway(),
-): MarketDataDependencies & { gateway: FakeMarketDataGateway } {
+  repository = new FakeMarketDataRepository(),
+): MarketDataDependencies & { repository: FakeMarketDataRepository } {
   const clock = fixedClock(NOW);
   return {
-    gateway,
+    repository,
     clock,
-    resolver: new InstrumentResolver(gateway),
-    quotes: new MarketQuotesCache(gateway, clock),
+    resolver: new InstrumentResolver(repository),
+    quotes: new MarketQuotesCache(repository, clock),
   };
 }
 
 function withInstruments(...tickers: string[]) {
-  return new FakeMarketDataGateway({ instruments: tickers.map((ticker) => anInstrument({ ticker })) });
+  return new FakeMarketDataRepository({ instruments: tickers.map((ticker) => anInstrument({ ticker })) });
 }
 
 describe('SearchInstruments', () => {
   it('searches the parsed market, seeds the resolver and limits results', async () => {
     const deps = setup(withInstruments(...Array.from({ length: 60 }, (_, i) => `CO${i}`)));
     const out = await new SearchInstruments(deps).execute({ query: ' co ', market: 'EGX' });
-    expect(deps.gateway.calls.searchInstruments).toEqual([{ query: 'co', market: 'egypt' }]);
+    expect(deps.repository.calls.searchInstruments).toEqual([{ query: 'co', market: 'egypt' }]);
     expect(out).toHaveLength(20);
     await deps.resolver.resolve('CO59', 'egypt');
-    expect(deps.gateway.calls.searchInstruments).toHaveLength(1);
+    expect(deps.repository.calls.searchInstruments).toHaveLength(1);
   });
 
   it('clamps the limit between 1 and 50', async () => {
@@ -70,15 +70,15 @@ describe('GetInstrumentDetails', () => {
     const deps = setup(withInstruments('COMI'));
     const out = await new GetInstrumentDetails(deps).execute({ symbol: 'comi' });
     expect(out.ticker.value).toBe('COMI');
-    expect(deps.gateway.calls.getInstrument.map((id) => id.value)).toEqual([COMI_ID]);
+    expect(deps.repository.calls.getInstrument.map((id) => id.value)).toEqual([COMI_ID]);
   });
 });
 
 describe('GetPriceSnapshot', () => {
   it('returns quotes in request order and reports instruments without a quote', async () => {
-    const gateway = withInstruments('COMI', 'HRHO', 'ETEL');
-    gateway.quotes.egypt = [aQuote({ ticker: 'ETEL' }), aQuote({ ticker: 'COMI' })];
-    const out = await new GetPriceSnapshot(setup(gateway)).execute({ symbols: ['COMI', 'HRHO', 'ETEL'] });
+    const repository = withInstruments('COMI', 'HRHO', 'ETEL');
+    repository.quotes.egypt = [aQuote({ ticker: 'ETEL' }), aQuote({ ticker: 'COMI' })];
+    const out = await new GetPriceSnapshot(setup(repository)).execute({ symbols: ['COMI', 'HRHO', 'ETEL'] });
     expect(out.quotes.map((q) => q.ticker.value)).toEqual(['COMI', 'ETEL']);
     expect(out.missing).toEqual(['HRHO']);
   });
@@ -98,9 +98,9 @@ describe('GetPriceHistory', () => {
 
   it('over-fetches 4x for intraday bars, sorts and trims to the requested bar count', async () => {
     const deps = setup(withInstruments('COMI'));
-    deps.gateway.candles = candlesAt(11, 9, 10);
+    deps.repository.candles = candlesAt(11, 9, 10);
     const out = await new GetPriceHistory(deps).execute({ symbol: 'COMI', resolution: '1h', bars: 2 });
-    const call = deps.gateway.calls.getCandles[0]!;
+    const call = deps.repository.calls.getCandles[0]!;
     expect(call.resolution).toBe('1h');
     expect(call.id.value).toBe(COMI_ID);
     expect(call.to).toEqual(NOW);
@@ -117,21 +117,23 @@ describe('GetPriceHistory', () => {
   it('uses a 1.6x window for daily bars and the default of 100 bars', async () => {
     const deps = setup(withInstruments('COMI'));
     await new GetPriceHistory(deps).execute({ symbol: 'COMI', resolution: '1d' });
-    expect(deps.gateway.calls.getCandles[0]!.from).toEqual(new Date(NOW.getTime() - 100 * 86_400_000 * 1.6));
+    expect(deps.repository.calls.getCandles[0]!.from).toEqual(
+      new Date(NOW.getTime() - 100 * 86_400_000 * 1.6),
+    );
   });
 
   it('uses 4x for minute bars and clamps bars to [1, 2000] and to 5 years', async () => {
     const deps = setup(withInstruments('COMI'));
     const uc = new GetPriceHistory(deps);
     await uc.execute({ symbol: 'COMI', resolution: '5min', bars: 0 });
-    expect(deps.gateway.calls.getCandles[0]!.from).toEqual(new Date(NOW.getTime() - 300_000 * 4));
+    expect(deps.repository.calls.getCandles[0]!.from).toEqual(new Date(NOW.getTime() - 300_000 * 4));
     await uc.execute({ symbol: 'COMI', resolution: '1w', bars: 10_000 });
-    expect(deps.gateway.calls.getCandles[1]!.from).toEqual(new Date(NOW.getTime() - MAX_HISTORY_MS));
+    expect(deps.repository.calls.getCandles[1]!.from).toEqual(new Date(NOW.getTime() - MAX_HISTORY_MS));
   });
 
   it('returns every candle in an explicit window', async () => {
     const deps = setup(withInstruments('COMI'));
-    deps.gateway.candles = candlesAt(10, 9, 11);
+    deps.repository.candles = candlesAt(10, 9, 11);
     const from = new Date('2026-01-15T00:00:00Z');
     const to = new Date('2026-01-15T11:30:00Z');
     const out = await new GetPriceHistory(deps).execute({
@@ -141,7 +143,7 @@ describe('GetPriceHistory', () => {
       to,
       bars: 1,
     });
-    expect(deps.gateway.calls.getCandles[0]).toMatchObject({ from, to });
+    expect(deps.repository.calls.getCandles[0]).toMatchObject({ from, to });
     expect(out.candles.map((c) => c.close)).toEqual([9, 10, 11]);
   });
 
@@ -149,7 +151,7 @@ describe('GetPriceHistory', () => {
     const deps = setup(withInstruments('COMI'));
     const to = new Date('2026-01-10T00:00:00Z');
     await new GetPriceHistory(deps).execute({ symbol: 'COMI', resolution: '1d', to, bars: 10 });
-    expect(deps.gateway.calls.getCandles[0]).toMatchObject({
+    expect(deps.repository.calls.getCandles[0]).toMatchObject({
       from: new Date(to.getTime() - 16 * 86_400_000),
       to,
     });
@@ -161,14 +163,14 @@ describe('GetMarketDepth', () => {
     const deps = setup(withInstruments('COMI'));
     const levels = (start: number, step: number) =>
       Array.from({ length: 12 }, (_, i) => ({ price: start + i * step, quantity: 1, orders: null }));
-    deps.gateway.orderBook = anOrderBook({ bids: levels(99, -0.1), asks: levels(101, 0.1) });
+    deps.repository.orderBook = anOrderBook({ bids: levels(99, -0.1), asks: levels(101, 0.1) });
     const out = await new GetMarketDepth(deps).execute({ symbol: 'COMI' });
     expect(out.ticker).toBe('COMI');
     expect(out.bids).toHaveLength(10);
     expect(out.asks).toHaveLength(10);
     expect(out.totalBidQuantity).toBe(300);
     expect(out.spread).toEqual({ absolute: 2, percent: 2 });
-    expect(deps.gateway.calls.getOrderBook.map((id) => id.value)).toEqual([COMI_ID]);
+    expect(deps.repository.calls.getOrderBook.map((id) => id.value)).toEqual([COMI_ID]);
   });
 
   it('clamps levels between 1 and 50', async () => {
@@ -182,11 +184,11 @@ describe('GetMarketDepth', () => {
 describe('GetRecentTrades', () => {
   it('passes limit and cursor through and exposes the next cursor', async () => {
     const deps = setup(withInstruments('COMI'));
-    deps.gateway.trades = [aTapeTrade({ cursor: '9' }), aTapeTrade({ cursor: '8' })];
+    deps.repository.trades = [aTapeTrade({ cursor: '9' }), aTapeTrade({ cursor: '8' })];
     const out = await new GetRecentTrades(deps).execute({ symbol: 'COMI', limit: 500, before: '10' });
     expect(out).toMatchObject({ ticker: 'COMI', nextCursor: '8' });
     expect(out.trades).toHaveLength(2);
-    expect(deps.gateway.calls.getRecentTrades[0]).toMatchObject({ limit: 200, before: '10' });
+    expect(deps.repository.calls.getRecentTrades[0]).toMatchObject({ limit: 200, before: '10' });
   });
 
   it('defaults to 50, clamps to at least 1 and has no cursor when empty', async () => {
@@ -194,14 +196,14 @@ describe('GetRecentTrades', () => {
     const uc = new GetRecentTrades(deps);
     expect((await uc.execute({ symbol: 'COMI' })).nextCursor).toBeNull();
     await uc.execute({ symbol: 'COMI', limit: -5 });
-    expect(deps.gateway.calls.getRecentTrades.map((c) => c.limit)).toEqual([50, 1]);
+    expect(deps.repository.calls.getRecentTrades.map((c) => c.limit)).toEqual([50, 1]);
   });
 });
 
 describe('GetMarketStatus', () => {
   it('combines the session with index levels', async () => {
     const deps = setup();
-    deps.gateway.indicators.egypt = [
+    deps.repository.indicators.egypt = [
       aQuote({ ticker: 'EGX30', last: 30_000, changePercent: 1.5, previousClose: 29_556 }),
     ];
     const out = await new GetMarketStatus(deps).execute({});
@@ -209,12 +211,12 @@ describe('GetMarketStatus', () => {
     expect(out.indices).toEqual([
       { ticker: 'EGX30', level: 30_000, changePercent: 1.5, previousClose: 29_556 },
     ]);
-    expect(deps.gateway.calls.getMarketSession).toEqual([{ market: 'egypt', board: undefined }]);
+    expect(deps.repository.calls.getMarketSession).toEqual([{ market: 'egypt', board: undefined }]);
   });
 
   it('still answers when indicators fail', async () => {
     const deps = setup();
-    deps.gateway.failures.getMarketIndicators = new Error('down');
+    deps.repository.failures.getMarketIndicators = new Error('down');
     const out = await new GetMarketStatus(deps).execute({ market: 'us' });
     expect(out).toMatchObject({ market: 'us', indices: [] });
   });
@@ -262,8 +264,8 @@ describe('ScreenMarket', () => {
   ];
 
   function screen(criteria: Parameters<ScreenMarket['execute']>[0]) {
-    const gateway = new FakeMarketDataGateway({ quotes: { egypt: quotes } });
-    return new ScreenMarket(setup(gateway)).execute(criteria);
+    const repository = new FakeMarketDataRepository({ quotes: { egypt: quotes } });
+    return new ScreenMarket(setup(repository)).execute(criteria);
   }
   const tickers = (out: Awaited<ReturnType<typeof screen>>) => out.results.map((r) => r.ticker.value);
 

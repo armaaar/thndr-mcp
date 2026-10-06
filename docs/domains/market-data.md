@@ -102,7 +102,7 @@ From the ThndrX TradingView config and market-status endpoints:
 
 ## Port
 
-`MarketDataGateway` (`src/application/ports/market-data.ts`), implemented by `HttpMarketDataGateway`:
+`MarketDataRepository` (`src/application/ports/market-data.ts`), implemented by `ThndrMarketDataRepository`:
 
 | Method | Thndr endpoint |
 | --- | --- |

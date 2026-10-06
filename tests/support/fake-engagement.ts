@@ -1,10 +1,10 @@
-import type {
-  EngagementGateway,
-  NewPriceAlert,
-  PageRequest,
-} from '../../src/application/ports/engagement.js';
 import { createNotification, type Notification } from '../../src/domain/engagement/notification.js';
 import { createPriceAlert, type PriceAlert } from '../../src/domain/engagement/price-alert.js';
+import type {
+  EngagementRepository,
+  NewPriceAlert,
+  PageRequest,
+} from '../../src/domain/engagement/repository.js';
 import {
   createWatchlist,
   type Watchlist,
@@ -12,7 +12,7 @@ import {
 } from '../../src/domain/engagement/watchlist.js';
 import { AssetId } from '../../src/domain/market-data/asset-id.js';
 import type { Market } from '../../src/domain/market-data/market.js';
-import { Ticker } from '../../src/domain/shared/ticker.js';
+import { Ticker } from '../../src/domain/shared-kernel/ticker.js';
 import { idFor } from './fake-market-data.js';
 
 type WatchlistOverrides = Partial<Omit<Watchlist, 'instrumentIds'>> & { tickers?: string[]; ids?: string[] };
@@ -60,8 +60,8 @@ export function aNotification(overrides: Partial<Notification> = {}): Notificati
   });
 }
 
-/** In-memory EngagementGateway with recorded calls and per-method failures. */
-export class FakeEngagementGateway implements EngagementGateway {
+/** In-memory EngagementRepository with recorded calls and per-method failures. */
+export class FakeEngagementRepository implements EngagementRepository {
   watchlists: Watchlist[] = [];
   /** Per-market alerts; `listPriceAlerts` pages through them. */
   alerts: PriceAlert[] = [];
@@ -70,9 +70,9 @@ export class FakeEngagementGateway implements EngagementGateway {
   /** When false, `createPriceAlert` returns null (opaque upstream reply). */
   createReturnsAlert = true;
   /** When set, the named method rejects with this error. */
-  failures: Partial<Record<keyof EngagementGateway, Error>> = {};
+  failures: Partial<Record<keyof EngagementRepository, Error>> = {};
   /** Fails only the n-th (1-based) call of a method. */
-  failOnCall: Partial<Record<keyof EngagementGateway, { call: number; error: Error }>> = {};
+  failOnCall: Partial<Record<keyof EngagementRepository, { call: number; error: Error }>> = {};
   private nextId = 100;
 
   readonly calls = {
@@ -93,7 +93,7 @@ export class FakeEngagementGateway implements EngagementGateway {
     markAllNotificationsRead: 0,
   };
 
-  constructor(seed: Partial<Pick<FakeEngagementGateway, 'watchlists' | 'alerts' | 'notifications'>> = {}) {
+  constructor(seed: Partial<Pick<FakeEngagementRepository, 'watchlists' | 'alerts' | 'notifications'>> = {}) {
     Object.assign(this, seed);
   }
 
@@ -208,7 +208,7 @@ export class FakeEngagementGateway implements EngagementGateway {
     this.watchlists = this.watchlists.map((w) => (w.id === id ? createWatchlist(change(w)) : w));
   }
 
-  private fail(method: keyof EngagementGateway, call: number): void {
+  private fail(method: keyof EngagementRepository, call: number): void {
     const error = this.failures[method];
     if (error) throw error;
     const once = this.failOnCall[method];

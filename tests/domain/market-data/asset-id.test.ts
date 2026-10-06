@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { AssetId } from '../../../src/domain/market-data/asset-id.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 

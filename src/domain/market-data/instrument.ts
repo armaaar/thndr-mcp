@@ -1,5 +1,5 @@
-import type { Currency } from '../shared/money.js';
-import type { Ticker } from '../shared/ticker.js';
+import type { Currency } from '../shared-kernel/money.js';
+import type { Ticker } from '../shared-kernel/ticker.js';
 import type { AssetId } from './asset-id.js';
 import type { AssetClass, Market } from './market.js';
 

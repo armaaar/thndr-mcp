@@ -1,7 +1,7 @@
 import type { AssetId } from '../market-data/asset-id.js';
-import { ValidationError } from '../shared/errors.js';
-import { roundTo } from '../shared/guards.js';
-import type { Ticker } from '../shared/ticker.js';
+import { ValidationError } from '../shared-kernel/errors.js';
+import { roundTo } from '../shared-kernel/guards.js';
+import type { Ticker } from '../shared-kernel/ticker.js';
 
 /** A round trip (entry → full exit) from the trading journal. */
 export interface ClosedTrade {

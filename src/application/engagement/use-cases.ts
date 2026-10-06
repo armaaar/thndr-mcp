@@ -8,15 +8,15 @@ import {
   parseAlertDirection,
   parseAlertFrequency,
 } from '../../domain/engagement/price-alert.js';
+import type { EngagementRepository } from '../../domain/engagement/repository.js';
 import { uniqueAssetIds, type Watchlist, WatchlistName } from '../../domain/engagement/watchlist.js';
 import type { AssetId } from '../../domain/market-data/asset-id.js';
 import { type Market, parseMarket } from '../../domain/market-data/market.js';
-import { ValidationError } from '../../domain/shared/errors.js';
-import { assertNonEmpty, assertPositive } from '../../domain/shared/guards.js';
+import { ValidationError } from '../../domain/shared-kernel/errors.js';
+import { assertNonEmpty, assertPositive } from '../../domain/shared-kernel/guards.js';
 import { NotFoundError, UpstreamError } from '../errors.js';
 import type { InstrumentResolver } from '../market-data/instrument-resolver.js';
 import type { MarketQuotesCache } from '../market-data/quote-cache.js';
-import type { EngagementGateway } from '../ports/engagement.js';
 import {
   assetIdOrNull,
   type InstrumentLabel,
@@ -25,7 +25,7 @@ import {
 } from './instrument-labels.js';
 
 export interface EngagementDependencies {
-  gateway: EngagementGateway;
+  repository: EngagementRepository;
   resolver: InstrumentResolver;
   quotes: MarketQuotesCache;
 }
@@ -105,7 +105,7 @@ export class GetWatchlists {
     input: { market?: string } = {},
   ): Promise<{ market: Market; watchlists: WatchlistSummaryView[] }> {
     const market = parseMarket(input.market);
-    const watchlists = await this.deps.gateway.listWatchlists(market);
+    const watchlists = await this.deps.repository.listWatchlists(market);
     const labels = await labeler(this.deps).label(
       watchlists.flatMap((w) => w.instrumentIds),
       market,
@@ -124,10 +124,10 @@ export class GetWatchlist {
   async execute(input: { id: string; market?: string }): Promise<WatchlistView> {
     const id = assertNonEmpty(input.id, 'Watchlist id');
     const market = parseMarket(input.market);
-    let watchlist = await this.deps.gateway.getWatchlist(id);
+    let watchlist = await this.deps.repository.getWatchlist(id);
     if (watchlist.name === '') {
       // The detail endpoint only returns `asset_ids`: borrow the name/colour/icon from the list.
-      const summaries = await this.deps.gateway.listWatchlists(market).catch(() => [] as Watchlist[]);
+      const summaries = await this.deps.repository.listWatchlists(market).catch(() => [] as Watchlist[]);
       const summary = summaries.find((w) => w.id === watchlist.id);
       if (summary) watchlist = { ...summary, instrumentIds: watchlist.instrumentIds };
     }
@@ -148,7 +148,7 @@ export class CreateWatchlist {
     const name = WatchlistName.of(input.name);
     const market = parseMarket(input.market);
     const ids = await resolveIds(this.deps, checkSymbolCount(input.symbols, 'symbols'), market);
-    const created = await this.deps.gateway.createWatchlist(name, market, ids);
+    const created = await this.deps.repository.createWatchlist(name, market, ids);
     const labels = await labeler(this.deps).label(created.instrumentIds, market);
     return toWatchlistView(created, labels, market);
   }
@@ -187,9 +187,9 @@ export class EditWatchlist {
     if (conflict) {
       throw new ValidationError(`Instrument ${conflict.value} is both added and removed; pick one`);
     }
-    if (name) await this.deps.gateway.renameWatchlist(id, name);
-    if (add.length > 0) await this.deps.gateway.addToWatchlist(id, add);
-    if (remove.length > 0) await this.deps.gateway.removeFromWatchlist(id, remove);
+    if (name) await this.deps.repository.renameWatchlist(id, name);
+    if (add.length > 0) await this.deps.repository.addToWatchlist(id, add);
+    if (remove.length > 0) await this.deps.repository.removeFromWatchlist(id, remove);
     const view = await new GetWatchlist(this.deps).execute({ id, market });
     return {
       ...(name ? { ...view, name: name.value } : view),
@@ -208,7 +208,7 @@ export class DeleteWatchlist {
 
   async execute(input: { id: string }): Promise<{ id: string; deleted: true }> {
     const id = assertNonEmpty(input.id, 'Watchlist id');
-    await this.deps.gateway.deleteWatchlist(id);
+    await this.deps.repository.deleteWatchlist(id);
     return { id, deleted: true };
   }
 }
@@ -261,7 +261,7 @@ export const ALERT_SCAN_MAX_PAGES = 10;
 
 async function findAlert(deps: EngagementDependencies, id: string, market: Market): Promise<PriceAlert> {
   for (let page = 1; page <= ALERT_SCAN_MAX_PAGES; page++) {
-    const alerts = await deps.gateway.listPriceAlerts(market, { page, pageCount: ALERT_SCAN_PAGE_SIZE });
+    const alerts = await deps.repository.listPriceAlerts(market, { page, pageCount: ALERT_SCAN_PAGE_SIZE });
     const found = alerts.find((a) => a.id === id);
     if (found) return found;
     if (alerts.length < ALERT_SCAN_PAGE_SIZE) break;
@@ -285,7 +285,7 @@ export class GetAlerts {
     const market = parseMarket(input.market);
     if (input.symbol !== undefined) {
       const instrument = await this.deps.resolver.resolve(input.symbol, market);
-      const alerts = await this.deps.gateway.listAlertsForInstrument(instrument.id);
+      const alerts = await this.deps.repository.listAlertsForInstrument(instrument.id);
       return {
         market,
         page: 1,
@@ -296,7 +296,7 @@ export class GetAlerts {
     }
     const page = clamp(input.page, 1, 1, 10_000);
     const pageCount = clamp(input.pageCount, 20, 1, 100);
-    const alerts = await this.deps.gateway.listPriceAlerts(market, { page, pageCount });
+    const alerts = await this.deps.repository.listPriceAlerts(market, { page, pageCount });
     return {
       market,
       page,
@@ -329,9 +329,11 @@ async function placeAlert(
   frequency: AlertFrequency,
   market: Market,
 ): Promise<PlacedAlertView> {
-  let created = await deps.gateway.createPriceAlert({ instrumentId, price, direction, frequency, market });
+  let created = await deps.repository.createPriceAlert({ instrumentId, price, direction, frequency, market });
   if (!created) {
-    const existing = await deps.gateway.listAlertsForInstrument(instrumentId).catch(() => [] as PriceAlert[]);
+    const existing = await deps.repository
+      .listAlertsForInstrument(instrumentId)
+      .catch(() => [] as PriceAlert[]);
     created =
       existing.find(
         (a) =>
@@ -439,12 +441,12 @@ export class UpdateAlert {
             market,
           ));
 
-    await this.deps.gateway.deletePriceAlert(existing.id);
+    await this.deps.repository.deletePriceAlert(existing.id);
     try {
       const view = await placeAlert(this.deps, existing.instrumentId, price, direction, frequency, market);
       return { ...view, previousId: existing.id };
     } catch (error) {
-      const restored = await this.deps.gateway
+      const restored = await this.deps.repository
         .createPriceAlert({
           instrumentId: existing.instrumentId,
           price: existing.targetPrice,
@@ -476,7 +478,7 @@ export class DeleteAlert {
 
   async execute(input: { id: string }): Promise<{ id: string; deleted: true }> {
     const id = assertNonEmpty(input.id, 'Alert id');
-    await this.deps.gateway.deletePriceAlert(id);
+    await this.deps.repository.deletePriceAlert(id);
     return { id, deleted: true };
   }
 }
@@ -505,7 +507,7 @@ function toNotificationView(n: Notification): NotificationView {
 
 /** One page of in-app notifications plus the global "has unread" flag. */
 export class GetNotifications {
-  constructor(private readonly deps: Pick<EngagementDependencies, 'gateway'>) {}
+  constructor(private readonly deps: Pick<EngagementDependencies, 'repository'>) {}
 
   async execute(input: { page?: number; pageCount?: number; unreadOnly?: boolean } = {}): Promise<{
     page: number;
@@ -517,8 +519,8 @@ export class GetNotifications {
     const page = clamp(input.page, 1, 1, 10_000);
     const pageCount = clamp(input.pageCount, 20, 1, 100);
     const [notifications, hasUnread] = await Promise.all([
-      this.deps.gateway.listNotifications(page, pageCount),
-      this.deps.gateway.hasUnreadNotifications(),
+      this.deps.repository.listNotifications(page, pageCount),
+      this.deps.repository.hasUnreadNotifications(),
     ]);
     return {
       page,
@@ -532,18 +534,18 @@ export class GetNotifications {
 
 /** Marks the given notifications — or all of them — as read. */
 export class MarkNotificationsRead {
-  constructor(private readonly deps: Pick<EngagementDependencies, 'gateway'>) {}
+  constructor(private readonly deps: Pick<EngagementDependencies, 'repository'>) {}
 
   async execute(input: { ids?: readonly string[]; all?: boolean }): Promise<{ all: boolean; ids: string[] }> {
     const ids = [...new Set((input.ids ?? []).map((id) => assertNonEmpty(id, 'Notification id')))];
     if (input.all === true) {
       if (ids.length > 0) throw new ValidationError('Pass either ids or all=true, not both');
-      await this.deps.gateway.markAllNotificationsRead();
+      await this.deps.repository.markAllNotificationsRead();
       return { all: true, ids: [] };
     }
     if (ids.length === 0) throw new ValidationError('Provide notification ids, or all=true');
     if (ids.length > 200) throw new ValidationError('At most 200 notification ids per call');
-    await this.deps.gateway.markNotificationsRead(ids);
+    await this.deps.repository.markNotificationsRead(ids);
     return { all: false, ids };
   }
 }

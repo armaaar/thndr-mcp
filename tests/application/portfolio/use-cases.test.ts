@@ -13,10 +13,9 @@ import {
   ListOrders,
   type PortfolioDependencies,
 } from '../../../src/application/portfolio/use-cases.js';
-import type { MarketDataGateway } from '../../../src/application/ports/market-data.js';
-import type { PortfolioGateway } from '../../../src/application/ports/portfolio.js';
 import { AssetId } from '../../../src/domain/market-data/asset-id.js';
 import type { Instrument } from '../../../src/domain/market-data/instrument.js';
+import type { MarketDataRepository } from '../../../src/domain/market-data/repository.js';
 import { createAccountSummary } from '../../../src/domain/portfolio/account-summary.js';
 import { createAccountActivity } from '../../../src/domain/portfolio/activity.js';
 import {
@@ -25,9 +24,10 @@ import {
 } from '../../../src/domain/portfolio/journal.js';
 import { createOrder, type Order } from '../../../src/domain/portfolio/order.js';
 import { createPosition, type Position } from '../../../src/domain/portfolio/position.js';
+import type { PortfolioRepository } from '../../../src/domain/portfolio/repository.js';
 import { quantityBucket } from '../../../src/domain/portfolio/sellable-quantity.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
-import { Ticker } from '../../../src/domain/shared/ticker.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
 
 const NOW = new Date('2026-06-01T12:00:00Z');
 const clock = { now: () => NOW };
@@ -53,7 +53,7 @@ function instrument(id: string, ticker: string): Instrument {
 
 const instruments = [instrument(COMI_ID, 'COMI'), instrument(HRHO_ID, 'HRHO')];
 
-function marketData(): MarketDataGateway {
+function marketData(): MarketDataRepository {
   return {
     searchInstruments: vi.fn(async (query: string) => instruments.filter((i) => i.ticker.value === query)),
     getInstrument: vi.fn(async (id: AssetId) => {
@@ -67,7 +67,7 @@ function marketData(): MarketDataGateway {
     getRecentTrades: vi.fn(),
     getMarketSession: vi.fn(),
     getMarketIndicators: vi.fn(),
-  } as unknown as MarketDataGateway;
+  } as unknown as MarketDataRepository;
 }
 
 function position(ticker: string, marketPrice: number | null, overrides: Partial<Position> = {}): Position {
@@ -141,8 +141,8 @@ function stats(
   };
 }
 
-function setup(overrides: Partial<PortfolioGateway> = {}) {
-  const gateway: PortfolioGateway = {
+function setup(overrides: Partial<PortfolioRepository> = {}) {
+  const repository: PortfolioRepository = {
     getAccount: vi.fn(async () => ({
       summary,
       positions: [position('COMI', 60), position('HRHO', 30), position('ZERO', null)],
@@ -169,15 +169,15 @@ function setup(overrides: Partial<PortfolioGateway> = {}) {
     ...overrides,
   };
   const md = marketData();
-  const deps: PortfolioDependencies = { gateway, resolver: new InstrumentResolver(md), clock };
-  return { gateway, deps, md };
+  const deps: PortfolioDependencies = { repository, resolver: new InstrumentResolver(md), clock };
+  return { repository, deps, md };
 }
 
 describe('GetAccountSummary', () => {
   it('returns the summary with market and position count', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     const out = await new GetAccountSummary(deps).execute({});
-    expect(gateway.getAccount).toHaveBeenCalledWith('egypt');
+    expect(repository.getAccount).toHaveBeenCalledWith('egypt');
     expect(out).toMatchObject({
       market: 'egypt',
       availableCash: 800,
@@ -223,21 +223,21 @@ describe('GetPositions', () => {
 
 describe('GetPosition', () => {
   it('resolves the symbol and includes sellable quantity', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     const out = await new GetPosition(deps).execute({ symbol: 'comi' });
-    expect(gateway.getPosition).toHaveBeenCalledWith(AssetId.of(COMI_ID), 'egypt');
+    expect(repository.getPosition).toHaveBeenCalledWith(AssetId.of(COMI_ID), 'egypt');
     expect(out).toMatchObject({ ticker: 'COMI', held: true, sellable: { custodian: 'THN' } });
   });
 
   it('skips sellable quantity on request or when not held', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     const out = await new GetPosition(deps).execute({ symbol: COMI_ID, includeSellable: false });
     expect(out.sellable).toBeNull();
     const none = setup({ getPosition: vi.fn(async () => null) });
     const notHeld = await new GetPosition(none.deps).execute({ symbol: 'HRHO' });
     expect(notHeld).toEqual({ ticker: 'HRHO', held: false, position: null, sellable: null });
-    expect(none.gateway.getSellableQuantity).not.toHaveBeenCalled();
-    expect(gateway.getSellableQuantity).not.toHaveBeenCalled();
+    expect(none.repository.getSellableQuantity).not.toHaveBeenCalled();
+    expect(repository.getSellableQuantity).not.toHaveBeenCalled();
   });
 });
 
@@ -276,7 +276,7 @@ describe('ListOrders', () => {
     const out = await new ListOrders(last.deps).execute({ cursor: 'start', oldestFirst: true, limit: 50 });
     expect(out).toMatchObject({ status: 'all', nextCursor: null });
     expect(out.orders).toHaveLength(1);
-    expect(last.gateway.listOrders).toHaveBeenCalledWith({
+    expect(last.repository.listOrders).toHaveBeenCalledWith({
       market: 'egypt',
       status: 'all',
       limit: 20,
@@ -286,24 +286,24 @@ describe('ListOrders', () => {
     const empty = setup({ listOrders: vi.fn(async () => ({ orders: [], nextCursor: 'loop' })) });
     const none = await new ListOrders(empty.deps).execute({ limit: 1_000 });
     expect(none.orders).toEqual([]);
-    expect(empty.gateway.listOrders).toHaveBeenCalledTimes(1);
+    expect(empty.repository.listOrders).toHaveBeenCalledTimes(1);
   });
 
   it('clamps the limit and rejects bad filters', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     await new ListOrders(deps).execute({ limit: 0 });
-    expect(vi.mocked(gateway.listOrders).mock.calls[0]?.[0].limit).toBe(1);
+    expect(vi.mocked(repository.listOrders).mock.calls[0]?.[0].limit).toBe(1);
     await new ListOrders(deps).execute({ limit: Number.NaN });
-    expect(vi.mocked(gateway.listOrders).mock.calls[1]?.[0].limit).toBe(20);
+    expect(vi.mocked(repository.listOrders).mock.calls[1]?.[0].limit).toBe(20);
     await expect(new ListOrders(deps).execute({ status: 'nope' })).rejects.toThrow(ValidationError);
   });
 });
 
 describe('GetRealizedReturns', () => {
   it('combines current returns with a sorted chart and summary', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     const out = await new GetRealizedReturns(deps).execute({ interval: '6m' });
-    expect(gateway.getReturnsChart).toHaveBeenCalledWith('6M', 'egypt');
+    expect(repository.getReturnsChart).toHaveBeenCalledWith('6M', 'egypt');
     expect(out.current.totalReturns).toBe(300);
     expect(out.series.map((p) => p.totalReturns)).toEqual([100, 300]);
     expect(out.seriesSummary).toMatchObject({ returnsChange: 200, portfolioValueChangePercent: 10 });
@@ -313,10 +313,10 @@ describe('GetRealizedReturns', () => {
 
 describe('journal use cases', () => {
   it('builds a validated journal query', async () => {
-    const { deps, gateway } = setup();
+    const { deps, repository } = setup();
     const from = new Date('2026-01-01T00:00:00Z');
     await new GetClosedTrades(deps).execute({ symbol: 'comi', from, page: 3, limit: 500 });
-    expect(gateway.getClosedTrades).toHaveBeenCalledWith({
+    expect(repository.getClosedTrades).toHaveBeenCalledWith({
       market: 'egypt',
       page: 3,
       limit: 100,
@@ -324,7 +324,7 @@ describe('journal use cases', () => {
       ticker: 'COMI',
     });
     await new GetSellJournal(deps).execute({ market: 'us' });
-    expect(gateway.getSellJournal).toHaveBeenCalledWith({ market: 'us', page: 1, limit: 20 });
+    expect(repository.getSellJournal).toHaveBeenCalledWith({ market: 'us', page: 1, limit: 20 });
     await expect(new GetSellJournal(deps).execute({ from: new Date('2027-01-01') })).rejects.toThrow(
       /future/,
     );

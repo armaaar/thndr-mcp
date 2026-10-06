@@ -16,7 +16,7 @@ import { DeviceApprovalRequest } from '../../../src/domain/identity/device-appro
 import { Email } from '../../../src/domain/identity/email.js';
 import { RefreshCredential } from '../../../src/domain/identity/refresh-credential.js';
 import { ThndrSession } from '../../../src/domain/identity/thndr-session.js';
-import { BusinessRuleViolation, ValidationError } from '../../../src/domain/shared/errors.js';
+import { BusinessRuleViolation, ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 import {
   approvalRequest,
   fakeGateway,

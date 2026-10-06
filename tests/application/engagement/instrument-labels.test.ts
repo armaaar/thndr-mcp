@@ -10,12 +10,12 @@ import { AssetId } from '../../../src/domain/market-data/asset-id.js';
 import {
   anInstrument,
   aQuote,
-  FakeMarketDataGateway,
+  FakeMarketDataRepository,
   fixedClock,
   idFor,
 } from '../../support/fake-market-data.js';
 
-function setup(market = new FakeMarketDataGateway()) {
+function setup(market = new FakeMarketDataRepository()) {
   return {
     market,
     labeler: new InstrumentLabeler(
@@ -36,7 +36,7 @@ describe('InstrumentLabeler.label', () => {
   });
 
   it('uses quotes first, then the resolver, and tolerates unknown ids', async () => {
-    const market = new FakeMarketDataGateway({
+    const market = new FakeMarketDataRepository({
       quotes: { egypt: [aQuote({ ticker: 'COMI', last: 80, changePercent: 1.5 })] },
       instruments: [anInstrument({ ticker: 'EGX30', name: 'EGX 30' })],
     });
@@ -63,7 +63,7 @@ describe('InstrumentLabeler.label', () => {
   });
 
   it('survives a failing snapshot', async () => {
-    const market = new FakeMarketDataGateway({ instruments: [anInstrument({ ticker: 'COMI' })] });
+    const market = new FakeMarketDataRepository({ instruments: [anInstrument({ ticker: 'COMI' })] });
     market.failures.getMarketQuotes = new Error('down');
     const { labeler } = setup(market);
     expect((await labeler.label([id('COMI')], 'egypt')).get(id('COMI')).ticker).toBe('COMI');
@@ -72,14 +72,16 @@ describe('InstrumentLabeler.label', () => {
 
 describe('InstrumentLabeler.currentPrice', () => {
   it('reads the last price from the snapshot', async () => {
-    const market = new FakeMarketDataGateway({ quotes: { egypt: [aQuote({ ticker: 'COMI', last: 81 })] } });
+    const market = new FakeMarketDataRepository({
+      quotes: { egypt: [aQuote({ ticker: 'COMI', last: 81 })] },
+    });
     const { labeler } = setup(market);
     expect(await labeler.currentPrice(id('COMI'), 'egypt')).toBe(81);
     expect(await labeler.currentPrice(id('HRHO'), 'egypt')).toBeNull();
   });
 
   it('returns null when the snapshot fails', async () => {
-    const market = new FakeMarketDataGateway();
+    const market = new FakeMarketDataRepository();
     market.failures.getMarketQuotes = new Error('down');
     expect(await setup(market).labeler.currentPrice(id('COMI'), 'egypt')).toBeNull();
   });

@@ -20,6 +20,7 @@ import {
   type Position,
   positionWeight,
 } from '../../domain/portfolio/position.js';
+import type { JournalQuery, PortfolioRepository } from '../../domain/portfolio/repository.js';
 import {
   parseReturnsInterval,
   type RealizedReturns,
@@ -29,18 +30,17 @@ import {
   summarizeReturnsSeries,
 } from '../../domain/portfolio/returns.js';
 import type { SellableQuantity } from '../../domain/portfolio/sellable-quantity.js';
-import { ValidationError } from '../../domain/shared/errors.js';
-import { Ticker } from '../../domain/shared/ticker.js';
+import { ValidationError } from '../../domain/shared-kernel/errors.js';
+import { Ticker } from '../../domain/shared-kernel/ticker.js';
 import type { InstrumentResolver } from '../market-data/instrument-resolver.js';
 import type { Clock } from '../ports/clock.js';
-import type { JournalQuery, PortfolioGateway } from '../ports/portfolio.js';
 
 /**
  * Portfolio use cases. All of them are read-only (ADR 0006): nothing here places, modifies or cancels orders or
  * moves funds.
  */
 export interface PortfolioDependencies {
-  gateway: PortfolioGateway;
+  repository: PortfolioRepository;
   resolver: InstrumentResolver;
   clock: Clock;
 }
@@ -55,7 +55,7 @@ export class GetAccountSummary {
 
   async execute(input: { market?: string }): Promise<AccountSummary & { market: Market; positions: number }> {
     const market = parseMarket(input.market);
-    const { summary, positions } = await this.deps.gateway.getAccount(market);
+    const { summary, positions } = await this.deps.repository.getAccount(market);
     return { market, ...summary, positions: positions.length };
   }
 }
@@ -88,7 +88,7 @@ export class GetPositions {
     order?: 'asc' | 'desc';
   }): Promise<PositionsResult> {
     const market = parseMarket(input.market);
-    const { summary, positions } = await this.deps.gateway.getAccount(market);
+    const { summary, positions } = await this.deps.repository.getAccount(market);
     const allocation = computeAllocation(positions, summary.portfolioValue);
     const sortBy = input.sortBy ?? 'marketValue';
     const direction = input.order === 'asc' ? 1 : -1;
@@ -128,11 +128,11 @@ export class GetPosition {
   }> {
     const market = parseMarket(input.market);
     const instrument = await this.deps.resolver.resolve(input.symbol, market);
-    const position = await this.deps.gateway.getPosition(instrument.id, market);
+    const position = await this.deps.repository.getPosition(instrument.id, market);
     const held = position !== null && position.quantity > 0;
     const sellable =
       held && input.includeSellable !== false
-        ? await this.deps.gateway.getSellableQuantity(instrument.id, market)
+        ? await this.deps.repository.getSellableQuantity(instrument.id, market)
         : null;
     return { ticker: instrument.ticker.value, held, position, sellable };
   }
@@ -163,7 +163,7 @@ export class ListOrders {
     let first = true;
     // Never over-fetch: each request asks for at most what is still missing, so `nextCursor` stays exact.
     while (orders.length < limit && (first || cursor !== null)) {
-      const page = await this.deps.gateway.listOrders({
+      const page = await this.deps.repository.listOrders({
         market,
         status,
         limit: Math.min(limit - orders.length, ListOrders.PAGE_SIZE),
@@ -193,8 +193,8 @@ export class GetRealizedReturns {
     const market = parseMarket(input.market);
     const interval = parseReturnsInterval(input.interval);
     const [current, series] = await Promise.all([
-      this.deps.gateway.getRealizedReturns(market),
-      this.deps.gateway.getReturnsChart(interval, market),
+      this.deps.repository.getRealizedReturns(market),
+      this.deps.repository.getReturnsChart(interval, market),
     ]);
     const sorted = [...series].sort((a, b) => a.date.getTime() - b.date.getTime());
     return { market, current, interval, series: sorted, seriesSummary: summarizeReturnsSeries(sorted) };
@@ -226,7 +226,7 @@ export class GetClosedTrades {
   constructor(private readonly deps: PortfolioDependencies) {}
 
   async execute(input: JournalInput): Promise<JournalPage<ClosedTrade>> {
-    return this.deps.gateway.getClosedTrades(journalQuery(input, this.deps.clock));
+    return this.deps.repository.getClosedTrades(journalQuery(input, this.deps.clock));
   }
 }
 
@@ -235,7 +235,7 @@ export class GetSellJournal {
   constructor(private readonly deps: PortfolioDependencies) {}
 
   async execute(input: JournalInput): Promise<JournalPage<SellJournalEntry>> {
-    return this.deps.gateway.getSellJournal(journalQuery(input, this.deps.clock));
+    return this.deps.repository.getSellJournal(journalQuery(input, this.deps.clock));
   }
 }
 
@@ -245,7 +245,7 @@ export class GetTradingMetrics {
   async execute(input: { from?: Date; to?: Date; market?: string }): Promise<TradingMetrics> {
     const range = journalRange(input.from, input.to, this.deps.clock.now());
     const market = parseMarket(input.market);
-    const metrics = await this.deps.gateway.getTradingMetrics(range);
+    const metrics = await this.deps.repository.getTradingMetrics(range);
     // Thndr keys per-symbol stats by asset id only: resolve tickers best-effort (cached by the resolver).
     const perInstrument = await Promise.all(
       metrics.perInstrument.map(async (stats): Promise<InstrumentTradingStats> => {
@@ -274,7 +274,7 @@ export class ListAccountActivity {
     const market = parseMarket(input.market);
     const category = parseActivityCategory(input.category);
     const page = clamp(input.page, 1, 1, 10_000);
-    const result = await this.deps.gateway.listActivities(market, page, clamp(input.pageSize, 20, 1, 100));
+    const result = await this.deps.repository.listActivities(market, page, clamp(input.pageSize, 20, 1, 100));
     return {
       market,
       ...result,

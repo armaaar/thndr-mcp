@@ -1,11 +1,11 @@
 import type { Clock } from '../../src/application/ports/clock.js';
-import type { MarketDataGateway } from '../../src/application/ports/market-data.js';
 import { AssetId } from '../../src/domain/market-data/asset-id.js';
 import type { Candle, CandleResolution } from '../../src/domain/market-data/candle.js';
 import type { Instrument, Quote } from '../../src/domain/market-data/instrument.js';
 import type { Market } from '../../src/domain/market-data/market.js';
 import type { MarketSession, OrderBook, TapeTrade } from '../../src/domain/market-data/order-book.js';
-import { Ticker } from '../../src/domain/shared/ticker.js';
+import type { MarketDataRepository } from '../../src/domain/market-data/repository.js';
+import { Ticker } from '../../src/domain/shared-kernel/ticker.js';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */
 export const COMI_ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
@@ -140,8 +140,8 @@ export interface CandleCall {
   to: Date;
 }
 
-/** In-memory MarketDataGateway: seed `instruments`, `quotes`… and inspect the recorded calls. */
-export class FakeMarketDataGateway implements MarketDataGateway {
+/** In-memory MarketDataRepository: seed `instruments`, `quotes`… and inspect the recorded calls. */
+export class FakeMarketDataRepository implements MarketDataRepository {
   instruments: Instrument[] = [];
   quotes: Partial<Record<Market, Quote[]>> = {};
   indicators: Partial<Record<Market, Quote[]>> = {};
@@ -150,7 +150,7 @@ export class FakeMarketDataGateway implements MarketDataGateway {
   trades: TapeTrade[] = [];
   session: MarketSession = aMarketSession();
   /** When set, the named method rejects with this error. */
-  failures: Partial<Record<keyof MarketDataGateway, Error>> = {};
+  failures: Partial<Record<keyof MarketDataRepository, Error>> = {};
 
   readonly calls = {
     searchInstruments: [] as Array<{ query: string; market: Market }>,
@@ -163,7 +163,7 @@ export class FakeMarketDataGateway implements MarketDataGateway {
     getMarketIndicators: [] as Market[],
   };
 
-  constructor(seed: Partial<Pick<FakeMarketDataGateway, 'instruments' | 'quotes'>> = {}) {
+  constructor(seed: Partial<Pick<FakeMarketDataRepository, 'instruments' | 'quotes'>> = {}) {
     Object.assign(this, seed);
   }
 
@@ -220,7 +220,7 @@ export class FakeMarketDataGateway implements MarketDataGateway {
     return this.indicators[market] ?? [];
   }
 
-  private fail(method: keyof MarketDataGateway): void {
+  private fail(method: keyof MarketDataRepository): void {
     const error = this.failures[method];
     if (error) throw error;
   }

@@ -6,7 +6,7 @@ import {
   MAX_HISTORY_MS,
   RESOLUTION_MS,
 } from '../../../src/domain/market-data/candle.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const T = new Date('2026-01-01T10:00:00Z');
 const base = { time: T, open: 10, high: 12, low: 9, close: 11, volume: 100 };

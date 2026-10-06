@@ -1,52 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import { MarketQuotesCache } from '../../../src/application/market-data/quote-cache.js';
-import type { MarketDataGateway } from '../../../src/application/ports/market-data.js';
 import type { Quote } from '../../../src/domain/market-data/instrument.js';
-import { aQuote, FakeMarketDataGateway } from '../../support/fake-market-data.js';
+import type { MarketDataRepository } from '../../../src/domain/market-data/repository.js';
+import { aQuote, FakeMarketDataRepository } from '../../support/fake-market-data.js';
 import { mutableClock } from '../../support/identity-fakes.js';
 
 describe('MarketQuotesCache', () => {
   it('serves the cached snapshot within the TTL and refetches after it', async () => {
-    const gateway = new FakeMarketDataGateway({ quotes: { egypt: [aQuote()] } });
+    const repository = new FakeMarketDataRepository({ quotes: { egypt: [aQuote()] } });
     const clock = mutableClock();
-    const cache = new MarketQuotesCache(gateway, clock, 1000);
+    const cache = new MarketQuotesCache(repository, clock, 1000);
     const first = await cache.get('egypt');
     clock.advance(999);
     expect(await cache.get('egypt')).toBe(first);
-    expect(gateway.calls.getMarketQuotes).toEqual(['egypt']);
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt']);
     clock.advance(1);
     await cache.get('egypt');
-    expect(gateway.calls.getMarketQuotes).toEqual(['egypt', 'egypt']);
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt', 'egypt']);
   });
 
   it('caches each market separately with a 10 s default TTL', async () => {
-    const gateway = new FakeMarketDataGateway();
+    const repository = new FakeMarketDataRepository();
     const clock = mutableClock();
-    const cache = new MarketQuotesCache(gateway, clock);
+    const cache = new MarketQuotesCache(repository, clock);
     await cache.get('egypt');
     await cache.get('us');
     clock.advance(9_999);
     await cache.get('egypt');
-    expect(gateway.calls.getMarketQuotes).toEqual(['egypt', 'us']);
+    expect(repository.calls.getMarketQuotes).toEqual(['egypt', 'us']);
   });
 
   it('evicts failed fetches so the next call retries', async () => {
-    const gateway = new FakeMarketDataGateway();
-    gateway.failures.getMarketQuotes = new Error('boom');
-    const cache = new MarketQuotesCache(gateway, mutableClock());
+    const repository = new FakeMarketDataRepository();
+    repository.failures.getMarketQuotes = new Error('boom');
+    const cache = new MarketQuotesCache(repository, mutableClock());
     await expect(cache.get('egypt')).rejects.toThrow('boom');
     await Promise.resolve();
-    delete gateway.failures.getMarketQuotes;
-    gateway.quotes.egypt = [aQuote()];
+    delete repository.failures.getMarketQuotes;
+    repository.quotes.egypt = [aQuote()];
     expect(await cache.get('egypt')).toHaveLength(1);
-    expect(gateway.calls.getMarketQuotes).toHaveLength(2);
+    expect(repository.calls.getMarketQuotes).toHaveLength(2);
   });
 
   it('does not evict a newer entry when an older fetch fails late', async () => {
     let rejectOld: (e: Error) => void = () => {};
     const fresh = [aQuote()];
     let call = 0;
-    const gateway = {
+    const repository = {
       getMarketQuotes: () => {
         call += 1;
         return call === 1
@@ -55,9 +55,9 @@ describe('MarketQuotesCache', () => {
             })
           : Promise.resolve(fresh);
       },
-    } as unknown as MarketDataGateway;
+    } as unknown as MarketDataRepository;
     const clock = mutableClock();
-    const cache = new MarketQuotesCache(gateway, clock, 1000);
+    const cache = new MarketQuotesCache(repository, clock, 1000);
     const old = cache.get('egypt');
     clock.advance(1000);
     expect(await cache.get('egypt')).toBe(fresh);

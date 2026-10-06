@@ -1,5 +1,5 @@
-import { ValidationError } from '../shared/errors.js';
-import { roundTo } from '../shared/guards.js';
+import { ValidationError } from '../shared-kernel/errors.js';
+import { roundTo } from '../shared-kernel/guards.js';
 
 export const RETURNS_INTERVALS = ['1M', '6M', '1Y', '2Y'] as const;
 export type ReturnsInterval = (typeof RETURNS_INTERVALS)[number];

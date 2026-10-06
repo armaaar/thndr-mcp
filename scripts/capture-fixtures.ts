@@ -10,9 +10,9 @@
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { compose } from '../src/composition.js';
 import { loadConfig } from '../src/config.js';
-import { assertNoKrakendError } from '../src/infrastructure/thndr/krakend.js';
+import { compose } from '../src/container.js';
+import { assertNoKrakendError } from '../src/infrastructure/data-sources/thndr/krakend.js';
 
 const OUT = resolve(process.argv[2] ?? '.cache/fixtures');
 const PII =

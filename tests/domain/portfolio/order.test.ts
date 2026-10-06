@@ -5,8 +5,8 @@ import {
   type OrderInput,
   parseOrderStatusFilter,
 } from '../../../src/domain/portfolio/order.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
-import { Ticker } from '../../../src/domain/shared/ticker.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
 
 function input(overrides: Partial<OrderInput> = {}): OrderInput {
   return {

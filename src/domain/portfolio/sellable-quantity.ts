@@ -1,4 +1,4 @@
-import { roundTo } from '../shared/guards.js';
+import { roundTo } from '../shared-kernel/guards.js';
 
 export const CUSTODIANS = ['AUB', 'THN', 'OTHER'] as const;
 export type Custodian = (typeof CUSTODIANS)[number];

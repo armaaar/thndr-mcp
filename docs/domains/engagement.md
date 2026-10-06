@@ -58,7 +58,7 @@ id in a watchlist never breaks listing it. `currentPrice(id, market)` gives the 
 
 ## Ports
 
-`EngagementGateway` (`src/application/ports/engagement.ts`): `listWatchlists`, `getWatchlist`, `createWatchlist`,
+`EngagementRepository` (`src/application/ports/engagement.ts`): `listWatchlists`, `getWatchlist`, `createWatchlist`,
 `renameWatchlist`, `deleteWatchlist`, `addToWatchlist`, `removeFromWatchlist`, `listPriceAlerts`,
 `listAlertsForInstrument`, `createPriceAlert` (returns `null` when Thndr's reply does not describe the alert),
 `deletePriceAlert` (idempotent), `listNotifications`, `hasUnreadNotifications`, `markNotificationsRead`,

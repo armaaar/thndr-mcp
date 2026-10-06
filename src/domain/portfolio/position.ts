@@ -1,9 +1,9 @@
 import type { AssetId } from '../market-data/asset-id.js';
 import type { AssetClass } from '../market-data/market.js';
-import { ValidationError } from '../shared/errors.js';
-import { assertFiniteNumber, roundTo } from '../shared/guards.js';
-import type { Currency } from '../shared/money.js';
-import type { Ticker } from '../shared/ticker.js';
+import { ValidationError } from '../shared-kernel/errors.js';
+import { assertFiniteNumber, roundTo } from '../shared-kernel/guards.js';
+import type { Currency } from '../shared-kernel/money.js';
+import type { Ticker } from '../shared-kernel/ticker.js';
 
 export interface PositionInput {
   readonly instrumentId: AssetId | null;

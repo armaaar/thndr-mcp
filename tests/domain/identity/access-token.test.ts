@@ -4,7 +4,7 @@ import {
   AccessToken,
   DEFAULT_ACCESS_TOKEN_TTL_MS,
 } from '../../../src/domain/identity/access-token.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const expiresAt = new Date('2026-01-01T00:15:00Z');
 

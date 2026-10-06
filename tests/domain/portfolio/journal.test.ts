@@ -4,7 +4,7 @@ import {
   journalRange,
   perUnitOfLoss,
 } from '../../../src/domain/portfolio/journal.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const now = new Date('2026-06-01T00:00:00Z');
 

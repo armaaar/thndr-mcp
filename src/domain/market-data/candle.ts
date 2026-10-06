@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 export const CANDLE_RESOLUTIONS = ['1min', '5min', '10min', '1h', '1d', '1w'] as const;
 export type CandleResolution = (typeof CANDLE_RESOLUTIONS)[number];

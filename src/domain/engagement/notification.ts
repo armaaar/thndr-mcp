@@ -1,4 +1,4 @@
-import { ValidationError } from '../shared/errors.js';
+import { ValidationError } from '../shared-kernel/errors.js';
 
 /** An in-app notification (order events, triggered price alerts, announcements). */
 export interface Notification {

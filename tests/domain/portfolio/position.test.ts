@@ -6,8 +6,8 @@ import {
   type PositionInput,
   positionWeight,
 } from '../../../src/domain/portfolio/position.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
-import { Ticker } from '../../../src/domain/shared/ticker.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
+import { Ticker } from '../../../src/domain/shared-kernel/ticker.js';
 
 const ID = '11111111-2222-3333-4444-555555555555';
 

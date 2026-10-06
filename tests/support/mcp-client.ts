@@ -2,8 +2,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { Logger } from '../../src/application/ports/logger.js';
-import { createMcpServer } from '../../src/interface/mcp/server.js';
-import type { AnyTool } from '../../src/interface/mcp/tool.js';
+import type { AnyTool } from '../../src/interfaces/catalog/operation.js';
+import { createMcpServer } from '../../src/interfaces/mcp/server.js';
 
 export interface ConnectedClient {
   client: Client;

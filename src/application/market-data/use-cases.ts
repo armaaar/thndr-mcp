@@ -4,15 +4,15 @@ import type { Instrument, Quote } from '../../domain/market-data/instrument.js';
 import { relativeVolume } from '../../domain/market-data/instrument.js';
 import { type Market, parseMarket } from '../../domain/market-data/market.js';
 import { type OrderBook, spread, type TapeTrade } from '../../domain/market-data/order-book.js';
-import { ValidationError } from '../../domain/shared/errors.js';
-import { assertNonEmpty } from '../../domain/shared/guards.js';
+import type { MarketDataRepository } from '../../domain/market-data/repository.js';
+import { ValidationError } from '../../domain/shared-kernel/errors.js';
+import { assertNonEmpty } from '../../domain/shared-kernel/guards.js';
 import type { Clock } from '../ports/clock.js';
-import type { MarketDataGateway } from '../ports/market-data.js';
 import type { InstrumentResolver } from './instrument-resolver.js';
 import type { MarketQuotesCache } from './quote-cache.js';
 
 export interface MarketDataDependencies {
-  gateway: MarketDataGateway;
+  repository: MarketDataRepository;
   resolver: InstrumentResolver;
   quotes: MarketQuotesCache;
   clock: Clock;
@@ -23,7 +23,7 @@ export class SearchInstruments {
 
   async execute(input: { query: string; market?: string; limit?: number }): Promise<Instrument[]> {
     const query = assertNonEmpty(input.query, 'Search query');
-    const results = await this.deps.gateway.searchInstruments(query, parseMarket(input.market));
+    const results = await this.deps.repository.searchInstruments(query, parseMarket(input.market));
     for (const instrument of results) this.deps.resolver.remember(instrument);
     return results.slice(0, Math.min(Math.max(input.limit ?? 20, 1), 50));
   }
@@ -34,7 +34,7 @@ export class GetInstrumentDetails {
 
   async execute(input: { symbol: string; market?: string }): Promise<Instrument> {
     const resolved = await this.deps.resolver.resolve(input.symbol, parseMarket(input.market));
-    return this.deps.gateway.getInstrument(resolved.id);
+    return this.deps.repository.getInstrument(resolved.id);
   }
 }
 
@@ -94,7 +94,7 @@ export class GetPriceHistory {
     const from = input.from ?? new Date(to.getTime() - span);
     const window = historyWindow(from, to, now);
     const instrument = await this.deps.resolver.resolve(input.symbol, parseMarket(input.market));
-    const candles = await this.deps.gateway.getCandles(
+    const candles = await this.deps.repository.getCandles(
       instrument.id,
       input.resolution,
       window.from,
@@ -120,7 +120,7 @@ export class GetMarketDepth {
     levels?: number;
   }): Promise<OrderBook & { ticker: string; spread: ReturnType<typeof spread> }> {
     const instrument = await this.deps.resolver.resolve(input.symbol, parseMarket(input.market));
-    const book = await this.deps.gateway.getOrderBook(instrument.id);
+    const book = await this.deps.repository.getOrderBook(instrument.id);
     const levels = Math.min(Math.max(input.levels ?? 10, 1), 50);
     const trimmed: OrderBook = {
       ...book,
@@ -141,7 +141,7 @@ export class GetRecentTrades {
   }> {
     const instrument = await this.deps.resolver.resolve(input.symbol, parseMarket(input.market));
     const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
-    const trades = await this.deps.gateway.getRecentTrades(instrument.id, limit, input.before);
+    const trades = await this.deps.repository.getRecentTrades(instrument.id, limit, input.before);
     return { ticker: instrument.ticker.value, trades, nextCursor: trades.at(-1)?.cursor ?? null };
   }
 }
@@ -152,8 +152,8 @@ export class GetMarketStatus {
   async execute(input: { market?: string }) {
     const market = parseMarket(input.market);
     const [session, indicators] = await Promise.all([
-      this.deps.gateway.getMarketSession(market),
-      this.deps.gateway.getMarketIndicators(market).catch(() => [] as Quote[]),
+      this.deps.repository.getMarketSession(market),
+      this.deps.repository.getMarketIndicators(market).catch(() => [] as Quote[]),
     ]);
     return {
       ...session,

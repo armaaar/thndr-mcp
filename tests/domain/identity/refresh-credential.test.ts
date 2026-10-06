@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RefreshCredential } from '../../../src/domain/identity/refresh-credential.js';
-import { ValidationError } from '../../../src/domain/shared/errors.js';
+import { ValidationError } from '../../../src/domain/shared-kernel/errors.js';
 
 const expiry = new Date('2026-01-01T06:00:00Z');
 

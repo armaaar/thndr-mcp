@@ -1,5 +1,5 @@
+import { defaultSessionPath } from './infrastructure/data-sources/local/session-file.js';
 import { type LogLevel, parseLogLevel } from './infrastructure/logging/stderr-logger.js';
-import { defaultSessionPath } from './infrastructure/persistence/session-file.js';
 
 /** Runtime configuration, read from environment variables (see README). */
 export interface AppConfig {

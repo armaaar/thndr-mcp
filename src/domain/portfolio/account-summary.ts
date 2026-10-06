@@ -1,5 +1,5 @@
-import { assertFiniteNumber, roundTo } from '../shared/guards.js';
-import type { Currency } from '../shared/money.js';
+import { assertFiniteNumber, roundTo } from '../shared-kernel/guards.js';
+import type { Currency } from '../shared-kernel/money.js';
 
 /** Raw cash and portfolio figures of one market account (ThndrX "wallet and portfolio"). */
 export interface AccountSummaryInput {
