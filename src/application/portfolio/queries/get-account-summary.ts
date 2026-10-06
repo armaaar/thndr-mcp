@@ -1,5 +1,5 @@
-import { type Market, parseMarket } from '../../../domain/market-data/market';
 import type { AccountSummary } from '../../../domain/portfolio/account-summary';
+import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';

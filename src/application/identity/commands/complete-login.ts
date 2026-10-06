@@ -12,13 +12,13 @@ const input = {
   timeoutSeconds: z.number().int().min(0).max(300).default(60).describe('How long to wait for approval'),
 };
 
-export interface CompleteLoginResult {
+export type CompleteLoginResult = {
   status: ApprovalStatus;
   authenticated: boolean;
   message: string;
   accessTokenExpiresAt?: string;
   sessionExpiresAt?: string | null;
-}
+};
 
 /** Step 3: wait for the phone approval, then exchange it for a session and persist it. */
 export class CompleteLogin extends Command<typeof input, CompleteLoginResult> {

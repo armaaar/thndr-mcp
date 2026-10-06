@@ -6,7 +6,7 @@ import {
   fixedClock,
   idFor,
 } from '../../../../__tests__/support/fake-market-data';
-import { AssetId } from '../../../../domain/market-data/asset-id';
+import { AssetId } from '../../../../domain/shared-kernel/asset-id';
 import { InstrumentResolver } from '../../../market-data/services/instrument-resolver';
 import { MarketQuotesCache } from '../../../market-data/services/market-quotes-cache';
 import { InstrumentLabeler } from '../instrument-labeler';

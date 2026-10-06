@@ -2,12 +2,12 @@ import type { MarketDataDependencies } from '../../application/market-data/depen
 import { InstrumentResolver } from '../../application/market-data/services/instrument-resolver';
 import { MarketQuotesCache } from '../../application/market-data/services/market-quotes-cache';
 import type { Clock } from '../../application/ports/clock';
-import { AssetId } from '../../domain/market-data/asset-id';
 import type { Candle, CandleResolution } from '../../domain/market-data/candle';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
-import type { Market } from '../../domain/market-data/market';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
+import { AssetId } from '../../domain/shared-kernel/asset-id';
+import type { Market } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */

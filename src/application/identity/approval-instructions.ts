@@ -1,11 +1,11 @@
 import type { DeviceApprovalRequest } from '../../domain/identity/device-approval';
 
-export interface ApprovalInstructions {
+export type ApprovalInstructions = {
   humanId: string;
   deepLink: string;
   requestId: string;
   message: string;
-}
+};
 
 export function approvalInstructions(
   request: DeviceApprovalRequest,

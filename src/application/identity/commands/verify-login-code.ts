@@ -4,7 +4,7 @@ import { assertNonEmpty } from '../../../domain/shared-kernel/guards';
 import { Command, type InputOf } from '../../use-case';
 import type { ApprovalInstructions } from '../approval-instructions';
 import type { LoginDependencies } from '../dependencies';
-import { RequestDeviceApproval } from './request-device-approval';
+import { DeviceApprovalRequester } from '../services/device-approval-requester';
 
 const input = { code: z.string().describe('The 6-digit code from the email') };
 
@@ -28,6 +28,6 @@ export class VerifyLoginCode extends Command<typeof input, ApprovalInstructions>
     const { verificationId } = (await this.deps.flow.load()).requireCodeSent();
     const customToken = await this.deps.gateway.verifyEmailCode(verificationId, code);
     await this.deps.identity.signInWithCustomToken(customToken);
-    return new RequestDeviceApproval(this.deps).execute();
+    return new DeviceApprovalRequester(this.deps).request();
   }
 }

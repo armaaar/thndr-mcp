@@ -47,17 +47,17 @@ import type { IdentityProvider } from './application/ports/identity';
 import type { Logger } from './application/ports/logger';
 import type { UseCase } from './application/use-case';
 import type { AppConfig } from './config';
-import { createFilePersistence } from './infrastructure/data-sources/firebase/file-persistence';
-import { FirebaseIdentityProvider } from './infrastructure/data-sources/firebase/firebase-identity-provider';
-import { SessionFile } from './infrastructure/data-sources/local/session-file';
-import { type FetchFn, ThndrHttpClient } from './infrastructure/data-sources/thndr/http-client';
-import { StderrLogger } from './infrastructure/logging/stderr-logger';
-import { FileLoginFlowRepository } from './infrastructure/repositories/local/login-flow-repository';
-import { FileSessionRepository } from './infrastructure/repositories/local/session-repository';
-import { HttpThndrAuthGateway } from './infrastructure/repositories/thndr/auth-gateway';
-import { ThndrEngagementRepository } from './infrastructure/repositories/thndr/engagement-repository';
-import { ThndrMarketDataRepository } from './infrastructure/repositories/thndr/market-data-repository';
-import { ThndrPortfolioRepository } from './infrastructure/repositories/thndr/portfolio-repository';
+import { createFilePersistence } from './data-sources/firebase/file-persistence';
+import { FirebaseIdentityProvider } from './data-sources/firebase/firebase-identity-provider';
+import { SessionFile } from './data-sources/local/session-file';
+import { StderrLogger } from './data-sources/logging/stderr-logger';
+import { type FetchFn, ThndrHttpClient } from './data-sources/thndr/http-client';
+import { FileLoginFlowRepository } from './repositories/local/login-flow-repository';
+import { FileSessionRepository } from './repositories/local/session-repository';
+import { HttpThndrAuthGateway } from './repositories/thndr/auth-gateway';
+import { ThndrEngagementRepository } from './repositories/thndr/engagement-repository';
+import { ThndrMarketDataRepository } from './repositories/thndr/market-data-repository';
+import { ThndrPortfolioRepository } from './repositories/thndr/portfolio-repository';
 
 export interface CompositionOverrides {
   fetch?: FetchFn;

@@ -44,15 +44,15 @@ describe('CreateWatchlist', () => {
     expect(deps.repository.calls.createWatchlist).toEqual([
       { name: 'Banks', market: 'egypt', ids: [idFor('COMI'), idFor('HRHO')] },
     ]);
-    expect(out).toMatchObject({ id: 'wl-100', name: 'Banks', count: 2, market: 'egypt' });
-    expect(out.instruments.map((i) => i.ticker)).toEqual(['COMI', 'HRHO']);
+    // CQS: a receipt of what was created; reading the list (tickers, prices) is get_watchlist's job.
+    expect(out).toEqual({ id: 'wl-100', name: 'Banks', instrumentIds: [idFor('COMI'), idFor('HRHO')] });
   });
 
   it('creates an empty watchlist', async () => {
     const deps = engagementSetup();
     const out = await new CreateWatchlist(deps).execute({ name: 'Empty', market: 'us' });
     expect(deps.repository.calls.createWatchlist).toEqual([{ name: 'Empty', market: 'us', ids: [] }]);
-    expect(out.instruments).toEqual([]);
+    expect(out).toMatchObject({ instrumentIds: [] });
   });
 
   it('validates the name, symbol count and symbols before writing', async () => {

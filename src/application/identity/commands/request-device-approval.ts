@@ -1,7 +1,7 @@
-import { NotAuthenticatedError } from '../../errors';
 import { Command } from '../../use-case';
-import { type ApprovalInstructions, approvalInstructions } from '../approval-instructions';
+import type { ApprovalInstructions } from '../approval-instructions';
 import type { LoginDependencies } from '../dependencies';
+import { DeviceApprovalRequester } from '../services/device-approval-requester';
 
 const input = {};
 
@@ -20,14 +20,6 @@ export class RequestDeviceApproval extends Command<typeof input, ApprovalInstruc
   }
 
   async execute(): Promise<ApprovalInstructions> {
-    const idToken = await this.deps.identity.getIdToken();
-    if (!idToken) {
-      throw new NotAuthenticatedError(
-        'Not identified with Thndr yet. Call login_start with your email first.',
-      );
-    }
-    const request = await this.deps.gateway.createApprovalRequest(idToken);
-    await this.deps.flow.save((await this.deps.flow.load()).awaitingApproval(request));
-    return approvalInstructions(request, this.deps.userAgent);
+    return new DeviceApprovalRequester(this.deps).request();
   }
 }

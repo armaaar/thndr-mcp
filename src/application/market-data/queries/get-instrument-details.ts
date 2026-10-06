@@ -1,5 +1,5 @@
 import type { Instrument } from '../../../domain/market-data/instrument';
-import { parseMarket } from '../../../domain/market-data/market';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';

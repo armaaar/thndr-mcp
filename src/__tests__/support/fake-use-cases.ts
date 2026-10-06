@@ -6,6 +6,7 @@ import {
   type InputOf,
   type InputShape,
   Query,
+  type Receipt,
 } from '../../application/use-case';
 
 export interface FakeUseCaseSpec<Shape extends InputShape> {
@@ -69,8 +70,8 @@ export class FakeCommand<Shape extends InputShape = InputShape> extends Command<
     this.handler = spec.handler ?? (() => ({ ok: true }));
   }
 
-  async execute(input: InputOf<Shape>): Promise<unknown> {
-    return this.handler(input);
+  async execute(input: InputOf<Shape>): Promise<Receipt> {
+    return (await this.handler(input)) as Receipt;
   }
 }
 

@@ -1,7 +1,7 @@
 import { uniqueAssetIds } from '../../domain/engagement/watchlist';
-import type { AssetId } from '../../domain/market-data/asset-id';
-import type { Market } from '../../domain/market-data/market';
+import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import { ValidationError } from '../../domain/shared-kernel/errors';
+import type { Market } from '../../domain/shared-kernel/market';
 import { MAX_SYMBOLS_PER_CALL } from './constants';
 import type { EngagementDependencies } from './dependencies';
 

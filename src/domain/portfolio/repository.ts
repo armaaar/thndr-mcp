@@ -1,5 +1,5 @@
-import type { AssetId } from '../market-data/asset-id';
-import type { Market } from '../market-data/market';
+import type { AssetId } from '../shared-kernel/asset-id';
+import type { Market } from '../shared-kernel/market';
 import type { AccountSummary } from './account-summary';
 import type { ActivityPage } from './activity';
 import type { ClosedTrade, DateRange, JournalPage, SellJournalEntry, TradingMetrics } from './journal';

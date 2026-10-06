@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AssetId } from '../../market-data/asset-id';
+import { AssetId } from '../../shared-kernel/asset-id';
 import { ValidationError } from '../../shared-kernel/errors';
 import { createWatchlist, uniqueAssetIds, WATCHLIST_NAME_MAX_LENGTH, WatchlistName } from '../watchlist';
 

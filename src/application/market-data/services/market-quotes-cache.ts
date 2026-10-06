@@ -1,6 +1,6 @@
 import type { Quote } from '../../../domain/market-data/instrument';
-import type { Market } from '../../../domain/market-data/market';
 import type { MarketDataRepository } from '../../../domain/market-data/repository';
+import type { Market } from '../../../domain/shared-kernel/market';
 import type { Clock } from '../../ports/clock';
 
 /**

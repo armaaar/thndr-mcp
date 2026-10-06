@@ -1,4 +1,4 @@
-import { AssetId } from '../../../domain/market-data/asset-id';
+import { AssetId } from '../../../domain/shared-kernel/asset-id';
 
 /** What we know about an instrument id for presentation: its ticker and, when available, its live quote. */
 export interface InstrumentLabel {

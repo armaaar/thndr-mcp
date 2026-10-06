@@ -5,8 +5,8 @@ import { createNotification, type Notification } from '../../domain/engagement/n
 import { createPriceAlert, type PriceAlert } from '../../domain/engagement/price-alert';
 import type { EngagementRepository, NewPriceAlert, PageRequest } from '../../domain/engagement/repository';
 import { createWatchlist, type Watchlist, type WatchlistName } from '../../domain/engagement/watchlist';
-import { AssetId } from '../../domain/market-data/asset-id';
-import type { Market } from '../../domain/market-data/market';
+import { AssetId } from '../../domain/shared-kernel/asset-id';
+import type { Market } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 import { anInstrument, aQuote, FakeMarketDataRepository, fixedClock, idFor } from './fake-market-data';
 

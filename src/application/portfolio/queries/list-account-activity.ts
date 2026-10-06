@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { type Market, parseMarket } from '../../../domain/market-data/market';
 import {
   ACTIVITY_CATEGORIES,
   type ActivityCategory,
   type ActivityPage,
 } from '../../../domain/portfolio/activity';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
+import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, pageInput } from '../../inputs';
 import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';

@@ -1,6 +1,6 @@
-import type { AssetId } from '../../../domain/market-data/asset-id';
 import type { Quote } from '../../../domain/market-data/instrument';
-import type { Market } from '../../../domain/market-data/market';
+import type { AssetId } from '../../../domain/shared-kernel/asset-id';
+import type { Market } from '../../../domain/shared-kernel/market';
 import type { InstrumentResolver } from '../../market-data/services/instrument-resolver';
 import type { MarketQuotesCache } from '../../market-data/services/market-quotes-cache';
 import type { EngagementDependencies } from '../dependencies';

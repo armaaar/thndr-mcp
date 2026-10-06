@@ -17,7 +17,7 @@ export type BoundedContext = 'identity' | 'market-data' | 'portfolio' | 'engagem
  * contract, and call `run`, so every interface offers exactly the same operations (ADR 0012).
  */
 export abstract class UseCase<Shape extends InputShape = InputShape, Output = unknown> {
-  /** CQRS: queries read, commands change state. */
+  /** CQS: queries read, commands change state. */
   abstract readonly kind: 'query' | 'command';
   /** Stable snake_case identifier (MCP tool name; the CLI command is its kebab-case form). */
   abstract readonly name: string;
@@ -44,7 +44,7 @@ export abstract class UseCase<Shape extends InputShape = InputShape, Output = un
   }
 }
 
-/** A use case that only reads (CQRS query). */
+/** A use case that only reads and has no observable side effect on domain state (CQS query). */
 export abstract class Query<Shape extends InputShape = InputShape, Output = unknown> extends UseCase<
   Shape,
   Output
@@ -52,11 +52,23 @@ export abstract class Query<Shape extends InputShape = InputShape, Output = unkn
   readonly kind = 'query' as const;
 }
 
-/** A use case that changes state, in Thndr or locally (CQRS command). */
-export abstract class Command<Shape extends InputShape = InputShape, Output = unknown> extends UseCase<
-  Shape,
-  Output
-> {
+/** A primitive value a command receipt may carry. */
+export type ReceiptValue = string | number | boolean | null | undefined;
+
+/**
+ * What a command returns under CQS: a flat acknowledgement (identifiers it created, flags, a message for the user),
+ * never a read model. To observe the new state, run the corresponding query.
+ */
+export type Receipt = { readonly [field: string]: ReceiptValue | readonly ReceiptValue[] };
+
+/**
+ * A use case that changes state, in Thndr or locally (CQS command). Its output is constrained to a flat `Receipt`, so a
+ * command cannot double as a query.
+ */
+export abstract class Command<
+  Shape extends InputShape = InputShape,
+  Output extends Receipt = Receipt,
+> extends UseCase<Shape, Output> {
   readonly kind = 'command' as const;
   /** Irreversibly removes user data (e.g. deleting a watchlist). */
   readonly destructive: boolean = false;

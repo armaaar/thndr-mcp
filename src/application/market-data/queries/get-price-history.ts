@@ -6,8 +6,8 @@ import {
   historyWindow,
   RESOLUTION_MS,
 } from '../../../domain/market-data/candle';
-import { parseMarket } from '../../../domain/market-data/market';
 import { parseMarketDate } from '../../../domain/market-data/market-calendar';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { dateInput, marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';

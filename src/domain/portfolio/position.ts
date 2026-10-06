@@ -1,7 +1,7 @@
-import type { AssetId } from '../market-data/asset-id';
-import type { AssetClass } from '../market-data/market';
+import type { AssetId } from '../shared-kernel/asset-id';
 import { ValidationError } from '../shared-kernel/errors';
 import { assertFiniteNumber, roundTo } from '../shared-kernel/guards';
+import type { AssetClass } from '../shared-kernel/market';
 import type { Currency } from '../shared-kernel/money';
 import type { Ticker } from '../shared-kernel/ticker';
 

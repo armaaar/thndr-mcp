@@ -1,7 +1,7 @@
-import type { AssetId } from './asset-id';
+import type { AssetId } from '../shared-kernel/asset-id';
+import type { Market } from '../shared-kernel/market';
 import type { Candle, CandleResolution } from './candle';
 import type { Instrument, Quote } from './instrument';
-import type { Market } from './market';
 import type { MarketSession, OrderBook, TapeTrade } from './order-book';
 
 export interface MarketDataRepository {

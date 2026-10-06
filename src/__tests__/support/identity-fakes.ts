@@ -6,7 +6,7 @@ import type { Logger } from '../../application/ports/logger';
 import { DeviceApprovalRequest } from '../../domain/identity/device-approval';
 import type { SessionRepository } from '../../domain/identity/repository';
 import type { ThndrSession } from '../../domain/identity/thndr-session';
-import { InMemoryLoginFlowRepository } from '../../infrastructure/repositories/memory/login-flow-repository';
+import { InMemoryLoginFlowRepository } from '../../repositories/memory/login-flow-repository';
 
 export const T0 = new Date('2026-01-01T00:00:00Z');
 

@@ -33,12 +33,12 @@ describe('EditWatchlist contract', () => {
   it('defaults add/remove to empty lists on egypt', async () => {
     const deps = engagementSetup(new FakeEngagementRepository({ watchlists: [aWatchlist()] }));
     const out = await new EditWatchlist(deps).run({ id: 'wl-1', name: 'Renamed' });
-    expect(out).toMatchObject({ market: 'egypt', changes: { renamed: true, added: [], removed: [] } });
+    expect(out).toEqual({ id: 'wl-1', renamed: true, name: 'Renamed', added: [], removed: [] });
   });
 });
 
 describe('EditWatchlist', () => {
-  it('renames, adds and removes in that order, then re-reads', async () => {
+  it('renames, adds and removes in that order and returns a receipt (no re-read)', async () => {
     const deps = engagementSetup(
       new FakeEngagementRepository({ watchlists: [aWatchlist({ tickers: ['COMI', 'GONE'] })] }),
     );
@@ -53,13 +53,14 @@ describe('EditWatchlist', () => {
     expect(deps.repository.calls.removeFromWatchlist).toEqual([
       { id: 'wl-1', ids: [idFor('GONE'), idFor('COMI')] },
     ]);
-    expect(out.name).toBe('Top');
-    expect(out.instruments.map((i) => i.ticker)).toEqual(['HRHO']);
-    expect(out.changes).toEqual({
+    expect(out).toEqual({
+      id: 'wl-1',
       renamed: true,
+      name: 'Top',
       added: [idFor('HRHO')],
       removed: [idFor('GONE'), idFor('COMI')],
     });
+    expect(deps.repository.calls.getWatchlist).toEqual([]);
     // The unknown id was removed without an instrument lookup.
     expect(deps.market.calls.getInstrument.map((i) => i.value)).not.toContain(idFor('GONE'));
   });
@@ -69,17 +70,14 @@ describe('EditWatchlist', () => {
     const out = await new EditWatchlist(deps).execute({ id: 'wl-1', add: ['ETEL'], market: 'egypt' });
     expect(deps.repository.calls.renameWatchlist).toEqual([]);
     expect(deps.repository.calls.removeFromWatchlist).toEqual([]);
-    expect(out).toMatchObject({
-      name: 'Banks',
-      changes: { renamed: false, added: [idFor('ETEL')], removed: [] },
-    });
+    expect(out).toEqual({ id: 'wl-1', renamed: false, name: null, added: [idFor('ETEL')], removed: [] });
   });
 
   it('only renames', async () => {
     const deps = engagementSetup(new FakeEngagementRepository({ watchlists: [aWatchlist()] }));
     const out = await new EditWatchlist(deps).execute({ id: 'wl-1', name: 'Renamed', add: [], remove: [] });
     expect(deps.repository.calls.addToWatchlist).toEqual([]);
-    expect(out.changes).toEqual({ renamed: true, added: [], removed: [] });
+    expect(out).toEqual({ id: 'wl-1', renamed: true, name: 'Renamed', added: [], removed: [] });
   });
 
   it('rejects empty edits, conflicts and oversize lists without writing', async () => {

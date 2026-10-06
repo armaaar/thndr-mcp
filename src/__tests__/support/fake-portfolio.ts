@@ -2,7 +2,6 @@ import { vi } from 'vitest';
 import { NotFoundError } from '../../application/errors';
 import { InstrumentResolver } from '../../application/market-data/services/instrument-resolver';
 import type { PortfolioDependencies } from '../../application/portfolio/dependencies';
-import { AssetId } from '../../domain/market-data/asset-id';
 import type { Instrument } from '../../domain/market-data/instrument';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
 import { createAccountSummary } from '../../domain/portfolio/account-summary';
@@ -11,6 +10,7 @@ import { createOrder, type Order } from '../../domain/portfolio/order';
 import { createPosition, type Position } from '../../domain/portfolio/position';
 import type { PortfolioRepository } from '../../domain/portfolio/repository';
 import { quantityBucket } from '../../domain/portfolio/sellable-quantity';
+import { AssetId } from '../../domain/shared-kernel/asset-id';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 
 export const NOW = new Date('2026-06-01T12:00:00Z');

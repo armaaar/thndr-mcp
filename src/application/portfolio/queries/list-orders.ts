@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { type Market, parseMarket } from '../../../domain/market-data/market';
 import { ORDER_STATUS_FILTERS, type Order, parseOrderStatusFilter } from '../../../domain/portfolio/order';
+import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
 import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';

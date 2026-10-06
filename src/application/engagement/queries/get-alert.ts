@@ -1,5 +1,5 @@
-import { parseMarket } from '../../../domain/market-data/market';
 import { assertNonEmpty } from '../../../domain/shared-kernel/guards';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';

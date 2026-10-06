@@ -1,4 +1,4 @@
-import type { FetchFn } from '../../infrastructure/data-sources/thndr/http-client';
+import type { FetchFn } from '../../data-sources/thndr/http-client';
 
 export interface RecordedRequest {
   url: string;

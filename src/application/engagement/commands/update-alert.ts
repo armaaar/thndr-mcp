@@ -3,16 +3,16 @@ import {
   parseAlertDirection,
   parseAlertFrequency,
 } from '../../../domain/engagement/price-alert';
-import { parseMarket } from '../../../domain/market-data/market';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { assertNonEmpty, assertPositive } from '../../../domain/shared-kernel/guards';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { UpstreamError } from '../../errors';
 import { marketInput } from '../../inputs';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, idInput, priceInput } from '../inputs';
 import { decideDirection, findAlert, placeAlert } from '../price-alerts';
-import type { PlacedAlertView } from '../views';
+import { type AlertReceipt, toAlertReceipt } from '../views';
 
 const input = {
   id: idInput,
@@ -22,7 +22,7 @@ const input = {
   market: marketInput,
 };
 
-type Output = PlacedAlertView & { previousId: string };
+type Output = AlertReceipt & { previousId: string };
 
 /**
  * IBKR `update_alert`. Thndr has no update endpoint: like ThndrX (docs/api/market-data.md §5.2) we DELETE the
@@ -71,7 +71,7 @@ export class UpdateAlert extends Command<typeof input, Output> {
     await this.deps.repository.deletePriceAlert(existing.id);
     try {
       const view = await placeAlert(this.deps, existing.instrumentId, price, direction, frequency, market);
-      return { ...view, previousId: existing.id };
+      return { ...toAlertReceipt(view), previousId: existing.id };
     } catch (error) {
       const restored = await this.deps.repository
         .createPriceAlert({

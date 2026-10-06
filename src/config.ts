@@ -1,5 +1,5 @@
-import { defaultSessionPath } from './infrastructure/data-sources/local/session-file';
-import { type LogLevel, parseLogLevel } from './infrastructure/logging/stderr-logger';
+import { defaultSessionPath } from './data-sources/local/session-file';
+import { type LogLevel, parseLogLevel } from './data-sources/logging/stderr-logger';
 
 /** Runtime configuration, read from environment variables (see README). */
 export interface AppConfig {

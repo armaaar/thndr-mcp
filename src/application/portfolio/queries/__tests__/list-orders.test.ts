@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { COMI_ID, order, setupPortfolio } from '../../../../__tests__/support/fake-portfolio';
-import { AssetId } from '../../../../domain/market-data/asset-id';
+import { AssetId } from '../../../../domain/shared-kernel/asset-id';
 import { ValidationError } from '../../../../domain/shared-kernel/errors';
 import { ListOrders } from '../list-orders';
 

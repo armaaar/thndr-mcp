@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { parseMarket } from '../../../domain/market-data/market';
 import type { Position } from '../../../domain/portfolio/position';
 import type { SellableQuantity } from '../../../domain/portfolio/sellable-quantity';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';

@@ -1,7 +1,7 @@
 import type { Notification } from '../../domain/engagement/notification';
 import type { AlertDirection, AlertFrequency } from '../../domain/engagement/price-alert';
 import type { Watchlist } from '../../domain/engagement/watchlist';
-import type { Market } from '../../domain/market-data/market';
+import type { Market } from '../../domain/shared-kernel/market';
 import type { InstrumentLabel, InstrumentLabels } from './services/instrument-labels';
 
 export interface WatchlistSummaryView {
@@ -28,6 +28,25 @@ export interface AlertView {
   createdAt: string | null;
   /** Last traded price, when the market snapshot has it. */
   currentPrice: number | null;
+}
+
+/** CQS receipt of a placed alert. `id` is null when Thndr's reply did not identify it and no match was found. */
+export type AlertReceipt = {
+  id: string | null;
+  ticker: string | null;
+  targetPrice: number;
+  direction: AlertDirection | null;
+  frequency: AlertFrequency | null;
+};
+
+export function toAlertReceipt(view: PlacedAlertView): AlertReceipt {
+  return {
+    id: view.id,
+    ticker: view.ticker,
+    targetPrice: view.targetPrice,
+    direction: view.direction,
+    frequency: view.frequency,
+  };
 }
 
 /** An alert just placed: `id` is null when Thndr's reply did not identify it and no match was found. */

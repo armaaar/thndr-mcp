@@ -1,7 +1,7 @@
-import { AssetId } from '../../../domain/market-data/asset-id';
 import type { Instrument } from '../../../domain/market-data/instrument';
-import type { Market } from '../../../domain/market-data/market';
 import type { MarketDataRepository } from '../../../domain/market-data/repository';
+import { AssetId } from '../../../domain/shared-kernel/asset-id';
+import type { Market } from '../../../domain/shared-kernel/market';
 import { Ticker } from '../../../domain/shared-kernel/ticker';
 import { NotFoundError } from '../../errors';
 

@@ -4,9 +4,9 @@ import {
   deriveAlertDirection,
   type PriceAlert,
 } from '../../domain/engagement/price-alert';
-import type { AssetId } from '../../domain/market-data/asset-id';
-import type { Market } from '../../domain/market-data/market';
+import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import { ValidationError } from '../../domain/shared-kernel/errors';
+import type { Market } from '../../domain/shared-kernel/market';
 import { NotFoundError } from '../errors';
 import { ALERT_SCAN_MAX_PAGES, ALERT_SCAN_PAGE_SIZE } from './constants';
 import type { EngagementDependencies } from './dependencies';

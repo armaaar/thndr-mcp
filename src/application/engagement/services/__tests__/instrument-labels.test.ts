@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { idFor } from '../../../../__tests__/support/fake-market-data';
-import { AssetId } from '../../../../domain/market-data/asset-id';
+import { AssetId } from '../../../../domain/shared-kernel/asset-id';
 import { assetIdOrNull, emptyLabel, InstrumentLabels } from '../instrument-labels';
 
 describe('InstrumentLabels', () => {

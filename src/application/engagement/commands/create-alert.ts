@@ -3,14 +3,14 @@ import {
   parseAlertDirection,
   parseAlertFrequency,
 } from '../../../domain/engagement/price-alert';
-import { parseMarket } from '../../../domain/market-data/market';
 import { assertPositive } from '../../../domain/shared-kernel/guards';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, priceInput } from '../inputs';
 import { decideDirection, placeAlert } from '../price-alerts';
-import type { PlacedAlertView } from '../views';
+import { type AlertReceipt, toAlertReceipt } from '../views';
 
 const input = {
   symbol: symbolInput,
@@ -24,7 +24,7 @@ const input = {
  * IBKR `create_alert`: a price alert on a symbol. The direction defaults to ThndrX's rule — `DOWN` when the
  * target is below the last price, else `UP` — and the frequency to `ONE_TIME`.
  */
-export class CreateAlert extends Command<typeof input, PlacedAlertView> {
+export class CreateAlert extends Command<typeof input, AlertReceipt> {
   readonly name = 'create_alert';
   readonly title = 'Create price alert';
   readonly description =
@@ -37,7 +37,7 @@ export class CreateAlert extends Command<typeof input, PlacedAlertView> {
     super();
   }
 
-  async execute(params: InputOf<typeof input>): Promise<PlacedAlertView> {
+  async execute(params: InputOf<typeof input>): Promise<AlertReceipt> {
     assertPositive(params.price, 'Alert price');
     const explicitDirection = parseAlertDirection(params.direction);
     const frequency = parseAlertFrequency(params.frequency) ?? DEFAULT_ALERT_FREQUENCY;
@@ -46,6 +46,8 @@ export class CreateAlert extends Command<typeof input, PlacedAlertView> {
     const direction =
       explicitDirection ??
       (await decideDirection(this.deps, instrument.id, instrument.ticker.value, params.price, market));
-    return placeAlert(this.deps, instrument.id, params.price, direction, frequency, market);
+    return toAlertReceipt(
+      await placeAlert(this.deps, instrument.id, params.price, direction, frequency, market),
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MARKETS } from '../domain/market-data/market';
+import { MARKETS } from '../domain/shared-kernel/market';
 
 /** Reusable input fields of use-case contracts. */
 export const marketInput = z

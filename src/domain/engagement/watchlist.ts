@@ -1,4 +1,4 @@
-import type { AssetId } from '../market-data/asset-id';
+import type { AssetId } from '../shared-kernel/asset-id';
 import { ValidationError } from '../shared-kernel/errors';
 
 export const WATCHLIST_NAME_MAX_LENGTH = 50;

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { type Market, parseMarket } from '../../../domain/market-data/market';
 import {
   parseReturnsInterval,
   RETURNS_INTERVALS,
@@ -9,6 +8,7 @@ import {
   type ReturnsSeriesSummary,
   summarizeReturnsSeries,
 } from '../../../domain/portfolio/returns';
+import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';

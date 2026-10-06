@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { parseMarket } from '../../domain/market-data/market';
 import { parseMarketDate } from '../../domain/market-data/market-calendar';
 import { journalRange } from '../../domain/portfolio/journal';
 import type { JournalQuery } from '../../domain/portfolio/repository';
+import { parseMarket } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 import { dateInput, marketInput, pageInput } from '../inputs';
 import { clamp } from '../paging';

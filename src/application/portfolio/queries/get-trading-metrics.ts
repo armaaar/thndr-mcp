@@ -1,10 +1,10 @@
-import { parseMarket } from '../../../domain/market-data/market';
 import { parseMarketDate } from '../../../domain/market-data/market-calendar';
 import {
   type InstrumentTradingStats,
   journalRange,
   type TradingMetrics,
 } from '../../../domain/portfolio/journal';
+import { parseMarket } from '../../../domain/shared-kernel/market';
 import { dateInput, marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';

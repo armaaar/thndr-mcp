@@ -52,15 +52,13 @@ describe('CreateAlert', () => {
     expect(deps.repository.calls.createPriceAlert).toEqual([
       { instrumentId: idFor('COMI'), price: 95, direction: 'DOWN', frequency: 'ONE_TIME', market: 'egypt' },
     ]);
+    // CQS: a flat receipt of what was created, no read-model fields (createdAt, currentPrice).
     expect(out).toEqual({
       id: 'a-100',
-      instrumentId: idFor('COMI'),
       ticker: 'COMI',
       targetPrice: 95,
       direction: 'DOWN',
       frequency: 'ONE_TIME',
-      createdAt: '2026-01-15T12:00:00.000Z',
-      currentPrice: 100,
     });
   });
 
@@ -139,13 +137,10 @@ describe('CreateAlert', () => {
     const out = await new CreateAlert(engagementSetup(repository)).execute({ symbol: 'HRHO', price: 50 });
     expect(out).toEqual({
       id: null,
-      instrumentId: idFor('HRHO'),
       ticker: 'HRHO',
       targetPrice: 50,
       direction: 'DOWN',
       frequency: 'ONE_TIME',
-      createdAt: null,
-      currentPrice: 101,
     });
   });
 });

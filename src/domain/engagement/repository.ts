@@ -1,5 +1,5 @@
-import type { AssetId } from '../market-data/asset-id';
-import type { Market } from '../market-data/market';
+import type { AssetId } from '../shared-kernel/asset-id';
+import type { Market } from '../shared-kernel/market';
 import type { Notification } from './notification';
 import type { AlertDirection, AlertFrequency, PriceAlert } from './price-alert';
 import type { Watchlist, WatchlistName } from './watchlist';
