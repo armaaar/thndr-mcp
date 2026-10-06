@@ -43,7 +43,8 @@ export class GetPortfolioPerformance extends Query<typeof input, PortfolioPerfor
   readonly title = 'Portfolio performance';
   readonly description =
     "Portfolio performance for 1D, 7D, MTD, 1M, 6M, YTD, 1Y and 2Y from Thndr's returns chart: start/end value, " +
-    'value change, net deposits change, gain excluding deposits, time-weighted return %, realized returns change, ' +
+    'value change, net deposits change, gain excluding deposits, time-weighted return %, change of Thndr’s total ' +
+    'returns, ' +
     'the dates and series granularity (daily/weekly) used, and whether the period is only partly covered.';
   readonly context = 'portfolio';
   readonly input = input;
@@ -74,9 +75,15 @@ export class GetPortfolioPerformance extends Query<typeof input, PortfolioPerfor
         'Base of a period = the last snapshot on or before the close before its first day (rolling periods count ' +
           'back from the latest snapshot; MTD/YTD start on the 1st in Cairo time). If the series starts later, ' +
           'its first snapshot is used and the period is marked partial.',
-        'gainExcludingDeposits = valueChange − netDepositsChange.',
-        'Time-weighted return chains r = (V_i − ΔD_i) / V_(i−1) − 1 over consecutive snapshots, assuming deposits ' +
-          'and withdrawals arrive at the end of each sub-period; sub-periods starting from a value ≤ 0 are skipped.',
+        'Values are Thndr’s account value at each snapshot (positions plus cash).',
+        'gainExcludingDeposits = valueChange − netDepositsChange. thndrTotalReturnsChange is the change of Thndr’s ' +
+          '"total_returns" (account value − net deposits, unrealized gains included), so it normally equals ' +
+          'gainExcludingDeposits; it is not realized profit.',
+        'Time-weighted return chains r = (V_i − min(F,0)) / (V_(i−1) + max(F,0)) − 1 over consecutive snapshots ' +
+          '(F = change of net deposits): deposits count from the start of the sub-period, withdrawals at its end; ' +
+          'sub-periods with nothing at risk are skipped.',
+        'Snapshots are daily (weekends included), so 1D compares the latest snapshot with the day before it. A ' +
+          'period with a single snapshot (e.g. MTD on the 1st) has no figures.',
         'Weekly snapshots (2Y series) are used only before the daily 6M series starts, so long periods are ' +
           'approximations at weekly granularity.',
       ],

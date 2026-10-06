@@ -70,7 +70,8 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
     const holdings: AllocationHolding[] = allocation.positions.map((p) => {
       const quote =
         (p.instrumentId ? byId.get(p.instrumentId.value) : undefined) ?? byTicker.get(p.ticker.value);
-      const id = p.instrumentId?.value ?? quote?.instrumentId.value ?? null;
+      // The matched quote's id is the snapshot's (and the index members') id; the position's id is only a fallback.
+      const id = quote?.instrumentId.value ?? p.instrumentId?.value ?? null;
       return Object.freeze({
         ticker: p.ticker.value,
         instrumentId: id,

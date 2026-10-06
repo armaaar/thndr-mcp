@@ -54,6 +54,33 @@ describe('timeWeightedReturn', () => {
     ).toBe(0);
   });
 
+  it('counts deposits from the start of their sub-period, so a large deposit cannot distort the return', () => {
+    // 50 invested, 10,000 deposited and invested, the day closes +1%: about +1%, not +201%.
+    expect(
+      timeWeightedReturn([
+        { portfolioValue: 50, netDeposits: 50 },
+        { portfolioValue: 10_150.5, netDeposits: 10_050 },
+      ]),
+    ).toBe(1);
+    // 1,000 invested, 10,000 deposited, the day closes −1%: −1%, not −11%.
+    expect(
+      timeWeightedReturn([
+        { portfolioValue: 1_000, netDeposits: 1_000 },
+        { portfolioValue: 10_890, netDeposits: 11_000 },
+      ]),
+    ).toBe(-1);
+  });
+
+  it('counts withdrawals at the end of their sub-period, also a near-total one', () => {
+    // 10,000 earns +1%, then 9,000 is withdrawn: +1%.
+    expect(
+      timeWeightedReturn([
+        { portfolioValue: 10_000, netDeposits: 10_000 },
+        { portfolioValue: 1_100, netDeposits: 1_000 },
+      ]),
+    ).toBe(1);
+  });
+
   it('skips sub-periods that start from nothing invested', () => {
     expect(
       timeWeightedReturn([
@@ -131,7 +158,7 @@ describe('periodPerformance', () => {
       netDepositsChange: 500,
       gainExcludingDeposits: 0,
       timeWeightedReturnPercent: 0,
-      realizedReturnsChange: 25,
+      thndrTotalReturnsChange: 25,
     });
     expect(Object.isFrozen(p)).toBe(true);
   });
@@ -156,9 +183,14 @@ describe('periodPerformance', () => {
   });
 
   it('handles a base on the latest point, missing figures and an empty series', () => {
+    // MTD on the 1st: the only snapshot is the base itself, so there is nothing to measure.
     expect(periodPerformance('MTD', timeline, '2026-04-30')).toMatchObject({
-      valueChange: 0,
-      timeWeightedReturnPercent: 0,
+      partial: false,
+      from: null,
+      to: null,
+      startValue: null,
+      valueChange: null,
+      timeWeightedReturnPercent: null,
     });
     const sparse = mergeReturnsSeries(
       [point('2026-04-06', 10, null, null), point('2026-04-07', 12, 5, 1)],
@@ -169,7 +201,7 @@ describe('periodPerformance', () => {
       netDepositsChange: null,
       gainExcludingDeposits: null,
       timeWeightedReturnPercent: null,
-      realizedReturnsChange: null,
+      thndrTotalReturnsChange: null,
     });
     expect(periodPerformance('1M', [], '2026-04-06')).toMatchObject({
       partial: true,

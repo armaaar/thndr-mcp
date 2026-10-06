@@ -218,8 +218,8 @@ interface RealizedReturns { total_returns: number; snapshot_date: string /* date
 ```ts
 type ReturnsChart = Array<{        // live-verified 2026-10-06; array, oldest first
   snapshot_date: string;              // "YYYY-MM-DD"
-  total_returns: number;              // cumulative realized returns
-  portfolio_value: number;
+  total_returns: number;              // = portfolio_value − net_deposits (unrealized gains included; live 2026-10-06), despite the "realized" path
+  portfolio_value: number;            // account value: positions + cash (live 2026-10-06: the latest point equals the wallet's positions value plus its cash)
   net_deposits: number;               // cumulative deposits − withdrawals (live 2026-10-06; not read by ThndrX's chart)
 }>;
 ```

@@ -106,6 +106,24 @@ describe('GetPortfolioAllocation', () => {
     expect(out.notes.join(' ')).toMatch(/do not sum to 100%/);
   });
 
+  it('joins by id before ticker, and takes index membership from the matched quote', async () => {
+    const { deps } = setup();
+    vi.mocked(deps.repository.getAccount).mockResolvedValue({
+      summary: createAccountSummary({ ...summary, portfolioValue: 100 }),
+      positions: [
+        // The id points at COMI although the ticker says HRHO: the id wins.
+        position('HRHO', 1, { instrumentId: AssetId.of(idFor('COMI')) }),
+        // An id the snapshot does not know: the ticker joins it, and membership follows the quote's id.
+        position('COMI', 1, { instrumentId: AssetId.of(idFor('STALE')) }),
+      ],
+    });
+    const out = await new GetPortfolioAllocation(deps).run({});
+    expect(out.holdings.map((h) => [h.ticker, h.instrumentId, h.sector, h.indices])).toEqual([
+      ['HRHO', idFor('COMI'), 'Banks', ['EGX30', 'SHARIAH']],
+      ['COMI', idFor('COMI'), 'Banks', ['EGX30', 'SHARIAH']],
+    ]);
+  });
+
   it('handles an empty portfolio for another market', async () => {
     const { deps, md } = setupPortfolio({
       getAccount: vi.fn(async () => ({

@@ -42,8 +42,12 @@ export interface PeriodPerformance {
   readonly gainExcludingDeposits: number | null;
   /** Time-weighted return over the window, in percent; see {@link timeWeightedReturn}. */
   readonly timeWeightedReturnPercent: number | null;
-  /** Change of Thndr's cumulative realized returns over the window. */
-  readonly realizedReturnsChange: number | null;
+  /**
+   * Change of Thndr's cumulative `total_returns` over the window. Despite the endpoint's name ("realized returns"),
+   * it is the account value minus net deposits, unrealized gains included (live check 2026-10-06), so it normally
+   * equals `gainExcludingDeposits`.
+   */
+  readonly thndrTotalReturnsChange: number | null;
 }
 
 /**
@@ -107,10 +111,11 @@ export function mergeReturnsSeries(
 
 /**
  * Time-weighted return of consecutive points, in percent (4 decimals). Sub-period returns are chained:
- * `r_i = (V_i − ΔD_i) / V_{i−1} − 1`, where `ΔD_i` is the change of net deposits between the two snapshots.
- * Cash-flow timing assumption: money moved in or out during a sub-period arrives at its end, just before the closing
- * valuation, so it earns nothing in that sub-period. Sub-periods that start from a value ≤ 0 are skipped (nothing
- * was invested). Null when a point lacks net deposits or no sub-period could be used; 0 for a single point.
+ * `r_i = (V_i − min(F_i, 0)) / (V_{i−1} + max(F_i, 0)) − 1`, where `F_i` is the change of net deposits between the two
+ * snapshots. Cash-flow timing assumption: deposits arrive at the start of the sub-period (they are invested and at
+ * risk for it) and withdrawals at its end, so a large flow never inflates or wipes out the return of the money that was
+ * already there. Sub-periods whose capital at risk is ≤ 0 are skipped. Null when a point lacks net deposits or no
+ * sub-period could be used; 0 for a single point.
  */
 export function timeWeightedReturn(
   points: readonly Pick<PerformancePoint, 'portfolioValue' | 'netDeposits'>[],
@@ -122,9 +127,10 @@ export function timeWeightedReturn(
   for (let i = 1; i < points.length; i++) {
     const previous = points[i - 1] as PerformancePoint;
     const current = points[i] as PerformancePoint;
-    if (previous.portfolioValue <= 0) continue;
     const flow = (current.netDeposits as number) - (previous.netDeposits as number);
-    growth *= (current.portfolioValue - flow) / previous.portfolioValue;
+    const atRisk = previous.portfolioValue + Math.max(flow, 0);
+    if (atRisk <= 0) continue;
+    growth *= (current.portfolioValue - Math.min(flow, 0)) / atRisk;
     used += 1;
   }
   return used === 0 ? null : roundTo((growth - 1) * 100, 4);
@@ -152,13 +158,14 @@ export function periodPerformance(
   const window = timeline.slice(partial ? 0 : baseIndex);
   const start = window[0];
   const end = window.at(-1);
-  if (!start || !end) {
+  // A single snapshot measures nothing (e.g. MTD on the 1st, before the month's first snapshot exists).
+  if (!start || !end || window.length < 2) {
     return Object.freeze({
       period,
       requestedFrom: baseDay,
       from: null,
       to: null,
-      partial: true,
+      partial,
       granularity: null,
       startValue: null,
       endValue: null,
@@ -166,7 +173,7 @@ export function periodPerformance(
       netDepositsChange: null,
       gainExcludingDeposits: null,
       timeWeightedReturnPercent: null,
-      realizedReturnsChange: null,
+      thndrTotalReturnsChange: null,
     });
   }
   const kinds = new Set(window.map((p) => p.granularity));
@@ -186,6 +193,6 @@ export function periodPerformance(
     netDepositsChange,
     gainExcludingDeposits: diff(netDepositsChange, valueChange),
     timeWeightedReturnPercent: timeWeightedReturn(window),
-    realizedReturnsChange: diff(start.totalReturns, end.totalReturns),
+    thndrTotalReturnsChange: diff(start.totalReturns, end.totalReturns),
   });
 }

@@ -15,7 +15,10 @@ export function parseReturnsInterval(raw: string | undefined | null): ReturnsInt
   return value as ReturnsInterval;
 }
 
-/** Cumulative realized returns as of a snapshot date. */
+/**
+ * Thndr's cumulative "realized returns" as of a snapshot date. Live data (2026-10-06) shows `total_returns` equals the
+ * account value minus net deposits, so it includes unrealized gains.
+ */
 export interface RealizedReturns {
   readonly totalReturns: number | null;
   readonly snapshotDate: Date | null;
@@ -32,7 +35,7 @@ export interface ReturnsPoint {
 export interface ReturnsSeriesSummary {
   readonly from: Date | null;
   readonly to: Date | null;
-  /** Realized returns booked over the window (last - first). */
+  /** Change of Thndr's cumulative returns over the window (last − first); unrealized gains included. */
   readonly returnsChange: number | null;
   readonly portfolioValueChange: number | null;
   readonly portfolioValueChangePercent: number | null;

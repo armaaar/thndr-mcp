@@ -108,7 +108,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 
 - **Use case:** `GetRealizedReturns` (`Query`) in `src/application/portfolio/queries/get-realized-returns.ts`
 - **Invoke:** MCP `get_realized_returns {"interval": "1Y"}` · CLI `thndr get-realized-returns --interval 1Y`
-- **Goal:** realized P/L to date and its evolution.
+- **Goal:** Thndr's cumulative return to date and its evolution. Despite the endpoint's name, `total_returns` is the
+  account value minus net deposits (unrealized gains included; live 2026-10-06), not realized P/L.
 - **Input:** `market`, `interval` (`1M` default, `6M`, `1Y`, `2Y`).
 - **Main flow:**
   1. Fetch current realized returns and the chart series in parallel.
@@ -244,15 +245,19 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   4. Base = last point on or before the base day; if the timeline starts later, its first point is used and the
      period is flagged `partial`. End = latest point (domain `periodPerformance`).
 - **Figures:** `valueChange = endValue − startValue`; `netDepositsChange` = change of cumulative net deposits;
-  `gainExcludingDeposits = valueChange − netDepositsChange`; `realizedReturnsChange` = change of Thndr's
-  cumulative realized returns; `timeWeightedReturnPercent` chains `r_i = (V_i − ΔD_i) / V_(i−1) − 1` over
-  consecutive snapshots — **assumption:** deposits/withdrawals in a sub-period arrive at its end (just before the
-  closing valuation), so they earn nothing in it; sub-periods starting from a value ≤ 0 are skipped; null when a
-  snapshot lacks net deposits.
+  `gainExcludingDeposits = valueChange − netDepositsChange`; `thndrTotalReturnsChange` = change of Thndr's
+  `total_returns` (account value − net deposits, unrealized included, so it normally equals
+  `gainExcludingDeposits`; not realized profit); `timeWeightedReturnPercent` chains
+  `r_i = (V_i − min(F_i, 0)) / (V_(i−1) + max(F_i, 0)) − 1` over consecutive snapshots (`F_i` = change of net
+  deposits) — **assumption:** deposits arrive at the start of a sub-period (invested for it) and withdrawals at its
+  end, so a large flow cannot distort the return of the money already there; sub-periods with nothing at risk are
+  skipped; null when a snapshot lacks net deposits. Values are the account value (positions + cash). A period whose
+  window has a single snapshot (e.g. MTD on the 1st) has null figures. Snapshots are daily including weekends, so
+  1D compares the latest snapshot with the day before.
 - **Alternative/error flows:** common errors. No snapshots → every period `partial` with null figures.
 - **Output:** `market`, `currency`, `asOf` (latest snapshot), `periods` (period, requestedFrom (base day),
   from/to (snapshot dates used), partial, granularity (`daily`, `weekly` or `weekly+daily`), startValue, endValue,
-  valueChange, netDepositsChange, gainExcludingDeposits, timeWeightedReturnPercent, realizedReturnsChange),
+  valueChange, netDepositsChange, gainExcludingDeposits, timeWeightedReturnPercent, thndrTotalReturnsChange),
   `series` (interval, granularity, from, to, points per fetched series), `method` (the formulas above, in words).
 - **Notes:** periods longer than the daily series (6M usually needs one weekly point, since the daily series starts
   the day after the 6M base; 1Y, 2Y) are approximations at weekly granularity and say so. `get_realized_returns`

@@ -71,11 +71,11 @@ describe('GetPortfolioPerformance', () => {
       valueChange: 1,
       netDepositsChange: 0,
       gainExcludingDeposits: 1,
-      realizedReturnsChange: 0.1,
+      thndrTotalReturnsChange: 0.1,
     });
     expect(byPeriod['7D']).toMatchObject({ requestedFrom: '2026-05-24', valueChange: 7 });
     // MTD on 1 June: the period has not produced a snapshot yet.
-    expect(byPeriod.MTD).toMatchObject({ requestedFrom: '2026-05-31', valueChange: 0 });
+    expect(byPeriod.MTD).toMatchObject({ requestedFrom: '2026-05-31', valueChange: null });
     expect(byPeriod.YTD).toMatchObject({ requestedFrom: '2025-12-31', granularity: 'daily' });
     // The daily series starts 2025-12-01, after the 6M base (2025-11-30): the last weekly point before it is used.
     expect(byPeriod['6M']).toMatchObject({
@@ -93,7 +93,7 @@ describe('GetPortfolioPerformance', () => {
     });
     const twr = byPeriod['1D']?.timeWeightedReturnPercent ?? 0;
     expect(twr).toBeCloseTo((1 / ((1_000 + 880) as number)) * 100, 3);
-    expect(out.method.join(' ')).toMatch(/end of each sub-period/);
+    expect(out.method.join(' ')).toMatch(/deposits count from the start of the sub-period/);
   });
 
   it('reports nulls when Thndr returns no snapshots', async () => {
