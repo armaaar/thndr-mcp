@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aDividend } from '../../../../__tests__/support/fake-discovery';
+import { aDividend } from '../../../../__tests__/support/discovery-builders';
 import { COMI_ID, setupMarketData, withInstruments } from '../../../../__tests__/support/fake-market-data';
 import type { DividendPage } from '../../../../domain/market-data/discovery';
 import { GetDividends } from '../get-dividends';
@@ -51,7 +51,7 @@ describe('GetDividends', () => {
         currency: 'EGP',
         frequency: 'ONE_TIME',
         couponNumber: null,
-        distributions: [{ date: '2026-04-09', ratio: 6 }],
+        distributions: [{ date: '2026-04-09', cashPerShare: 6 }],
       },
       {
         id: '1063',
@@ -62,12 +62,17 @@ describe('GetDividends', () => {
         currency: 'EGP',
         frequency: 'ONE_TIME',
         couponNumber: null,
-        distributions: [{ date: '2025-12-17', ratio: 0.1 }],
+        distributions: [{ date: '2025-12-17', bonusSharesPerShare: 0.1 }],
       },
     ]);
     const last = await new GetDividends(deps).run({ symbol: 'COMI', limit: 2, page: 2 });
     expect(last.hasMore).toBe(false);
-    expect(last.dividends[0]).toMatchObject({ id: '9', ratio: 2, couponNumber: '47' });
+    expect(last.dividends[0]).toMatchObject({
+      id: '9',
+      ratio: 2,
+      couponNumber: '47',
+      distributions: [{ date: '2026-04-09', ratio: 6 }],
+    });
     expect(last.dividends[0]).not.toHaveProperty('cashPerShare');
   });
 

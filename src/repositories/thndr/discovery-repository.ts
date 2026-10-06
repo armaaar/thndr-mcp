@@ -105,8 +105,13 @@ export class ThndrDiscoveryRepository implements DiscoveryRepository {
         query: { market: instrumentMarket(market), page_count: page.pageSize, page: page.page, ...FEED },
       });
     } catch (error) {
-      if (isNotFound(error)) throw new NotFoundError(`No Thndr tag with id "${tagId}".`);
-      throw error;
+      if (!isNotFound(error)) throw error;
+      // A 404 past the last page (Django pagination) is not an unknown tag: answer the tag with no instruments.
+      if (page.page > 1) {
+        const first = await this.getTagInstruments(tagId, market, { page: 1, pageSize: 1 });
+        return Object.freeze({ tag: first.tag, instruments: Object.freeze([]) });
+      }
+      throw new NotFoundError(`No Thndr tag with id "${tagId}".`);
     }
     const tag = toTag(data && typeof data === 'object' ? { ...data, id: data.id ?? tagId } : null);
     if (!tag) throw new UpstreamError(`Unexpected tag payload from Thndr for ${tagId}`);

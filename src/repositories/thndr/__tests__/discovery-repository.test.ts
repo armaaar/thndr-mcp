@@ -269,6 +269,18 @@ describe('ThndrDiscoveryRepository', () => {
       ).rejects.toThrow(new NotFoundError('No Thndr tag with id "9".'));
     });
 
+    it('answers the tag with no instruments past its last page, and NOT_FOUND for an unknown tag', async () => {
+      const gone = () => json({ detail: 'Invalid page.' }, 404);
+      const past = setup(gone, () => json({ id: 157, name: 'Sharia', assets: [asset('AALR', ID_A)] }));
+      const out = await past.repo.getTagInstruments('157', 'egypt', { page: 9, pageSize: 20 });
+      expect(out.tag.name).toBe('Sharia');
+      expect(out.instruments).toEqual([]);
+      expect(past.fetch.calls[1]?.url).toContain('page_count=1&page=1');
+      await expect(
+        setup(gone).repo.getTagInstruments('9', 'egypt', { page: 2, pageSize: 20 }),
+      ).rejects.toThrow(NotFoundError);
+    });
+
     it('rejects an unexpected payload and lets other errors through', async () => {
       await expect(
         setup(() => json(null)).repo.getTagInstruments('157', 'egypt', { page: 1, pageSize: 20 }),

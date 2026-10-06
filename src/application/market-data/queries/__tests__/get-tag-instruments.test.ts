@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aListedInstrument, aTag } from '../../../../__tests__/support/fake-discovery';
+import { aListedInstrument, aTag } from '../../../../__tests__/support/discovery-builders';
 import { setupMarketData } from '../../../../__tests__/support/fake-market-data';
 import { GetTagInstruments } from '../get-tag-instruments';
 

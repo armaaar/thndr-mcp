@@ -14,7 +14,11 @@ const ids = (...tickers: string[]) => tickers.map((t) => AssetId.of(idFor(t)));
 /** Thndr's levels feed mixes every market's indicators whatever market is asked. */
 function setup() {
   const repository = new FakeMarketDataRepository({
+    // FADGI has no details here: it is kept because the feed has it.
     instruments: [
+      anInstrument({ ticker: 'EGX30', market: 'egypt', assetClass: 'INDEX' }),
+      anInstrument({ ticker: 'SPY', market: 'us', assetClass: 'ETF' }),
+      anInstrument({ ticker: 'QQQ', market: 'us', assetClass: 'ETF' }),
       anInstrument({ ticker: 'FADX15', name: 'FTSE ADX 15', market: 'uae', assetClass: 'INDEX' }),
     ],
   });
@@ -68,6 +72,13 @@ describe('GetMarketStatus', () => {
     ]);
   });
 
+  it("drops another market's indicators when the gateway's list mixes markets", async () => {
+    const deps = setup();
+    deps.discovery.defaultIndicators.us = ids('EGX30', 'SPY', 'FADX15', 'QQQ');
+    const out = await new GetMarketStatus(deps).run({ market: 'us' });
+    expect(out.indices.map((i) => i.ticker)).toEqual(['SPY', 'QQQ']);
+  });
+
   it('names default indices missing from the feed and drops the ones it cannot load', async () => {
     const out = await new GetMarketStatus(setup()).run({ market: 'uae' });
     expect(out.indices).toEqual([
@@ -90,7 +101,12 @@ describe('GetMarketStatus', () => {
     const deps = setup();
     deps.repository.failures.getMarketIndicators = new Error('down');
     const out = await new GetMarketStatus(deps).run({ market: 'egypt' });
-    expect(out).toMatchObject({ market: 'egypt', indices: [] });
+    expect(out).toMatchObject({
+      market: 'egypt',
+      indices: [
+        { ticker: 'EGX30', name: 'EGX30 Corp', level: null, changePercent: null, previousClose: null },
+      ],
+    });
   });
 
   it('propagates a session failure and refuses the simulator', async () => {

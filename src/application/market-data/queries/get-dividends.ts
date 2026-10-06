@@ -38,8 +38,13 @@ export interface DividendView {
   currency: Currency | null;
   frequency: string | null;
   couponNumber: string | null;
-  /** Payment dates, with the part of the ratio paid on each. */
-  distributions: Array<{ date: string | null; ratio: number | null }>;
+  /** Payment dates, each with the part paid then, in the same unit as the dividend (`cashPerShare`…). */
+  distributions: Array<{
+    date: string | null;
+    cashPerShare?: number | null;
+    bonusSharesPerShare?: number | null;
+    ratio?: number | null;
+  }>;
 }
 
 export interface DividendsView {
@@ -84,16 +89,22 @@ export class GetDividends extends Query<typeof input, DividendsView> {
         type: dividend.type,
         status: dividend.status,
         recordDate: dividend.recordDate,
-        ...(dividend.type === 'CASH'
-          ? { cashPerShare: dividend.ratio }
-          : dividend.type === 'STOCK'
-            ? { bonusSharesPerShare: dividend.ratio }
-            : { ratio: dividend.ratio }),
+        ...amount(dividend.type, dividend.ratio),
         currency: dividend.currency,
         frequency: dividend.frequency,
         couponNumber: dividend.couponNumber,
-        distributions: dividend.distributions.map((d) => ({ date: d.date, ratio: d.ratio })),
+        distributions: dividend.distributions.map((d) => ({
+          date: d.date,
+          ...amount(dividend.type, d.ratio),
+        })),
       })),
     };
   }
+}
+
+/** Names Thndr's ratio by what it measures for the dividend's type. */
+function amount(type: DividendType, ratio: number | null) {
+  if (type === 'CASH') return { cashPerShare: ratio };
+  if (type === 'STOCK') return { bonusSharesPerShare: ratio };
+  return { ratio };
 }

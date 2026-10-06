@@ -138,8 +138,11 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   1. In parallel: market status + hours, the market-indicators levels feed, and the market's default indices
      (the mobile app's list: Egypt → EGX indices, US → SPY, QQQ, DIA…, UAE → FADGI…).
   2. The levels feed ignores the market (it mixes EGX indices, US ETFs, ADX indices and USD/EGP, live 2026-10-06), so
-     the default list picks and orders the entries, matched by asset id. A default index missing from the feed is
-     named from its instrument details, with a null level (at most 20 entries).
+     the default list picks and orders the entries, matched by asset id (at most 20).
+  3. Each pick's instrument details (cached by `InstrumentResolver`) must belong to the requested market — a guard in
+     case the gateway's list mixes markets too (only the combined three-market call has been sampled live). A pick
+     whose details fail is kept only when the feed has it; a pick missing from the feed is named from its details,
+     with a null level.
 - **Alternative/error flows:** hours failure → `opensAt`/`closesAt` null; default-list failure (or an empty list) →
   Egypt keeps the whole feed (previous behaviour), other markets `indices: []`; feed failure → only the defaults that
   could be named, without levels; status failure → `UPSTREAM_ERROR`; auth errors as usual.
@@ -147,7 +150,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   `previousClose`). EGX regular session: Sunday–Thursday 10:00–14:30 Africa/Cairo.
 - **Thndr endpoints:** `GET prod /market-service/markets/status`, `GET prod /market-service/markets/hours`,
   `GET prod /assets-service/assets/market-indicators`, `GET app /explore/v1/default-market-indicators?market=`
-  (+ `GET prod /assets-service/assets/{id}` for defaults missing from the feed).
+  (+ `GET prod /assets-service/assets/{id}` per pick, cached for the process lifetime).
 
 ## Screen the market — `screen_market` (`ScreenMarket`)
 
@@ -453,6 +456,7 @@ list fail fast with `FEATURE_DISABLED` (`requireMarketFeature`) without calling 
      name ignoring case and separators, else a unique partial name).
   2. Fetch the tag with one page of its instruments and their feed.
 - **Alternative/error flows:** no tag matches → `NOT_FOUND` listing the market's tags; unknown id → `NOT_FOUND`;
+  a page past the last one → the tag with no instruments (a 404 there is re-checked against page 1);
   UAE or simulator → `FEATURE_DISABLED`; common errors.
 - **Output:** `market`, `tag` (as in `get_tags`), `page`, `pageSize`, `total` (the tag's instrument count), `hasMore`,
   `instruments` (`[{ticker, name, assetClass, sector, currency, price, changePercent, tradable, instrumentId}]`).
@@ -472,7 +476,8 @@ list fail fast with `FEATURE_DISABLED` (`requireMarketFeature`) without calling 
 - **Alternative/error flows:** no dividends → empty list (e.g. NVDA, FAB live 2026-10-06); a page past the last one →
   empty list; common errors.
 - **Output:** `ticker`, `name`, `page`, `pageSize`, `total`, `hasMore`, `dividends` (`[{id, type, status, recordDate,
-  cashPerShare | bonusSharesPerShare | ratio, currency, frequency, couponNumber, distributions: [{date, ratio}]}]`).
+  cashPerShare | bonusSharesPerShare | ratio, currency, frequency, couponNumber, distributions: [{date,
+  cashPerShare | bonusSharesPerShare | ratio}]}]`; each distribution uses the dividend's unit).
   `type` is `CASH` (`cashPerShare` in `currency`) or `STOCK` (`bonusSharesPerShare`: 0.1 = one new share for ten);
   `status` is `UPCOMING`, `ONGOING` or `PAST`.
 - **Thndr endpoints:** (resolve) + `GET prod /assets-service/assets/{id}/dividends?page&page_count`.

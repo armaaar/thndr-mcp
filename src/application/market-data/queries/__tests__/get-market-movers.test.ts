@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { aMover } from '../../../../__tests__/support/fake-discovery';
+import { aMover } from '../../../../__tests__/support/discovery-builders';
 import { setupMarketData } from '../../../../__tests__/support/fake-market-data';
 import { GetMarketMovers } from '../get-market-movers';
 

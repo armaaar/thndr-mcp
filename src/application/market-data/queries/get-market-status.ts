@@ -52,9 +52,10 @@ export class GetMarketStatus extends Query<typeof input, MarketStatus> {
 
   /**
    * Thndr's levels feed ignores the market (it mixes EGX indices, US ETFs, ADX indices and FX rates), so the
-   * market's default indicator list (the app's per-market indices) picks and orders the entries. Defaults missing
-   * from the feed are named from their instrument details, without a level. Without that list only Egypt keeps the
-   * whole feed, as before.
+   * market's default indicator list (the app's per-market indices) picks and orders the entries. Each pick is checked
+   * against its instrument's market (asset details, cached by the resolver) in case the gateway's list mixes markets
+   * too; a pick whose details fail is kept only when the feed has it. Picks missing from the feed are named from their
+   * details, without a level. Without a list only Egypt keeps the whole feed, as before.
    */
   private async indices(
     market: Market,
@@ -67,8 +68,9 @@ export class GetMarketStatus extends Query<typeof input, MarketStatus> {
     const views = await Promise.all(
       picked.map(async (id): Promise<IndexLevelView | null> => {
         const quote = byId.get(id.value);
-        if (quote) return toLevel(quote);
         const instrument = await this.deps.resolver.resolve(id.value, market).catch(() => null);
+        if (instrument && instrument.market !== market) return null;
+        if (quote) return toLevel(quote);
         return instrument
           ? {
               ticker: instrument.ticker.value,
