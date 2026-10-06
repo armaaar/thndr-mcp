@@ -43,9 +43,14 @@ export class IndexMembership {
     const indices = this.load(market);
     const fresh = { at: now, indices };
     this.entries.set(market, fresh);
-    indices.catch(() => {
+    // Evict failures, and an empty list (a snapshot without index rows) so the next call retries — but never evict
+    // a newer entry that replaced this one.
+    const evict = () => {
       if (this.entries.get(market) === fresh) this.entries.delete(market);
-    });
+    };
+    indices.then((list) => {
+      if (list.length === 0) evict();
+    }, evict);
     return indices;
   }
 

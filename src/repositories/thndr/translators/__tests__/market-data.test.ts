@@ -276,6 +276,53 @@ describe('toQuote', () => {
       sector: null,
     });
     expect(toQuote({ ...row, reuters: 'EGX70 EWI' })).toBeNull();
+    expect(toQuote({ ...row, eng_desc: 'Banks ' })?.sector).toBe('Banks');
+  });
+
+  it("reports an index row's placeholder stock fields as unknown, keeping its level, range and turnover", () => {
+    const index = toQuote({
+      ...row,
+      reuters: 'EGX30',
+      market_id: 'INDX',
+      last_trade_date: '1900-01-01T00:00:00+02:05:09',
+      bid_price: 0,
+      bid_volume: 0,
+      ask_price: 0,
+      ask_volume: 0,
+      total_trades: 0,
+      high_price_limit: 53_553.41,
+      low_price_limit: 53_553.42,
+      pe_ratio: 0,
+      eps: 0,
+      dividend_yield_perc: 0,
+      listed_shares: 0,
+    });
+    expect(index).toMatchObject({
+      last: 80.5,
+      previousClose: 79,
+      high: 81,
+      low: 79.1,
+      change: 1.5,
+      changePercent: 1.9,
+      value: 1_000_000,
+      volume: 12_500,
+      week52High: 95,
+      week52Low: 60,
+      averageVolume30d: 10_000,
+      bid: null,
+      bidSize: null,
+      ask: null,
+      askSize: null,
+      trades: null,
+      lowerLimit: null,
+      upperLimit: null,
+      peRatio: null,
+      eps: null,
+      dividendYieldPercent: null,
+      listedShares: null,
+      marketCap: null,
+      lastTradeAt: null,
+    });
   });
 
   it('falls back to close price, computes change, and uses min/max limits', () => {
@@ -362,6 +409,7 @@ describe('indicatorToQuote', () => {
     expect(
       indicatorToQuote({ id: ID, symbol: 'USD/EGP', feed: { price: 50.1, last_trade_price: 0 } })?.last,
     ).toBe(50.1);
+    expect(indicatorToQuote({ id: ID, symbol: 'EGX30', feed: { market_id: 'INDX' } })?.board).toBe('INDX');
     expect(indicatorToQuote({ id: ID, symbol: 'EGX30' })).toMatchObject({
       last: null,
       name: null,

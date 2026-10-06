@@ -50,7 +50,11 @@ Rules:
   instrument only.
 - Derived figures say what they are derived from (series granularity, formula), so a model does not mistake them for
   broker figures.
-- Membership of indices is cached for 6 hours (it changes at rebalances); the market snapshot keeps its 10-second cache.
+- Membership of indices is cached for 6 hours (it changes at rebalances; an empty list is not cached); the market
+  snapshot keeps its 10-second cache.
+- Index rows (board `INDX`) are part of the market snapshot: they serve index levels, membership and labels, but are
+  excluded from stock screens and rankings, and their placeholder stock fields (bid/ask, P/E, shares, price limits,
+  trade date) are reported as unknown.
 
 ## Consequences
 

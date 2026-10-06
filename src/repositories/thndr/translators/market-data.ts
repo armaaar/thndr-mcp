@@ -149,15 +149,20 @@ export function toQuote(dto: MarketwatchAssetDto | null | undefined): Quote | nu
   if (!dto || typeof dto !== 'object') return null;
   const instrumentId = parseAssetIdOrNull(dto.asset_id);
   const board = stringOrNull(dto.market_id);
+  const isIndex = board === 'INDX';
   // Index symbols such as `EGX70 EWI` do not fit the Ticker pattern: sanitise them instead of dropping the row.
-  const ticker = board === 'INDX' ? sanitizeTicker(dto.reuters) : parseTickerOrNull(dto.reuters);
+  const ticker = isIndex ? sanitizeTicker(dto.reuters) : parseTickerOrNull(dto.reuters);
   if (!instrumentId || !ticker) return null;
+  // Index rows fill stock-only fields with placeholders (zero bid/ask/P/E/shares, inverted price limits, a
+  // 1900-01-01 trade date): report those as unknown. Their value and volume are the members' totals.
+  const stockOnly = (value: number | null) => (isIndex ? null : value);
   // ThndrX: `last_trade_price || close_price` (0 means "no trade yet today").
   const last = positiveOrNull(toNumber(dto.last_trade_price)) ?? toNumber(dto.close_price);
   const previousClose = toNumber(dto.previous_close);
-  const listedShares = toNumber(dto.listed_shares);
+  const listedShares = stockOnly(toNumber(dto.listed_shares));
   const change =
     toNumber(dto.last_change) ?? (last !== null && previousClose !== null ? last - previousClose : null);
+  const lastTradeAt = parseTimestamp(dto.last_trade_date);
   return Object.freeze({
     instrumentId,
     ticker,
@@ -172,25 +177,25 @@ export function toQuote(dto: MarketwatchAssetDto | null | undefined): Quote | nu
     low: toNumber(dto.low_price),
     change,
     changePercent: toNumber(dto.last_change_prc),
-    bid: toNumber(dto.bid_price),
-    bidSize: toNumber(dto.bid_volume),
-    ask: toNumber(dto.ask_price),
-    askSize: toNumber(dto.ask_volume),
+    bid: stockOnly(toNumber(dto.bid_price)),
+    bidSize: stockOnly(toNumber(dto.bid_volume)),
+    ask: stockOnly(toNumber(dto.ask_price)),
+    askSize: stockOnly(toNumber(dto.ask_volume)),
     volume: toNumber(dto.total_volume),
     value: toNumber(dto.total_value),
-    trades: toNumber(dto.total_trades),
-    lowerLimit: toNumber(dto.low_price_limit) ?? toNumber(dto.min_limit),
-    upperLimit: toNumber(dto.high_price_limit) ?? toNumber(dto.max_limit),
+    trades: stockOnly(toNumber(dto.total_trades)),
+    lowerLimit: stockOnly(toNumber(dto.low_price_limit) ?? toNumber(dto.min_limit)),
+    upperLimit: stockOnly(toNumber(dto.high_price_limit) ?? toNumber(dto.max_limit)),
     week52High: toNumber(dto.high_52_week),
     week52Low: toNumber(dto.low_52_week),
-    peRatio: toNumber(dto.pe_ratio),
-    eps: toNumber(dto.eps),
-    dividendYieldPercent: toNumber(dto.dividend_yield_perc),
+    peRatio: stockOnly(toNumber(dto.pe_ratio)),
+    eps: stockOnly(toNumber(dto.eps)),
+    dividendYieldPercent: stockOnly(toNumber(dto.dividend_yield_perc)),
     listedShares,
     marketCap: listedShares !== null && last !== null ? listedShares * last : null,
     averageVolume30d: toNumber(dto.avg_30_day),
     suspended: dto.symbol_state === 'S',
-    lastTradeAt: parseTimestamp(dto.last_trade_date),
+    lastTradeAt: isIndex ? null : lastTradeAt,
   });
 }
 

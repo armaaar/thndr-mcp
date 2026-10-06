@@ -85,6 +85,20 @@ describe('IndexMembership', () => {
     await expect(indices.indices('egypt')).rejects.toThrow('boom');
     repository.failures = {};
     await indices.indices('egypt');
-    expect(repository.calls.getIndexConstituents.length).toBeGreaterThan(8);
+    expect(repository.calls.getIndexConstituents).toHaveLength(12);
+  });
+
+  it('does not cache an empty index list, so a snapshot without index rows is retried', async () => {
+    const { repository } = setup();
+    const clock = fixedClock();
+    const indices = new IndexMembership(repository, new MarketQuotesCache(repository, clock, 0), clock);
+    const quotes = repository.quotes.egypt ?? [];
+    repository.quotes.egypt = quotes.filter((q) => q.board !== 'INDX');
+    expect(await indices.indices('egypt')).toEqual([]);
+    repository.quotes.egypt = quotes;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await indices.indices('egypt')).toHaveLength(4);
+    expect(await indices.indices('egypt')).toHaveLength(4);
+    expect(repository.calls.getIndexConstituents).toHaveLength(4);
   });
 });
