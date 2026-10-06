@@ -297,13 +297,24 @@ describe('ThndrMarketDataRepository', () => {
       });
     });
 
-    it('omits the board when not given and tolerates an hours failure', async () => {
+    it('sends Thndr’s board per market when none is given, and tolerates an hours failure', async () => {
       const { fetch, gateway } = setup((req) =>
         req.url.includes('/status') ? json({ is_active: false }) : json({ detail: { msg: 'x' } }, 500),
       );
       const session = await gateway.getMarketSession('us', null);
-      expect(fetch.calls.map((c) => c.url)).toContain(`${API}/market-service/markets/status?market=us`);
+      expect(fetch.calls.map((c) => c.url)).toContain(
+        `${API}/market-service/markets/status?market=us&market_exchange=NOPL`,
+      );
       expect(session).toEqual({ market: 'us', isOpen: false, opensAt: null, closesAt: null });
+      await gateway.getMarketSession('uae');
+      await gateway.getMarketSession('egypt');
+      expect(fetch.calls.map((c) => c.url)).toEqual(
+        expect.arrayContaining([
+          `${API}/market-service/markets/status?market=abudhabi&market_exchange=adsm`,
+          `${API}/market-service/markets/hours?market=abudhabi`,
+          `${API}/market-service/markets/status?market=egypt&market_exchange=NOPL`,
+        ]),
+      );
     });
 
     it('treats a non-boolean is_active as closed and propagates status failures', async () => {

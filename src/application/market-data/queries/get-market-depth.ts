@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { type OrderBook, spread } from '../../../domain/market-data/order-book';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -27,6 +28,7 @@ export class GetMarketDepth extends Query<typeof input, MarketDepth> {
 
   async execute(params: InputOf<typeof input>): Promise<MarketDepth> {
     const instrument = await this.deps.resolver.resolve(params.symbol, parseMarket(params.market));
+    requireMarketFeature(instrument.market, 'orderBook');
     const book = await this.deps.repository.getOrderBook(instrument.id);
     const levels = Math.min(Math.max(params.levels ?? 10, 1), 50);
     const trimmed: OrderBook = {

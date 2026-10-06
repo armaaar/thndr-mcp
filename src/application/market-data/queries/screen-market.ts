@@ -10,6 +10,7 @@ import {
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -94,6 +95,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
 
   async execute(criteria: ScreenCriteria): Promise<ScreenResult> {
     const market = parseMarket(criteria.market);
+    requireMarketFeature(market, 'marketSnapshot');
     const [all, members, screeners] = await Promise.all([
       this.deps.quotes.get(market),
       criteria.index === undefined ? null : this.deps.indices.find(criteria.index, market),

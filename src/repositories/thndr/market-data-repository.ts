@@ -23,6 +23,7 @@ import type { MarketDataRepository } from '../../domain/market-data/repository';
 import type { Screener } from '../../domain/market-data/screener';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
+import { accountMarket, instrumentMarket, statusExchange } from './markets';
 import {
   indicatorToQuote,
   mapRows,
@@ -51,7 +52,7 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
 
   async searchInstruments(query: string, market: Market): Promise<Instrument[]> {
     const data = await this.api.get<AssetSearchResponseDto>('/assets-service/assets/search', {
-      query: { query, market, ...FEED },
+      query: { query, market: instrumentMarket(market), ...FEED },
     });
     return mapRows(data?.assets, (row) => toInstrument(row, market));
   }
@@ -72,7 +73,7 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
 
   async getMarketQuotes(market: Market): Promise<Quote[]> {
     const data = await this.api.get<MarketwatchResponseDto>('/assets-service/assets/marketwatch', {
-      query: { market },
+      query: { market: instrumentMarket(market) },
     });
     return mapRows(data?.assets, toQuote);
   }
@@ -108,10 +109,12 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
   async getMarketSession(market: Market, board?: string | null): Promise<MarketSession> {
     const [status, hours] = await Promise.all([
       this.api.get<MarketStatusDto>('/market-service/markets/status', {
-        query: { market, market_exchange: board || undefined },
+        query: { market: accountMarket(market), market_exchange: statusExchange(market, board) },
       }),
       // Hours only enrich the answer: tolerate failures.
-      this.api.get<MarketHoursDto>('/market-service/markets/hours', { query: { market } }).catch(() => null),
+      this.api
+        .get<MarketHoursDto>('/market-service/markets/hours', { query: { market: accountMarket(market) } })
+        .catch(() => null),
     ]);
     return Object.freeze({
       market,
@@ -123,7 +126,7 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
 
   async getMarketIndicators(market: Market): Promise<Quote[]> {
     const data = await this.api.get<MarketIndicatorsResponseDto>('/assets-service/assets/market-indicators', {
-      query: { market, page_count: 100, ...FEED },
+      query: { market: instrumentMarket(market), page_count: 100, ...FEED },
     });
     return mapRows(data?.results, indicatorToQuote);
   }
@@ -136,13 +139,15 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
   async getSimilarInstruments(id: AssetId, market: Market, limit: number): Promise<Instrument[]> {
     const data = await this.api.get<RecommendationsResponseDto>(
       `/assets-service/assets/${encodeURIComponent(id.value)}/recommendations`,
-      { query: { market, recommendations_number: limit, ...FEED } },
+      { query: { market: instrumentMarket(market), recommendations_number: limit, ...FEED } },
     );
     return mapRows(data?.results, (row) => toInstrument(row, market));
   }
 
   async getScreeners(market: Market): Promise<Screener[]> {
-    const data = await this.api.get<ScreenersResponseDto>('/users-service/screeners', { query: { market } });
+    const data = await this.api.get<ScreenersResponseDto>('/users-service/screeners', {
+      query: { market: accountMarket(market) },
+    });
     return mapRows(data?.screeners, (row) => toScreener(row, market));
   }
 

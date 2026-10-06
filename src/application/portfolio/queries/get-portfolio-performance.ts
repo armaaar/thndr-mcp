@@ -9,6 +9,7 @@ import {
 import { marketDay } from '../../../domain/portfolio/period';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
 
@@ -55,6 +56,7 @@ export class GetPortfolioPerformance extends Query<typeof input, PortfolioPerfor
 
   async execute(params: InputOf<typeof input>): Promise<PortfolioPerformanceResult> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'returns');
     const [daily, weekly] = await Promise.all([
       this.deps.repository.getReturnsChart('6M', market),
       this.deps.repository.getReturnsChart('2Y', market),

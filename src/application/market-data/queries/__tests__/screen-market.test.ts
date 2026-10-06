@@ -87,14 +87,14 @@ describe('ScreenMarket', () => {
     expect(out.results[2]!.relativeVolume).toBeNull();
   });
 
-  it('screens the requested market', async () => {
+  it('refuses markets without a whole-market snapshot before calling Thndr', async () => {
     const deps = setup();
-    expect(await new ScreenMarket(deps).run({ market: 'us' })).toEqual({
-      market: 'us',
-      total: 0,
-      results: [],
-    });
-    expect(deps.repository.calls.getMarketQuotes).toEqual(['us']);
+    for (const market of ['us', 'uae', 'simulator']) {
+      await expect(new ScreenMarket(deps).run({ market })).rejects.toMatchObject({
+        code: 'FEATURE_DISABLED',
+      });
+    }
+    expect(deps.repository.calls.getMarketQuotes).toEqual([]);
   });
 
   it('includes suspended rows on request and sorts ascending', async () => {
@@ -184,6 +184,7 @@ describe('ScreenMarket', () => {
           filters: [{ field: 'price', condition: { kind: 'between', min: null, max: 60 } }],
         }),
         aScreener({ id: 'bad', name: 'Odd', unsupported: ['filter key "ref_price" is not supported'] }),
+        aScreener({ id: 'us1', name: 'US picks', market: 'us' }),
       ];
       return setupMarketData(repository);
     }
@@ -233,9 +234,9 @@ describe('ScreenMarket', () => {
       expect((await run({ screenerId: 's1', preset: 'reversal-watch' })).screeners?.map((x) => x.id)).toEqual(
         ['reversal-watch', 's1'],
       );
-      await expect(run({ screenerId: 's1', market: 'us' })).rejects.toMatchObject({
+      await expect(run({ screenerId: 'us1' })).rejects.toMatchObject({
         code: 'VALIDATION_ERROR',
-        message: 'Screener "Cheap" was saved for the egypt market; run it with market "egypt".',
+        message: 'Screener "US picks" was saved for the us market; run it with market "us".',
       });
     });
 

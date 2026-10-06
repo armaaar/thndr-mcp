@@ -1,5 +1,6 @@
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { InstrumentLabeler } from '../services/instrument-labeler';
@@ -24,6 +25,7 @@ export class GetWatchlists extends Query<typeof input, Output> {
 
   async execute(params: InputOf<typeof input>): Promise<Output> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'watchlists');
     const watchlists = await this.deps.repository.listWatchlists(market);
     const labels = await InstrumentLabeler.for(this.deps).label(
       watchlists.flatMap((w) => w.instrumentIds),

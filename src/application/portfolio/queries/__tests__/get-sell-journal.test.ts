@@ -10,8 +10,9 @@ describe('GetSellJournal', () => {
     await expect(uc.run({ limit: 0 })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     await expect(uc.run({ market: 'mars' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
     await expect(uc.run({ ticker: 'COMI' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
-    await uc.run({ market: 'us' });
-    expect(repository.getSellJournal).toHaveBeenCalledWith({ market: 'us', page: 1, limit: 20 });
+    await uc.run({});
+    expect(repository.getSellJournal).toHaveBeenCalledWith({ market: 'egypt', page: 1, limit: 20 });
+    await expect(uc.run({ market: 'us' })).rejects.toMatchObject({ code: 'FEATURE_DISABLED' });
   });
 
   it('treats a date-only "to" as the end of that Cairo market day', async () => {

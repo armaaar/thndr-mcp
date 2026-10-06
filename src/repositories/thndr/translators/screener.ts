@@ -6,7 +6,8 @@ import {
   type ScreenerField,
   type ScreenerFilter,
 } from '../../../domain/market-data/screener';
-import { MARKETS, type Market } from '../../../domain/shared-kernel/market';
+import type { Market } from '../../../domain/shared-kernel/market';
+import { marketFromWire } from '../markets';
 
 /**
  * ThndrX screener filter keys (§5.1) → the quote field (or derived field) they test. The derived keys are computed
@@ -119,10 +120,7 @@ export function toScreener(
     if ('filter' in translated) filters.push(translated.filter);
     else unsupported.push(translated.unsupported);
   }
-  const market =
-    typeof dto.market === 'string' && (MARKETS as readonly string[]).includes(dto.market)
-      ? (dto.market as Market)
-      : fallbackMarket;
+  const market = marketFromWire(dto.market) ?? fallbackMarket;
   return deepFreeze({
     id,
     name: typeof dto.name === 'string' && dto.name.trim() !== '' ? dto.name : id,

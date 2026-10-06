@@ -24,6 +24,7 @@ import { roundTo } from '../../../domain/shared-kernel/guards';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { FeatureDisabledError, UpstreamError } from '../../errors';
 import { marketInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -161,6 +162,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
     const periods = params.periods ?? DEFAULT_PERIODS;
     const market = parseMarket(params.market);
     const instrument = await this.deps.resolver.resolve(params.symbol, market);
+    requireMarketFeature(instrument.market, 'financials');
     const statements = await this.deps.research.getFinancials(instrument.ticker, mode, periods);
 
     const available = Object.keys(statements.series);

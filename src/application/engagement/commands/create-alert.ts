@@ -6,6 +6,7 @@ import {
 import { assertPositive } from '../../../domain/shared-kernel/guards';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, priceInput } from '../inputs';
@@ -42,6 +43,7 @@ export class CreateAlert extends Command<typeof input, AlertReceipt> {
     const explicitDirection = parseAlertDirection(params.direction);
     const frequency = parseAlertFrequency(params.frequency) ?? DEFAULT_ALERT_FREQUENCY;
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'priceAlerts');
     const instrument = await this.deps.resolver.resolve(params.symbol, market);
     const direction =
       explicitDirection ??

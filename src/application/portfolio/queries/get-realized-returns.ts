@@ -10,6 +10,7 @@ import {
 } from '../../../domain/portfolio/returns';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
 
@@ -41,6 +42,7 @@ export class GetRealizedReturns extends Query<typeof input, RealizedReturnsResul
 
   async execute(params: InputOf<typeof input>): Promise<RealizedReturnsResult> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'returns');
     const interval = parseReturnsInterval(params.interval);
     const [current, series] = await Promise.all([
       this.deps.repository.getRealizedReturns(market),

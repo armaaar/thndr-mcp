@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { TapeTrade } from '../../../domain/market-data/order-book';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -32,6 +33,7 @@ export class GetRecentTrades extends Query<typeof input, RecentTrades> {
 
   async execute(params: InputOf<typeof input>): Promise<RecentTrades> {
     const instrument = await this.deps.resolver.resolve(params.symbol, parseMarket(params.market));
+    requireMarketFeature(instrument.market, 'orderBook');
     const limit = Math.min(Math.max(params.limit ?? 50, 1), 200);
     const trades = await this.deps.repository.getRecentTrades(instrument.id, limit, params.before);
     return { ticker: instrument.ticker.value, trades, nextCursor: trades.at(-1)?.cursor ?? null };

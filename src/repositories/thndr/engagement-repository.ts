@@ -19,6 +19,7 @@ import type { EngagementRepository, NewPriceAlert, PageRequest } from '../../dom
 import type { Watchlist, WatchlistName } from '../../domain/engagement/watchlist';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
+import { accountMarket } from './markets';
 import { toNotification, toPriceAlert, toWatchlist } from './translators/engagement';
 import { mapRows } from './translators/market-data';
 
@@ -54,7 +55,9 @@ export class ThndrEngagementRepository implements EngagementRepository {
   // ------------------------------------------------------------ watchlists (§4.1)
 
   async listWatchlists(market: Market): Promise<Watchlist[]> {
-    const data = await this.api.get<WatchlistsResponseDto>(WATCHLISTS, { query: { market } });
+    const data = await this.api.get<WatchlistsResponseDto>(WATCHLISTS, {
+      query: { market: accountMarket(market) },
+    });
     return mapRows(data?.watchlists, toWatchlist);
   }
 
@@ -73,7 +76,7 @@ export class ThndrEngagementRepository implements EngagementRepository {
   ): Promise<Watchlist> {
     const body: CreateWatchlistBodyDto = {
       name: name.value,
-      market,
+      market: accountMarket(market),
       source: 'thndrx',
       asset_ids: ids(instrumentIds),
     };
@@ -110,7 +113,7 @@ export class ThndrEngagementRepository implements EngagementRepository {
 
   async listPriceAlerts(market: Market, page: PageRequest): Promise<PriceAlert[]> {
     const data = await this.krakend.get<PriceAlertsPageDto>(ALERTS, {
-      query: { page: page.page, page_count: page.pageCount, market },
+      query: { page: page.page, page_count: page.pageCount, market: accountMarket(market) },
     });
     assertNoKrakendError(data, `GET ${ALERTS}`);
     return mapRows(data?.results, toPriceAlert);
@@ -129,7 +132,7 @@ export class ThndrEngagementRepository implements EngagementRepository {
       price: alert.price,
       frequency: alert.frequency,
       direction: alert.direction,
-      market: alert.market,
+      market: accountMarket(alert.market),
     };
     const data = await this.krakend.post<PriceAlertDto | null>(ALERTS, body);
     assertNoKrakendError(data, `POST ${ALERTS}`);

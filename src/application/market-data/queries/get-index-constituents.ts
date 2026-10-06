@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Quote } from '../../../domain/market-data/instrument';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -87,6 +88,7 @@ export class GetIndexConstituents extends Query<typeof input, IndexConstituents>
 
   async execute(params: InputOf<typeof input>): Promise<IndexConstituents> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'indices');
     const [quotes, indices] = await Promise.all([
       this.deps.quotes.get(market),
       this.deps.indices.indices(market),

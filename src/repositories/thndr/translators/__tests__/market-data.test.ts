@@ -141,7 +141,7 @@ describe('toInstrument', () => {
   it('maps unknown or missing fields to null/defaults', () => {
     expect(
       toInstrument(
-        { id: ID, symbol: 'COMI', market: 'adsm', name: ' ', is_tradable: 'yes' as unknown as boolean },
+        { id: ID, symbol: 'COMI', market: 'tdwl', name: ' ', is_tradable: 'yes' as unknown as boolean },
         'us',
       ),
     ).toEqual({

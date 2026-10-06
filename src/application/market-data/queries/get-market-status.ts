@@ -2,6 +2,7 @@ import type { Quote } from '../../../domain/market-data/instrument';
 import type { MarketSession } from '../../../domain/market-data/order-book';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -31,6 +32,7 @@ export class GetMarketStatus extends Query<typeof input, MarketStatus> {
 
   async execute(params: InputOf<typeof input>): Promise<MarketStatus> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'marketStatus');
     const [session, indicators] = await Promise.all([
       this.deps.repository.getMarketSession(market),
       this.deps.repository.getMarketIndicators(market).catch(() => [] as Quote[]),

@@ -13,9 +13,10 @@ import { type Candle, type CandleResolution, createCandle } from '../../../domai
 import type { Instrument, Quote } from '../../../domain/market-data/instrument';
 import type { BookLevel, OrderBook, TapeTrade, TradeSide } from '../../../domain/market-data/order-book';
 import { AssetId } from '../../../domain/shared-kernel/asset-id';
-import { MARKETS, type Market, parseAssetClass } from '../../../domain/shared-kernel/market';
+import { type Market, parseAssetClass } from '../../../domain/shared-kernel/market';
 import type { Currency } from '../../../domain/shared-kernel/money';
 import { Ticker } from '../../../domain/shared-kernel/ticker';
+import { marketFromWire } from '../markets';
 
 /** Domain candle resolution → Thndr `resolution` query value (§2.2). */
 export const WIRE_RESOLUTION: Record<CandleResolution, string> = {
@@ -32,8 +33,8 @@ export function mapCurrency(raw: unknown): Currency | null {
   if (raw === 1 || raw === '1') return 'EGP';
   if (raw === 2 || raw === '2') return 'USD';
   if (typeof raw === 'string') {
-    const upper = raw.toUpperCase();
-    if (upper === 'EGP' || upper === 'USD') return upper;
+    const upper = raw.trim().toUpperCase();
+    if (upper === 'EGP' || upper === 'USD' || upper === 'AED') return upper;
   }
   return null;
 }
@@ -80,7 +81,7 @@ function booleanOrNull(raw: unknown): boolean | null {
 }
 
 function marketOrDefault(raw: unknown, fallback: Market): Market {
-  return typeof raw === 'string' && (MARKETS as readonly string[]).includes(raw) ? (raw as Market) : fallback;
+  return marketFromWire(raw) ?? fallback;
 }
 
 /** `is_3dp` drives TradingView's pricescale (1000 vs 100); `round_digits` wins when present. */

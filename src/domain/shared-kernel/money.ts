@@ -1,7 +1,7 @@
 import { ValidationError } from './errors';
 import { assertFiniteNumber, roundTo } from './guards';
 
-export const CURRENCIES = ['EGP', 'USD'] as const;
+export const CURRENCIES = ['EGP', 'USD', 'AED'] as const;
 export type Currency = (typeof CURRENCIES)[number];
 
 export function isCurrency(value: string): value is Currency {
