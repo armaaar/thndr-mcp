@@ -1,8 +1,9 @@
 # Portfolio use cases
 
 Code: one `Query` class per use case in `src/application/portfolio/queries/` (shared journal input and paging
-helpers in `portfolio/journal-input.ts` and `src/application/paging.ts`; instrument resolution through Market Data's
-`InstrumentResolver` service). MCP tools and CLI commands are generated from these classes; CLI
+helpers in `portfolio/journal-input.ts`, `portfolio/range-input.ts` (`from`/`to`/`period`) and
+`src/application/paging.ts`; instrument resolution, the market snapshot and index membership through Market Data's
+`InstrumentResolver`, `MarketQuotesCache` and `IndexMembership` services). MCP tools and CLI commands are generated from these classes; CLI
 positionals come from `src/presentation/cli/positionals.ts`.
 Domain: [domains/portfolio.md](../domains/portfolio.md). API:
 [api/trading-and-portfolio.md](../api/trading-and-portfolio.md).
@@ -14,9 +15,13 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 **Common to all use cases**
 
 - **Read-only** ([ADR 0006](../adr/0006-trading-safety.md)): nothing here places, modifies or cancels orders or
-  moves funds. Every use case is a CQRS `Query`, so every MCP tool is annotated `readOnlyHint: true`.
+  moves funds (savings balances are read, never transferred). Every use case is a CQRS `Query`, so every MCP tool is annotated `readOnlyHint: true`.
 - **Preconditions:** a Thndr session exists.
 - **Input conventions:** `market` is `egypt` (default, EGP) or `us` (USD); `symbol` is a ticker or Thndr asset id.
+  Date-filtered tools take either `from`/`to` (ISO dates; date-only values are Cairo market days) or a `period`
+  preset — `today`, `7d`, `30d`, `90d` (the last N Cairo calendar days including today), `mtd`, `ytd`, `1y` (the
+  last 12 months including today) — which starts at 00:00 Cairo on its first day and runs until now. Giving
+  `period` together with `from` or `to` → `VALIDATION_ERROR`.
   Arguments (MCP tool input or CLI flags) are checked first by the use case's zod `input` contract in `UseCase.run`
   (enums, ranges, ISO dates); the domain validates again (tickers, date ranges).
 - **Common error flows:**
@@ -110,7 +115,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   2. Sort the series oldest first and summarise it.
 - **Alternative/error flows:** unknown interval → `INVALID_INPUT`; common errors.
 - **Output:** `market`, `current` (`totalReturns`, `snapshotDate`), `interval`, `series` (`date`,
-  `totalReturns`, `portfolioValue`), `seriesSummary` (`from`, `to`, `returnsChange`, `portfolioValueChange`,
+  `totalReturns`, `portfolioValue`, `netDeposits`), `seriesSummary` (`from`, `to`, `returnsChange`, `portfolioValueChange`,
   `portfolioValueChangePercent`).
 - **Thndr endpoints:** `GET prod /market-service/realized-returns`,
   `GET prod /market-service/realized-returns/chart/{interval}`.
@@ -120,13 +125,15 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetClosedTrades` (`Query`) in `src/application/portfolio/queries/get-closed-trades.ts`
 - **Invoke:** MCP `get_closed_trades {"from": "2026-01-01"}` · CLI `thndr get-closed-trades --from 2026-01-01 [--to 2026-03-31] [--symbol COMI]`
 - **Goal:** round-trip trades from the trading journal.
-- **Input:** `market`, `symbol` (ticker, optional), `from`, `to` (ISO dates, optional = all time), `page`
-  (default 1), `limit` (1–100, default 20).
+- **Input:** `market`, `symbol` (ticker, optional), `from`, `to` (ISO dates, optional = all time) or `period`
+  (preset, exclusive with `from`/`to`), `page` (default 1), `limit` (1–100, default 20).
+- **Invoke (period):** MCP `get_closed_trades {"period": "ytd"}` · CLI `thndr get-closed-trades --period ytd`
 - **Main flow:**
-  1. Validate the date range (`from < to`, `from` not in the future) and ticker.
+  1. Resolve `period` to a range, or validate `from`/`to` (`from < to`, `from` not in the future), and the ticker.
   2. Fetch one journal page.
   3. `hasMore` while rows seen so far < `total_count` (or a full page when no count).
-- **Alternative/error flows:** invalid range or ticker → `VALIDATION_ERROR`; common errors.
+- **Alternative/error flows:** invalid range or ticker, or `period` with `from`/`to` → `VALIDATION_ERROR`; common
+  errors.
 - **Output:** `entries` (ticker, instrumentId, openedAt, closedAt, averageEntryPrice, averageExitPrice, quantity,
   netPnl, netPnlPercent, durationDays), `totalCount`, `page`, `hasMore`.
 - **Thndr endpoints:** `GET prod /market-service/trading-journals/full-trades`.
@@ -150,14 +157,15 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetTradingMetrics` (`Query`) in `src/application/portfolio/queries/get-trading-metrics.ts`
 - **Invoke:** MCP `get_trading_metrics {"from": "2026-01-01"}` · CLI `thndr get-trading-metrics [--from 2026-01-01] [--to 2026-06-30]`
 - **Goal:** performance statistics of the user's trading.
-- **Input:** `from`, `to` (optional), `market` (used only to resolve tickers; Thndr computes the metrics across
-  all markets).
+- **Input:** `from`, `to` (optional) or `period` (preset, exclusive with `from`/`to`), `market` (used only to
+  resolve tickers; Thndr computes the metrics across all markets).
 - **Main flow:**
-  1. Validate the date range.
+  1. Resolve `period`, or validate the date range.
   2. Fetch the metrics.
   3. Resolve each per-instrument asset id to a ticker, best-effort (failure → `ticker: null`).
   4. Sort instruments by total return, best first.
-- **Alternative/error flows:** invalid range → `VALIDATION_ERROR`; ticker resolution failures are swallowed;
+- **Alternative/error flows:** invalid range, or `period` with `from`/`to` → `VALIDATION_ERROR`; ticker resolution
+  failures are swallowed;
   common errors.
 - **Output:** `overall` (totalReturn, profitFactor, expectancyPerTrade, winRatePercent, averageWin, averageLoss,
   numberOfTrades, averagePositionSize, averageDurationDays, riskRewardRatio, expectancyR), `perInstrument`
@@ -169,14 +177,102 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 
 - **Use case:** `ListAccountActivity` (`Query`) in `src/application/portfolio/queries/list-account-activity.ts`
 - **Invoke:** MCP `get_account_activity {"category": "DIVIDEND"}` · CLI `thndr get-account-activity --category DIVIDEND [--page-size 50]`
+  · range: MCP `get_account_activity {"period": "90d", "category": "DEPOSIT"}` · CLI `thndr get-account-activity --period 90d --category DEPOSIT`
 - **Goal:** the cash ledger — deposits, withdrawals, executions, dividends, fees, transfers, rewards.
 - **Input:** `market`, `category` (optional: `TRADE`, `DEPOSIT`, `WITHDRAWAL`, `DIVIDEND`, `FEE`, `TRANSFER`,
-  `REWARD`, `OTHER`), `page` (default 1), `pageSize` (1–100, default 20).
-- **Main flow:**
+  `REWARD`, `OTHER`), `from`/`to` or `period` (optional, mutually exclusive), `page` (default 1; page mode only),
+  `pageSize` (1–100, default 20; page mode only).
+- **Main flow (page mode, no range):**
   1. Fetch one page from the market's provider (`EGID` for egypt, `ALPACA` for us).
   2. Categorise each row; if `category` is given, filter the fetched page.
-- **Alternative/error flows:** unknown category → `INVALID_INPUT`; common errors. Filtering can leave a page
-  short or empty while `hasMore` is still true — keep paging.
+- **Main flow (range mode, `from`/`to`/`period`):**
+  1. Resolve the range (same rules as the journal tools; errors say "Activity").
+  2. Fetch pages of 100 from page 1 until a page reaches entries older than the start, the last page, or a hard cap
+     of 20 pages (2,000 rows).
+  3. Keep entries whose `createdAt` is inside the range (entries without a timestamp are left out) and match
+     `category`; sort newest first.
+- **Alternative/error flows:** unknown category or period → `INVALID_INPUT`; `period` with `from`/`to`, or
+  `page` > 1 with a range → `VALIDATION_ERROR`; common errors. Page mode: filtering can leave a page short or
+  empty while `hasMore` is still true — keep paging. Range mode: `truncated: true` (and `hasMore: true`) when the
+  cap was hit before the start of the range — narrow the range.
 - **Output:** `market`, `activities` (id, type, category, amount (signed), createdAt, description, ticker),
-  `page`, `hasMore`.
+  `page`, `hasMore`; in range mode also `range` (`from`, `to`), `truncated`, `pagesFetched`.
 - **Thndr endpoints:** `GET prod /funding-service/account-activities`.
+
+## Portfolio allocation — `get_portfolio_allocation` (`GetPortfolioAllocation`)
+
+- **Use case:** `GetPortfolioAllocation` (`Query`) in `src/application/portfolio/queries/get-portfolio-allocation.ts`
+- **Invoke:** MCP `get_portfolio_allocation` · CLI `thndr get-portfolio-allocation [--market us]`
+- **Goal:** how the holdings are spread by asset class, sector and index (IBKR `get_pa_allocation`).
+- **Input:** `market`.
+- **Main flow:**
+  1. In parallel: wallet and portfolio, the market snapshot (`MarketQuotesCache`, 10 s cache) and index membership
+     (`IndexMembership`, 6 h cache).
+  2. Weight each position by market value against the portfolio value (domain `computeAllocation`).
+  3. Join each position to its marketwatch row by instrument id, else by ticker, for the sector; take its indices
+     from the membership map.
+  4. Group (domain `groupAllocation`): by asset class, by sector (no sector → `Funds (no sector)` for funds/ETFs,
+     else `Unclassified`), and by index (no index → `Not in any index`).
+- **Alternative/error flows:** common errors (any of the three reads failing fails the call). No holdings → empty
+  lists.
+- **Output:** `market`, `currency`, `portfolioValue`, `basis` (denominator of every weight), `totalMarketValue`,
+  `holdings` (ticker, instrumentId, assetClass, sector, indices, marketValue, weightPercent), `byAssetClass`
+  (assetClass, positions, marketValue, weightPercent), `bySector` and `byIndex` (name, positions, marketValue,
+  weightPercent, tickers), `notes`.
+- **Notes:** weights exclude cash (portfolio value = positions). **Index buckets overlap** — a holding counts in
+  every index it belongs to — so they do not sum to 100%. There is no country breakdown: every Thndr Egypt holding
+  is EGX-listed. Mutual funds (e.g. a money-market fund) are not marketwatch rows, so they have no sector.
+- **Thndr endpoints:** `GET prod /market-service/accounts/wallet-and-portfolio`, `GET prod
+  /assets-service/assets/marketwatch`, `GET prod /assets-service/assets/{indexId}` per index (`constituents`).
+
+## Portfolio performance — `get_portfolio_performance` (`GetPortfolioPerformance`)
+
+- **Use case:** `GetPortfolioPerformance` (`Query`) in `src/application/portfolio/queries/get-portfolio-performance.ts`
+- **Invoke:** MCP `get_portfolio_performance` · CLI `thndr get-portfolio-performance`
+- **Goal:** how the portfolio did over 1D, 7D, MTD, 1M, 6M, YTD, 1Y and 2Y, net of deposits (IBKR
+  `get_pa_performance_all_periods`).
+- **Input:** `market`.
+- **Main flow:**
+  1. Fetch the returns chart `6M` (daily) and `2Y` (weekly) in parallel — two calls cover every period (`1M` is
+     contained in `6M`, `1Y` in `2Y`; other intervals answer 422).
+  2. Merge them into one timeline: weekly points before the daily series starts, then daily points; points without
+     a portfolio value are dropped (domain `mergeReturnsSeries`).
+  3. Per period, find the base snapshot day (domain `periodBaseDay`): a snapshot dated D is the close of D, so a
+     period is measured from the close before its first day. Rolling periods count back from the latest snapshot
+     (Thndr's snapshots lag today by about a day): 1D = end − 1 day, 7D = end − 7 days, 1M/6M/1Y/2Y = end − 1/6/12/24
+     months. MTD/YTD start on the 1st of today's month/year in Cairo (base = the last day before it).
+  4. Base = last point on or before the base day; if the timeline starts later, its first point is used and the
+     period is flagged `partial`. End = latest point (domain `periodPerformance`).
+- **Figures:** `valueChange = endValue − startValue`; `netDepositsChange` = change of cumulative net deposits;
+  `gainExcludingDeposits = valueChange − netDepositsChange`; `realizedReturnsChange` = change of Thndr's
+  cumulative realized returns; `timeWeightedReturnPercent` chains `r_i = (V_i − ΔD_i) / V_(i−1) − 1` over
+  consecutive snapshots — **assumption:** deposits/withdrawals in a sub-period arrive at its end (just before the
+  closing valuation), so they earn nothing in it; sub-periods starting from a value ≤ 0 are skipped; null when a
+  snapshot lacks net deposits.
+- **Alternative/error flows:** common errors. No snapshots → every period `partial` with null figures.
+- **Output:** `market`, `currency`, `asOf` (latest snapshot), `periods` (period, requestedFrom (base day),
+  from/to (snapshot dates used), partial, granularity (`daily`, `weekly` or `weekly+daily`), startValue, endValue,
+  valueChange, netDepositsChange, gainExcludingDeposits, timeWeightedReturnPercent, realizedReturnsChange),
+  `series` (interval, granularity, from, to, points per fetched series), `method` (the formulas above, in words).
+- **Notes:** periods longer than the daily series (6M usually needs one weekly point, since the daily series starts
+  the day after the 6M base; 1Y, 2Y) are approximations at weekly granularity and say so. `get_realized_returns`
+  is unchanged and still returns the raw series.
+- **Thndr endpoints:** `GET prod /market-service/realized-returns/chart/6M`, `GET prod
+  /market-service/realized-returns/chart/2Y`.
+
+## Savings — `get_savings` (`GetSavings`)
+
+- **Use case:** `GetSavings` (`Query`) in `src/application/portfolio/queries/get-savings.ts`
+- **Invoke:** MCP `get_savings` · CLI `thndr get-savings`
+- **Goal:** the user's savings ("Clouds") balances and the current yield of each savings product. **Read-only:**
+  no transfer into or out of savings is possible ([ADR 0006](../adr/0006-trading-safety.md),
+  [ADR 0018](../adr/0018-analytics-from-thndr-data-only.md)).
+- **Input:** none (savings are EGP only; no `market`).
+- **Main flow:** fetch balances and product stats in parallel.
+- **Alternative/error flows:** KrakenD embedded error (`error_get_clouds`, `error_clouds_stats`) → `UPSTREAM_ERROR`;
+  common errors. No savings → zero totals and empty `clouds`.
+- **Output:** `currency` (`EGP`), `totalAmount`, `totalGain`, `count`, `amountsPerType` (product type → amount),
+  `clouds` (id, name, type, amount, gains, withdrawableAmount), `yields` (product, currentlyEarningPercent,
+  lastUpdatedAt (as Thndr sends it, no time zone), nominalYieldsPercent: daily, weekly, monthly, quarterly,
+  semiAnnually), `note`.
+- **Thndr endpoints:** `GET krakend /savings/v1/clouds`, `GET krakend /savings/v1/clouds-stats`.

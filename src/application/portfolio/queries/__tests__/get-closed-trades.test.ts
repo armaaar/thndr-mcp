@@ -53,4 +53,24 @@ describe('GetClosedTrades', () => {
       /before/,
     );
   });
+
+  it('accepts a period preset instead of from/to, but not both', async () => {
+    const { deps, repository } = setupPortfolio();
+    const uc = new GetClosedTrades(deps);
+    // NOW is 2026-06-01 12:00Z; mtd starts 2026-06-01 00:00 Cairo (UTC+3 in summer).
+    await uc.run({ period: 'mtd' });
+    expect(repository.getClosedTrades).toHaveBeenLastCalledWith({
+      market: 'egypt',
+      page: 1,
+      limit: 20,
+      from: new Date('2026-05-31T21:00:00.000Z'),
+    });
+    await uc.execute({ period: '' as never });
+    expect(repository.getClosedTrades).toHaveBeenLastCalledWith({ market: 'egypt', page: 1, limit: 20 });
+    await expect(uc.run({ period: '30d', to: '2026-05-31' })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+    await expect(uc.run({ period: 'forever' })).rejects.toMatchObject({ code: 'INVALID_INPUT' });
+    await expect(uc.execute({ period: 'forever' as never })).rejects.toThrow(/Unsupported period/);
+  });
 });

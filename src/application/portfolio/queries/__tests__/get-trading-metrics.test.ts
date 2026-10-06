@@ -44,6 +44,17 @@ describe('GetTradingMetrics', () => {
     });
   });
 
+  it('accepts a period preset, exclusive of from/to', async () => {
+    const getTradingMetrics = vi.fn(async () => ({ overall, perInstrument: [] }));
+    const uc = new GetTradingMetrics(setupPortfolio({ getTradingMetrics }).deps);
+    await uc.run({ period: '1y' });
+    // NOW is 2026-06-01: the last 12 months start 2025-06-02 00:00 Cairo (UTC+3).
+    expect(getTradingMetrics).toHaveBeenCalledWith({ from: new Date('2025-06-01T21:00:00.000Z') });
+    await expect(uc.run({ period: '1y', from: '2026-01-01' })).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+    });
+  });
+
   it('enriches per-instrument metrics with tickers and sorts by return', async () => {
     const getTradingMetrics = vi.fn(async () => ({
       overall,

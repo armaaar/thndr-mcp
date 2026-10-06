@@ -29,4 +29,16 @@ describe('GetSellJournal', () => {
     const { deps } = setupPortfolio();
     await expect(new GetSellJournal(deps).execute({ from: '2027-01-01' })).rejects.toThrow(/future/);
   });
+
+  it('accepts a period preset', async () => {
+    const { deps, repository } = setupPortfolio();
+    await new GetSellJournal(deps).run({ period: 'today', symbol: 'COMI' });
+    expect(repository.getSellJournal).toHaveBeenCalledWith({
+      market: 'egypt',
+      page: 1,
+      limit: 20,
+      from: new Date('2026-05-31T21:00:00.000Z'),
+      ticker: 'COMI',
+    });
+  });
 });
