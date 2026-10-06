@@ -9,3 +9,4 @@ coverage/
 .thndr/
 session*.json
 .claude/settings.local.json
+.cache/
