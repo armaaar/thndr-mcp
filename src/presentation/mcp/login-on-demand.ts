@@ -103,7 +103,7 @@ export class LoginOnDemand {
       .finally(() => {
         this.inFlight = null;
       });
-    const opened = await this.options.open(session.url);
+    const opened = await this.options.open(session.url).catch(() => false);
     if (!opened)
       this.options.logger?.warn('login: could not open the browser; showing the login link instead');
     return { session, result, opened };

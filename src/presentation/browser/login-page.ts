@@ -2,6 +2,15 @@
  * The browser login page (ADR 0017): one self-contained document that polls `state` and posts the user's answers.
  * Every value from the server is inserted as text, except the QR code SVG, which the server renders itself.
  */
+const DARK =
+  'color-scheme: dark; --surface-a: #070707; --gradient-highlight: #0d0d0f; --surface-b: #171717; ' +
+  '--surface-c: #2d2d2d; --outline: #2a2a2a; --field-border: #6c6c6c; --text-primary: #fff; --text-inverse: #000; ' +
+  '--text-secondary: #9a9a9a; --brand: #8899ff; --error: #ff3d5a; --green: #75cc43;';
+const LIGHT =
+  'color-scheme: light; --surface-a: #fff; --gradient-highlight: #fff; --surface-b: #ececec; --surface-c: #f7f7f7; ' +
+  '--outline: #ddd; --field-border: #8b8b8b; --text-primary: #07080d; --text-inverse: #fff; ' +
+  '--text-secondary: #6c6c6c; --brand: #4656e8; --error: #a81e47; --green: #1e6325;';
+
 export function renderLoginPage(nonce: string): string {
   return `<!doctype html>
 <html lang="en">
@@ -18,12 +27,10 @@ export function renderLoginPage(nonce: string): string {
    * transparent outlined inputs, primary buttons in the text colour (white on dark, black on light), DM Sans, the
    * diagonal "thndrx-bg" gradient, indigo brand only as an accent.
    */
-  :root { color-scheme: dark; --surface-a: #070707; --gradient-highlight: #0d0d0f; --surface-b: #171717;
-    --surface-c: #2d2d2d; --outline: #2a2a2a; --field-border: #6c6c6c; --text-primary: #fff; --text-inverse: #000;
-    --text-secondary: #9a9a9a; --brand: #8899ff; --error: #ff3d5a; --green: #75cc43; }
-  @media (prefers-color-scheme: light) { :root { color-scheme: light; --surface-a: #fff; --gradient-highlight: #fff;
-    --surface-b: #ececec; --surface-c: #f7f7f7; --outline: #ddd; --field-border: #8b8b8b; --text-primary: #07080d;
-    --text-inverse: #fff; --text-secondary: #6c6c6c; --brand: #4656e8; --error: #a81e47; --green: #1e6325; } }
+  /* Theme: the system's by default; the header button pins one with data-theme on <html>. */
+  :root { ${DARK} }
+  :root[data-theme="light"] { ${LIGHT} }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { ${LIGHT} } }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; color: var(--text-primary);
     background: linear-gradient(to top right, var(--surface-a), var(--gradient-highlight));
@@ -31,8 +38,11 @@ export function renderLoginPage(nonce: string): string {
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 20px 24px;
     border-bottom: 1px solid var(--outline); flex-wrap: wrap; }
   .wordmark { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
-  .wordmark span { color: var(--brand); }
+  .header-end { display: flex; align-items: center; gap: 16px; }
   .unofficial { color: var(--text-secondary); font-size: 13px; }
+  button.theme { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; background: transparent;
+    color: var(--text-primary); border: 1px solid var(--field-border); font-size: 16px; line-height: 1; }
+  button.theme:hover { border-color: var(--text-primary); opacity: 1; }
   main { flex: 1; display: grid; place-items: center; padding: 32px 16px; }
   .content { width: 100%; max-width: 400px; text-align: center; }
   h1 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 8px; }
@@ -74,8 +84,11 @@ export function renderLoginPage(nonce: string): string {
 </head>
 <body>
 <header>
-  <div class="wordmark">thndr<span>-mcp</span></div>
-  <div class="unofficial">Unofficial community tool · not affiliated with Thndr</div>
+  <div class="wordmark">thndr-mcp</div>
+  <div class="header-end">
+    <div class="unofficial">Unofficial community tool · not affiliated with Thndr</div>
+    <button class="theme" id="theme" type="button"></button>
+  </div>
 </header>
 <main>
 <div class="content">
@@ -175,6 +188,23 @@ export function renderLoginPage(nonce: string): string {
     try { render(await (await fetch('state')).json()); } catch { $('error').textContent = 'The login page has closed.'; return; }
     if (current !== 'done' || !$('retry-form').hidden) setTimeout(poll, 1000);
   }
+
+  const dark = () =>
+    document.documentElement.dataset.theme
+      ? document.documentElement.dataset.theme === 'dark'
+      : matchMedia('(prefers-color-scheme: dark)').matches;
+  function paintThemeButton() {
+    const isDark = dark();
+    $('theme').textContent = isDark ? '☀' : '☾';
+    $('theme').setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+    $('theme').title = $('theme').getAttribute('aria-label');
+  }
+  $('theme').addEventListener('click', () => {
+    document.documentElement.dataset.theme = dark() ? 'light' : 'dark';
+    paintThemeButton();
+  });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeButton);
+  paintThemeButton();
 
   $('email-form').addEventListener('submit', (e) => { e.preventDefault(); post('email', { email: $('email-input').value }); });
   $('code-form').addEventListener('submit', (e) => { e.preventDefault(); post('code', { code: $('code-input').value }); });

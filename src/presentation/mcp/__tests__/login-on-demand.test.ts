@@ -161,6 +161,22 @@ describe('MCP login on demand (ADR 0016, ADR 0017)', () => {
     expect((await call).isError).toBeFalsy();
   });
 
+  it('treats an opener that throws as a browser that did not open', async () => {
+    const asked: Params[] = [];
+    const t = await setup({
+      elicit: (params) => {
+        asked.push(params);
+        return new Promise<ElicitResult>(() => {});
+      },
+    });
+    t.open.mockRejectedValueOnce(new Error('spawn EACCES'));
+    const call = t.client.call('get_account_positions');
+    await vi.waitFor(() => expect(asked).toHaveLength(1));
+    expect(asked[0]?.message).toContain('Could not open your browser.');
+    t.logIn();
+    expect((await call).isError).toBeFalsy();
+  });
+
   it.each(['accept', 'decline', 'cancel'] as const)(
     'keeps the login page running whatever the user answers to the prompt (%s)',
     async (action) => {

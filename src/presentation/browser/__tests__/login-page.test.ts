@@ -28,4 +28,14 @@ describe('renderLoginPage', () => {
     expect(page).toContain('id="approval-status" aria-live="polite"');
     expect(page).toContain('prefers-reduced-motion');
   });
+
+  it('follows the system theme until the header button pins light or dark', () => {
+    expect(page).toContain('<button class="theme" id="theme" type="button">');
+    expect(page).toMatch(/:root \{ color-scheme: dark;/);
+    expect(page).toMatch(/:root\[data-theme="light"\] \{ color-scheme: light;/);
+    expect(page).toMatch(
+      /@media \(prefers-color-scheme: light\) \{ :root:not\(\[data-theme="dark"\]\) \{ color-scheme: light;/,
+    );
+    expect(page).toContain("'Switch to light mode' : 'Switch to dark mode'");
+  });
 });
