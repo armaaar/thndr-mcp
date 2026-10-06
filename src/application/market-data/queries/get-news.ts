@@ -13,7 +13,10 @@ const input = {
     .min(1)
     .optional()
     .describe('Ticker (e.g. "COMI") or Thndr asset id; omit for market-wide news (all of Thndr’s markets)'),
-  market: marketInput,
+  market: marketInput.describe(
+    'Market used only to resolve `symbol`; market-wide news cannot be filtered by market (Thndr’s feed mixes ' +
+      'EGX and US items)',
+  ),
   page: pageInput.describe('Page number (25 articles per page, newest first)'),
   locale: z.enum(NEWS_LOCALES).default('en').describe('"en" (default) or "ar"'),
   contentChars: z
@@ -55,7 +58,7 @@ export class GetNews extends Query<typeof input, NewsView> {
   readonly title = 'News';
   readonly description =
     'News and exchange disclosures from Thndr’s feed, newest first: for one instrument, or market-wide when ' +
-    '`symbol` is omitted. 25 per page; content is truncated to `contentChars` (default 500) — follow `link` for ' +
+    '`symbol` is omitted (every Thndr market mixed: EGX and US; `market` does not filter it). 25 per page; content is truncated to `contentChars` (default 500) — follow `link` for ' +
     'the full text (EGX disclosures are PDFs).';
   readonly context = 'market-data';
   readonly input = input;

@@ -47,6 +47,24 @@ describe('GetNews', () => {
     expect(out.items[1]).not.toHaveProperty('contentTruncated');
   });
 
+  it('truncates only content longer than contentChars', async () => {
+    const deps = setup();
+    deps.research.news = {
+      total: 2,
+      hasMore: false,
+      articles: [
+        aNewsArticle({ id: 'fits', content: 'abcde' }),
+        aNewsArticle({ id: 'over', content: 'abcdef' }),
+        aNewsArticle({ id: 'space', content: 'abcd efg' }),
+      ],
+    };
+    const out = await new GetNews(deps).run({ contentChars: 5 });
+    expect(out.items[0]).toMatchObject({ content: 'abcde' });
+    expect(out.items[0]).not.toHaveProperty('contentTruncated');
+    expect(out.items[1]).toMatchObject({ content: 'abcde…', contentTruncated: true });
+    expect(out.items[2]).toMatchObject({ content: 'abcd…', contentTruncated: true });
+  });
+
   it('reads market-wide news with defaults, and can omit or lengthen the content', async () => {
     const deps = setup();
     const out = await new GetNews(deps).run({ contentChars: 0 });

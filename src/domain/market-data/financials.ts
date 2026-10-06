@@ -1,4 +1,5 @@
 import { ValidationError } from '../shared-kernel/errors';
+import type { Candle } from './candle';
 
 /**
  * Reporting basis of a financial statement series (Thndr `/financials` `mode`):
@@ -157,6 +158,18 @@ function parsePeriod(label: string): PeriodKey | null {
   return { year: year.length === 2 ? 2000 + y : y, order: Number.parseInt(quarter, 10), ttm: Boolean(ttm) };
 }
 
+/**
+ * The instant a reporting period ends, as ThndrX computes it (module 13280 `cD`): a quarter ends on the last day of
+ * its third month (31 Mar, 30 Jun, 30 Sep, 31 Dec), a fiscal year on 31 Dec, both at 23:59:59.999 UTC. TTM periods
+ * end with their quarter. Null for labels Thndr does not use.
+ */
+export function periodEnd(label: string): Date | null {
+  const period = parsePeriod(label);
+  if (!period) return null;
+  const month = period.order === 5 ? 12 : period.order * 3;
+  return new Date(Date.UTC(period.year, month, 0, 23, 59, 59, 999));
+}
+
 /** Chronological order of period labels; unknown labels sort alphabetically. */
 export function comparePeriods(a: string, b: string): number {
   const pa = parsePeriod(a);
@@ -208,10 +221,80 @@ export interface Valuation {
 }
 
 /**
- * Valuation ratios at today's price against the latest reported period, as ThndrX computes them (module 36255):
+ * Years of daily closes ThndrX loads to price a company's own valuation multiples (its "valuation-price-bars"
+ * query): 3 for `ttm`/`qoq`, 8 for `yoy`.
+ */
+export const VALUATION_PRICE_YEARS: Readonly<Record<FinancialMode, number>> = Object.freeze({
+  ttm: 3,
+  qoq: 3,
+  yoy: 8,
+});
+
+/** Why a company was valued at the current price instead of the close at the end of its latest period. */
+export type CurrentPriceReason = 'noPeriod' | 'noCandles' | 'beforeHistory';
+
+/** The price a company's own valuation multiples use. */
+export interface ValuationPrice {
+  /** The latest reported period, or null when no metric reports one. */
+  readonly period: string | null;
+  /** Its last day (YYYY-MM-DD, UTC), or null. */
+  readonly periodEnd: string | null;
+  readonly basis: 'periodEndClose' | 'currentPrice';
+  readonly price: number | null;
+  /** Day of the daily candle whose close is used (YYYY-MM-DD, UTC); null for the current price. */
+  readonly priceDate: string | null;
+  /** Set when `basis` is `currentPrice`. */
+  readonly reason?: CurrentPriceReason;
+}
+
+/**
+ * ThndrX's price for a company's own valuation (module 36255 `valuateForPeriod`): the close of the last daily candle
+ * at or before the end of the latest reported period. ThndrX falls back to the current price when there is no
+ * period or no candles at all; when candles exist but none reaches back to the period end it shows no value — we
+ * fall back to the current price there too (`reason: 'beforeHistory'`) so the caller can say so.
+ */
+export function valuationPrice(
+  statements: FinancialStatements,
+  candles: readonly Candle[],
+  currentPrice: number | null,
+): ValuationPrice {
+  const period = latestPeriod(statements);
+  const end = period === null ? null : periodEnd(period);
+  const current = (reason: CurrentPriceReason): ValuationPrice =>
+    Object.freeze({
+      period,
+      periodEnd: end ? isoDay(end) : null,
+      basis: 'currentPrice',
+      price: currentPrice,
+      priceDate: null,
+      reason,
+    });
+  if (period === null || end === null) return current('noPeriod');
+  if (candles.length === 0) return current('noCandles');
+  let bar: Candle | undefined;
+  for (const candle of candles) {
+    if (candle.time.getTime() > end.getTime()) continue;
+    if (!bar || candle.time.getTime() >= bar.time.getTime()) bar = candle;
+  }
+  if (!bar) return current('beforeHistory');
+  return Object.freeze({
+    period,
+    periodEnd: isoDay(end),
+    basis: 'periodEndClose',
+    price: bar.close,
+    priceDate: isoDay(bar.time),
+  });
+}
+
+const isoDay = (time: Date) => time.toISOString().slice(0, 10);
+
+/**
+ * Valuation ratios at a given price against the latest reported period, as ThndrX computes them (module 36255):
  * market cap = listed shares × price; EV = market cap + total debt − cash − short-term investments; P/E is
  * dropped when EPS is negative; P/B uses equity net of minority interest, else price / BVPS. In `qoq` mode the
- * denominators are a single quarter's figures, so prefer `ttm` for ratios.
+ * denominators are a single quarter's figures, so prefer `ttm` for ratios. ThndrX prices a company's own multiples
+ * at the close at the end of the latest period ({@link valuationPrice}) and its sector peers at the current price;
+ * the caller chooses `market.price` accordingly.
  */
 export function valuation(statements: FinancialStatements, market: MarketFigures): Valuation {
   const price = market.price;

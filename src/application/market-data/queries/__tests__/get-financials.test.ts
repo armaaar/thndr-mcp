@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aCandle,
   anInstrument,
   aQuote,
   FakeMarketDataRepository,
@@ -7,6 +8,7 @@ import {
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
 import { FakeResearchRepository, someFinancials } from '../../../../__tests__/support/fake-research';
+import { NotAuthenticatedError, UpstreamError } from '../../../errors';
 import { GetFinancials } from '../get-financials';
 
 const comi = () =>
@@ -123,6 +125,10 @@ describe('GetFinancials', () => {
   });
 
   describe('compareToSector', () => {
+    const NOW = new Date('2026-10-06T10:00:00Z');
+    const bar = (time: string, close: number) =>
+      aCandle({ time: new Date(time), close, high: close, low: close });
+
     function sector() {
       const research = new FakeResearchRepository();
       research.financials = {
@@ -144,7 +150,14 @@ describe('GetFinancials', () => {
           ],
         },
       });
-      return setupMarketData(repository, undefined, research);
+      // TTM Q2 26 ends 2026-06-30 23:59:59.999 UTC: the 30 June bar is the last one on or before it.
+      repository.candles = [
+        bar('2026-07-01T00:00:00Z', 40),
+        bar('2026-06-29T00:00:00Z', 12),
+        bar('2026-06-30T00:00:00Z', 15),
+        bar('2025-12-31T00:00:00Z', 9),
+      ];
+      return setupMarketData(repository, NOW, research);
     }
 
     it('ranks the company among sector companies with listed shares, as ThndrX does', async () => {
@@ -161,6 +174,7 @@ describe('GetFinancials', () => {
         category: 'profitability',
         unit: '%',
         lowerIsBetter: false,
+        source: 'roe_%',
         value: 30,
         sectorCount: 3,
         median: 20,
@@ -168,13 +182,115 @@ describe('GetFinancials', () => {
         max: 30,
         percentile: 100,
       });
-      expect(comparison.metrics.find((m) => m.key === 'pe')).toMatchObject({
-        value: 5,
-        median: 10,
-        percentile: 100,
-      });
-      expect(comparison.ratings).toEqual([{ category: 'valuation', percentile: 100, band: 'green' }]);
       expect(out.notes).toEqual([expect.stringContaining('does not show this comparison for banks')]);
+    });
+
+    it('prices the company’s own multiples at the close on or before the end of its latest period, peers at today’s price', async () => {
+      const deps = sector();
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      const call = deps.repository.calls.getCandles[0]!;
+      expect(call).toMatchObject({
+        resolution: '1d',
+        to: NOW,
+        from: new Date(NOW.getTime() - 3 * 365 * 86_400_000),
+      });
+      const comparison = out.sectorComparison!;
+      expect(comparison.valuationPrice).toEqual({
+        period: 'TTM Q2 26',
+        periodEnd: '2026-06-30',
+        basis: 'periodEndClose',
+        price: 15,
+        priceDate: '2026-06-30',
+      });
+      // Company P/E = 15 / 2 = 7.5; the sector sample holds every company at today's price 10: COMI 5, ADIB 10, HDBK 20.
+      expect(comparison.metrics.find((m) => m.key === 'pe')).toMatchObject({
+        source: 'price / eps (left out when negative)',
+        value: 7.5,
+        sectorCount: 3,
+        median: 10,
+        min: 5,
+        max: 20,
+        percentile: 75,
+        companyPrice: 'periodEndClose',
+      });
+      expect(comparison.metrics.find((m) => m.key === 'roe')).not.toHaveProperty('companyPrice');
+      expect(comparison.ratings).toEqual([{ category: 'valuation', percentile: 75, band: 'lightGreen' }]);
+    });
+
+    it('loads 8 years of candles for fiscal years and prices at 31 December', async () => {
+      const deps = sector();
+      deps.research.financials.COMI = someFinancials({ eps: [['2025', 2]] }, 'yoy');
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', mode: 'yoy', compareToSector: true });
+      expect(deps.repository.calls.getCandles[0]?.from).toEqual(
+        new Date(NOW.getTime() - 8 * 365 * 86_400_000),
+      );
+      expect(out.sectorComparison?.valuationPrice).toMatchObject({
+        period: '2025',
+        periodEnd: '2025-12-31',
+        price: 9,
+        priceDate: '2025-12-31',
+      });
+    });
+
+    it('uses today’s price and says so when the candles do not reach back to the period end', async () => {
+      const deps = sector();
+      deps.repository.candles = [bar('2026-07-01T00:00:00Z', 40)];
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(out.sectorComparison?.valuationPrice).toMatchObject({
+        basis: 'currentPrice',
+        price: 10,
+        priceDate: null,
+        reason: 'beforeHistory',
+      });
+      expect(out.sectorComparison?.metrics.find((m) => m.key === 'pe')).toMatchObject({
+        value: 5,
+        companyPrice: 'currentPrice',
+      });
+      expect(out.notes).toEqual([
+        expect.stringContaining('banks'),
+        expect.stringContaining('ThndrX leaves them empty'),
+      ]);
+    });
+
+    it('uses today’s price, as ThndrX does, when Thndr returns no candles', async () => {
+      const deps = sector();
+      deps.repository.candles = [];
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(out.sectorComparison?.valuationPrice).toMatchObject({
+        basis: 'currentPrice',
+        reason: 'noCandles',
+      });
+      expect(out.notes?.[1]).toContain('no daily candles');
+    });
+
+    it('uses today’s price when the candle request fails, and propagates other errors', async () => {
+      const deps = sector();
+      deps.repository.failures.getCandles = new UpstreamError('Thndr API error 500', 500);
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(out.sectorComparison?.valuationPrice).toMatchObject({ basis: 'currentPrice', price: 10 });
+      expect(out.notes?.[1]).toContain('could not be loaded');
+
+      deps.repository.failures.getCandles = new NotAuthenticatedError();
+      await expect(
+        new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true }),
+      ).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
+    });
+
+    it('returns no comparison, with a note, when the sector batch fails upstream', async () => {
+      const deps = sector();
+      deps.research.failures.getFinancialsBatch = new UpstreamError(
+        'Thndr API error 429 on GET /financials',
+        429,
+      );
+      const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(out.sectorComparison).toBeNull();
+      expect(out.notes).toEqual([expect.stringContaining('429')]);
+      expect(out.metrics.revenues?.latest).toEqual({ period: 'TTM Q2 26', value: 120 });
+
+      deps.research.failures.getFinancialsBatch = new NotAuthenticatedError();
+      await expect(
+        new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true }),
+      ).rejects.toMatchObject({ code: 'NOT_AUTHENTICATED' });
     });
 
     it('falls back to the single-company statements when the batch lacks the company', async () => {
@@ -199,7 +315,8 @@ describe('GetFinancials', () => {
         instruments: [anInstrument({ ticker: 'HRHO', sector: 'Financial Services' })],
         quotes: { egypt: [aQuote({ ticker: 'HRHO', sector: 'Financial Services' })] },
       });
-      const out = await new GetFinancials(setupMarketData(repository, undefined, research)).run({
+      repository.candles = [aCandle({ time: new Date('2026-01-01T00:00:00Z') })];
+      const out = await new GetFinancials(setupMarketData(repository, NOW, research)).run({
         symbol: 'HRHO',
         compareToSector: true,
       });

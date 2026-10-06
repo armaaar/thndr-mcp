@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { aCandle } from '../../../__tests__/support/fake-market-data';
 import { someFinancials } from '../../../__tests__/support/fake-research';
 import { ValidationError } from '../../shared-kernel/errors';
 import {
@@ -8,8 +9,11 @@ import {
   FINANCIAL_METRIC_GROUPS,
   latestPeriod,
   latestValue,
+  periodEnd,
   ratio,
+  VALUATION_PRICE_YEARS,
   valuation,
+  valuationPrice,
   valueAt,
 } from '../financials';
 
@@ -128,6 +132,82 @@ describe('valuation (ThndrX module 36255)', () => {
       price: 10,
       marketCap: null,
       peRatio: null,
+    });
+  });
+});
+
+describe('period ends (ThndrX module 13280 cD)', () => {
+  it('ends quarters on their last calendar day and years on 31 December, at the last UTC millisecond', () => {
+    expect(periodEnd('Q1 26')?.toISOString()).toBe('2026-03-31T23:59:59.999Z');
+    expect(periodEnd('TTM Q2 26')?.toISOString()).toBe('2026-06-30T23:59:59.999Z');
+    expect(periodEnd('Q3 2025')?.toISOString()).toBe('2025-09-30T23:59:59.999Z');
+    expect(periodEnd(' ttm q4 25 ')?.toISOString()).toBe('2025-12-31T23:59:59.999Z');
+    expect(periodEnd('2024')?.toISOString()).toBe('2024-12-31T23:59:59.999Z');
+    expect(periodEnd('H1 26')).toBeNull();
+  });
+});
+
+describe('valuation price (ThndrX module 36255 valuateForPeriod)', () => {
+  const bar = (time: string, close: number) =>
+    aCandle({ time: new Date(time), close, high: close, low: close });
+  const ttm = someFinancials({ eps: [['TTM Q2 26', 2]], revenues: [['TTM Q1 26', 1]] });
+
+  it('loads 3 years of daily candles for quarters and 8 for fiscal years', () => {
+    expect(VALUATION_PRICE_YEARS).toEqual({ ttm: 3, qoq: 3, yoy: 8 });
+  });
+
+  it('takes the close of the last candle at or before the end of the latest period, whatever the order', () => {
+    const price = valuationPrice(
+      ttm,
+      [
+        bar('2026-07-01T00:00:00Z', 30),
+        bar('2026-06-30T23:59:59.999Z', 25),
+        bar('2026-06-29T00:00:00Z', 20),
+        bar('2026-06-30T23:59:59.999Z', 26),
+      ],
+      99,
+    );
+    expect(price).toEqual({
+      period: 'TTM Q2 26',
+      periodEnd: '2026-06-30',
+      basis: 'periodEndClose',
+      price: 26,
+      priceDate: '2026-06-30',
+    });
+    expect(Object.isFrozen(price)).toBe(true);
+  });
+
+  it('uses the latest close when the period has not ended yet', () => {
+    expect(valuationPrice(ttm, [bar('2026-05-03T00:00:00Z', 12)], 99)).toMatchObject({
+      basis: 'periodEndClose',
+      price: 12,
+      priceDate: '2026-05-03',
+    });
+  });
+
+  it('falls back to the current price without a period, without candles, or before the candle history', () => {
+    expect(valuationPrice(someFinancials({}), [bar('2026-01-01T00:00:00Z', 1)], 9)).toEqual({
+      period: null,
+      periodEnd: null,
+      basis: 'currentPrice',
+      price: 9,
+      priceDate: null,
+      reason: 'noPeriod',
+    });
+    expect(valuationPrice(someFinancials({ eps: [['FY26', 1]] }), [], 9)).toMatchObject({
+      period: 'FY26',
+      periodEnd: null,
+      reason: 'noPeriod',
+    });
+    expect(valuationPrice(ttm, [], null)).toMatchObject({
+      periodEnd: '2026-06-30',
+      basis: 'currentPrice',
+      price: null,
+      reason: 'noCandles',
+    });
+    expect(valuationPrice(ttm, [bar('2026-07-01T00:00:00Z', 30)], 9)).toMatchObject({
+      price: 9,
+      reason: 'beforeHistory',
     });
   });
 });
