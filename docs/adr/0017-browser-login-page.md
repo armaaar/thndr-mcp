@@ -28,10 +28,11 @@ We will run the whole login in a **local browser page**:
   expiry) also stops the guided login behind the page: it waits for the approval in 10-second steps and checks for
   cancellation between steps, and a new login starts only after the previous one stopped (they share the login flow).
 - Only the tool call that started the login shows a prompt; concurrent calls join it silently.
-- The tool call waits for the page. How the user reaches it depends on the client:
-  - URL elicitation: the client offers to open the page and gets an `elicitation/complete` notification.
-  - Form elicitation: the server opens the page and shows a short prompt with the link, cancelled once logged in.
-  - Neither: the server opens the page; MCP progress notifications (every 15 s) carry the link.
+- The tool call waits for the page. The server **always opens the page itself**. We do not use MCP URL elicitation:
+  Claude Code implements it as an "open this URL?" consent prompt, and declining it cancelled the login — an extra
+  step the user does not want. The link is also shown as a fallback: in a short form prompt when the client supports
+  form elicitation (cancelled once logged in; declining it cancels the login), and in MCP progress notifications
+  (every 15 s).
 - A tool call the client cancels or times out leaves the page running; the user finishes and asks again.
 - Security of the page: the URL carries a 192-bit random token; only `127.0.0.1`/`localhost` `Host` headers are
   served (DNS rebinding); state-changing requests must be same-origin `application/json` (no cross-site form posts);
@@ -39,6 +40,11 @@ We will run the whole login in a **local browser page**:
   (nonce-only script, no external resources).
 - `thndr login` keeps the terminal dialog (a terminal can show the QR code drawn with half blocks). The model-driven
   `login_*` tools stay as the fallback for machines without a browser.
+- The page uses ThndrX's design tokens (DM Sans, its dark-first palette and indigo primary, rounded surfaces and pill
+  buttons) so it feels familiar, but it is labelled "thndr-mcp — unofficial community tool, not affiliated with
+  Thndr" and carries no Thndr logo, so it never passes itself off as Thndr's own login page. DM Sans comes from Google
+  Fonts (the CSP allows only `fonts.googleapis.com` / `fonts.gstatic.com` besides the page); offline, it falls back to
+  the system font.
 - To keep the QR code small, the deep link's `user_agent` parameter carries a short device name
   (`THNDR_DEVICE_NAME`, default `thndr-mcp`).
 
