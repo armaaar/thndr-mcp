@@ -12,7 +12,7 @@ server and to humans through the `thndr` CLI ([ADR 0012](../adr/0012-use-case-cl
 | Type | Subdomain | Why |
 | --- | --- | --- |
 | **Core** | Market analysis | Search, quotes, history, depth, tape and screening are what make the server useful to an agent. |
-| **Core** | Portfolio insight | Cash, positions, order history, realized returns and trading-journal metrics — analysis of the user's own trading. |
+| **Core** | Portfolio insight | Cash, positions, order history, returns (Thndr's "realized returns", which include unrealized gains), performance, allocation, savings and trading-journal metrics — analysis of the user's own trading. |
 | **Supporting** | Engagement | Watchlists, price alerts and notifications: useful list management, but not a differentiator. |
 | **Generic** | Identity | Getting and keeping a Thndr session. Hard because it is interactive (phone approval), but not business logic. |
 

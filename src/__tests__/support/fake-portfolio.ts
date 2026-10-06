@@ -1,6 +1,8 @@
 import { vi } from 'vitest';
 import { NotFoundError } from '../../application/errors';
+import { IndexMembership } from '../../application/market-data/services/index-membership';
 import { InstrumentResolver } from '../../application/market-data/services/instrument-resolver';
+import { MarketQuotesCache } from '../../application/market-data/services/market-quotes-cache';
 import type { PortfolioDependencies } from '../../application/portfolio/dependencies';
 import type { Instrument } from '../../domain/market-data/instrument';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
@@ -44,12 +46,16 @@ function marketData(): MarketDataRepository {
       if (!found) throw new NotFoundError('no such asset');
       return found;
     }),
-    getMarketQuotes: vi.fn(),
+    getMarketQuotes: vi.fn(async () => []),
     getCandles: vi.fn(),
     getOrderBook: vi.fn(),
     getRecentTrades: vi.fn(),
     getMarketSession: vi.fn(),
     getMarketIndicators: vi.fn(),
+    getIndexConstituents: vi.fn(async () => []),
+    getSimilarInstruments: vi.fn(),
+    getScreeners: vi.fn(),
+    getScreener: vi.fn(),
   } as unknown as MarketDataRepository;
 }
 
@@ -128,7 +134,10 @@ export function stats(
   };
 }
 
-/** A fake portfolio repository (vi.fn per method) plus real InstrumentResolver over a fake market-data repo. */
+/**
+ * A fake portfolio repository (vi.fn per method) plus the real Market Data services (resolver, quotes cache, index
+ * membership) over a fake market-data repo (`md`: no quotes and no index members unless a test mocks them).
+ */
 export function setupPortfolio(overrides: Partial<PortfolioRepository> = {}) {
   const repository: PortfolioRepository = {
     getAccount: vi.fn(async () => ({
@@ -154,13 +163,25 @@ export function setupPortfolio(overrides: Partial<PortfolioRepository> = {}) {
     getSellJournal: vi.fn(async () => ({ entries: [], totalCount: 0, page: 1, hasMore: false })),
     getTradingMetrics: vi.fn(),
     listActivities: vi.fn(),
+    getSavings: vi.fn(async () => ({
+      totalAmount: 0,
+      totalGain: 0,
+      count: 0,
+      amountsPerType: {},
+      clouds: [],
+    })),
+    getSavingsYields: vi.fn(async () => []),
     ...overrides,
   };
   const md = marketData();
+  const clock = { now: () => NOW };
+  const quotes = new MarketQuotesCache(md, clock);
   const deps: PortfolioDependencies = {
     repository,
     resolver: new InstrumentResolver(md),
-    clock: { now: () => NOW },
+    quotes,
+    indices: new IndexMembership(md, quotes, clock),
+    clock,
   };
   return { repository, deps, md };
 }

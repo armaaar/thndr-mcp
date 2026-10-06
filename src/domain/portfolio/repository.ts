@@ -6,6 +6,7 @@ import type { ClosedTrade, DateRange, JournalPage, SellJournalEntry, TradingMetr
 import type { OrderStatusFilter, OrdersPage } from './order';
 import type { Position } from './position';
 import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from './returns';
+import type { SavingsBalances, SavingsYield } from './savings';
 import type { SellableQuantity } from './sellable-quantity';
 
 export interface AccountSnapshot {
@@ -44,4 +45,8 @@ export interface PortfolioRepository {
   /** Journal statistics across every market (Thndr takes no market for this one). */
   getTradingMetrics(range: DateRange): Promise<TradingMetrics>;
   listActivities(market: Market, page: number, pageSize: number): Promise<ActivityPage>;
+  /** Savings ("Clouds") balances (EGP; read-only — no transfers). */
+  getSavings(): Promise<SavingsBalances>;
+  /** Current yields of each savings product. */
+  getSavingsYields(): Promise<SavingsYield[]>;
 }

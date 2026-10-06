@@ -8,6 +8,8 @@ import type {
   PositionDto,
   RealizedReturnsDto,
   ReturnsPointDto,
+  SavingsCloudsDto,
+  SavingsCloudsStatsDto,
   TradingMetricsDto,
   WalletAndPortfolioDto,
 } from '../../data-sources/thndr/dto/portfolio';
@@ -31,6 +33,7 @@ import type {
   PortfolioRepository,
 } from '../../domain/portfolio/repository';
 import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from '../../domain/portfolio/returns';
+import type { SavingsBalances, SavingsYield } from '../../domain/portfolio/savings';
 import type { SellableQuantity } from '../../domain/portfolio/sellable-quantity';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
@@ -43,6 +46,8 @@ import {
   toPosition,
   toRealizedReturns,
   toReturnsPoint,
+  toSavingsBalances,
+  toSavingsYields,
   toSellableQuantity,
   toSellJournalEntry,
   toTradingMetrics,
@@ -62,7 +67,8 @@ export const ACTIVITY_PROVIDER: Record<Market, string> = { egypt: 'EGID', us: 'A
 
 /**
  * Read-only adapter for Thndr's account, portfolio, order-history, journal and activity endpoints
- * (docs/api/trading-and-portfolio.md). It intentionally implements no order entry or fund movement (ADR 0006).
+ * (docs/api/trading-and-portfolio.md), plus savings balances and yields. It intentionally implements no order entry
+ * or fund movement — no savings transfers either (ADR 0006).
  * `api` targets https://prod.thndr.app, `krakend` https://prod.thndr.app/krakend-thndr-x; every krakend response
  * goes through {@link assertNoKrakendError}.
  */
@@ -164,7 +170,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   async getTradingMetrics(range: DateRange): Promise<TradingMetrics> {
     const path = '/trading-journals/v1/trading-metrics';
     const data = await this.krakend.get<TradingMetricsDto>(path, {
-      query: { from_date: range.from?.toISOString(), to_date: range.to?.toISOString() },
+      query: journalRangeParams(range),
     });
     assertNoKrakendError(data, `GET ${path}`);
     return toTradingMetrics(data);
@@ -181,6 +187,20 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
       hasMore: rows > 0 && rows === pageSize,
     });
   }
+
+  async getSavings(): Promise<SavingsBalances> {
+    const path = '/savings/v1/clouds';
+    const data = await this.krakend.get<SavingsCloudsDto>(path);
+    assertNoKrakendError(data, `GET ${path}`);
+    return toSavingsBalances(data);
+  }
+
+  async getSavingsYields(): Promise<SavingsYield[]> {
+    const path = '/savings/v1/clouds-stats';
+    const data = await this.krakend.get<SavingsCloudsStatsDto>(path);
+    assertNoKrakendError(data, `GET ${path}`);
+    return toSavingsYields(data);
+  }
 }
 
 function journalParams(query: JournalQuery) {
@@ -189,7 +209,22 @@ function journalParams(query: JournalQuery) {
     page: query.page,
     limit: query.limit,
     symbol_code: query.ticker,
-    from_date: query.from?.toISOString(),
-    to_date: query.to?.toISOString(),
+    ...journalRangeParams(query),
+  };
+}
+
+/** Earliest bound sent when only the end of a journal range is given. */
+const JOURNAL_EPOCH = new Date(0);
+
+/**
+ * Thndr's journal endpoints apply a date range only when **both** `from_date` and `to_date` are sent (live check
+ * 2026-10-06: `from_date` alone returns every trade). An open end is therefore filled in: the epoch for a missing
+ * start, now for a missing end. "All time" sends neither.
+ */
+function journalRangeParams(range: DateRange): { from_date?: string; to_date?: string } {
+  if (!range.from && !range.to) return {};
+  return {
+    from_date: (range.from ?? JOURNAL_EPOCH).toISOString(),
+    to_date: (range.to ?? new Date()).toISOString(),
   };
 }

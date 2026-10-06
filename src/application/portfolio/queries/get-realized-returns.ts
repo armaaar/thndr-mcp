@@ -30,7 +30,8 @@ export class GetRealizedReturns extends Query<typeof input, RealizedReturnsResul
   readonly name = 'get_realized_returns';
   readonly title = 'Realized returns';
   readonly description =
-    'Realized returns to date plus a portfolio value / returns series over 1M, 6M, 1Y or 2Y.';
+    'Thndr\'s cumulative return to date (its "realized returns": account value minus net deposits, unrealized ' +
+    'gains included) plus a series of account value, net deposits and returns over 1M, 6M, 1Y or 2Y.';
   readonly context = 'portfolio';
   readonly input = input;
 

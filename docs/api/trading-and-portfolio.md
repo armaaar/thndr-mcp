@@ -206,12 +206,22 @@ interface RealizedReturns { total_returns: number; snapshot_date: string /* date
 ### 1.5 `GET /market-service/realized-returns/chart/{interval}` [C]
 
 - Client: `aP`. Query: `market`. Path `interval`: `"1M" | "6M" | "1Y" | "2Y"` (enum in modules 84523 and 77767). [C]
+- Live-verified 2026-10-06: `1W`, `3M`, `YTD`, `ALL` and `MAX` answer **HTTP 422**. Point counts: `1M` = 30 daily
+  points, `6M` = 183 daily points (one per calendar day, weekends included), `1Y` = 52 weekly points, `2Y` = 105
+  weekly points (same weekday, aligned between 1Y and 2Y). In the 2026-10-06 capture the `1M` series ran
+  2026-09-06 → 2026-10-05 (latest point = the day before the request) and the `6M` series started 2026-04-06
+  (`today − 6 months`), so a 6M window measured from the close before it needs one weekly point.
 - Evidence: `lazy_1480` module 84523:
   ```js
   await s.aP.get(`/market-service/realized-returns/chart/${t}`,{params:{market:e}})
   ```
 ```ts
-type ReturnsChart = Array<{ snapshot_date: string; total_returns: number; portfolio_value: number }>; // [I] array, oldest first
+type ReturnsChart = Array<{        // live-verified 2026-10-06; array, oldest first
+  snapshot_date: string;              // "YYYY-MM-DD"
+  total_returns: number;              // = portfolio_value − net_deposits (unrealized gains included; live 2026-10-06), despite the "realized" path
+  portfolio_value: number;            // account value: positions + cash (live 2026-10-06: the latest point equals the wallet's positions value plus its cash)
+  net_deposits: number;               // cumulative deposits − withdrawals (live 2026-10-06; not read by ThndrX's chart)
+}>;
 ```
 The UI reads `er[0][X ? "total_returns" : "portfolio_value"]` and `er.at(-1)?.snapshot_date`.
 
@@ -432,6 +442,9 @@ documented or used** by this project (ADR 0006: read-only scope).
   - `limit` (default 10).
   - `symbol_code` (optional ticker).
   - `from_date` and `to_date` (optional). These are JS `Date` objects, which axios serializes as **ISO 8601** (`toISOString()`). Presets are 1/3/6 months or 1 year back, start of day. "All time" omits both.
+  - **Both bounds are required for the filter to apply** (live check 2026-10-06, same for grouped-sells and
+    trading-metrics): `from_date` alone (or `to_date` alone) returns every trade. thndr-mcp fills an open end with the
+    epoch or the current time.
 ```ts
 interface FullTradesResponse { full_trades: FullTrade[]; total_count: number }
 interface FullTrade {             // [I] mapping fn `s` in lazy_2019
@@ -540,8 +553,8 @@ Without a token this returns 403 `INVALID_TOKEN` (probe).
 
 | Method | Path | Body / params | Response (fields read) |
 |---|---|---|---|
-| GET | `/savings/v1/clouds` | — | `{ clouds: Cloud[]; total_amount: number; total_gain?: number }`<br>`Cloud = {id, name, cloud_type, amount, gains, withdrawable_amount}` [I]<br>KrakenD key `error_get_clouds` |
-| GET | `/savings/v1/clouds-stats` | — | `error_clouds_stats` [?] shape |
+| GET | `/savings/v1/clouds` | — | `{ amounts_per_type: {}; clouds: Cloud[]; count: number; total_amount: number; total_gain: number }` (live 2026-10-06, account without savings)<br>`Cloud = {id, name, cloud_type, amount, gains, withdrawable_amount}` [I]<br>KrakenD key `error_get_clouds`. Used by `get_savings`. |
+| GET | `/savings/v1/clouds-stats` | — | `{ [product: "INSTANT_EGP" \| "MONTHLY_EGP" \| …]: { currently_earning: number; last_updated_at: string /* no time zone */; nominal_yields: { daily, weekly, monthly, quarterly, semi_annually: number } } }` (percent; live 2026-10-06)<br>KrakenD key `error_clouds_stats`. Used by `get_savings`. |
 | GET | `/savings/v1/transfer-types/{cloud_id}` | — | `{ transfer_types: [{type: "INSTANT"\|"SCHEDULED"\|"SCHEDULED_CLOUD_FULL_EXIT", fees}] }` [I] |
 | POST | `/savings/v1/transfer/calculate-fees` | `{cloud_id, direction:"IN"\|"OUT", transfer_type, amount?}` (no amount for FULL_EXIT) | `{fees, scheduled_at}` [I] |
 | POST | `/savings/v1/transfer` | `{cloud_id, direction, transfer_type, is_max_amount?:true \| amount?}` | — |
@@ -549,6 +562,8 @@ Without a token this returns 403 `INVALID_TOKEN` (probe).
 | PATCH | `/savings/v1/transfer-requests/{id}` | `{status:"CANCELLED"}` | — |
 
 Evidence: `lazy_642` lines 708–1564, `lazy_8231` line 25, `chunks_2801` line 2329.
+
+thndr-mcp reads only `clouds` and `clouds-stats`; the transfer endpoints are never called (ADR 0006).
 
 ---
 

@@ -1,18 +1,13 @@
-import { parseMarketDate } from '../../../domain/market-data/market-calendar';
-import {
-  type InstrumentTradingStats,
-  journalRange,
-  type TradingMetrics,
-} from '../../../domain/portfolio/journal';
+import type { InstrumentTradingStats, TradingMetrics } from '../../../domain/portfolio/journal';
 import { parseMarket } from '../../../domain/shared-kernel/market';
-import { dateInput, marketInput } from '../../inputs';
+import { marketInput } from '../../inputs';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
+import { rangeInput, resolveRange } from '../range-input';
 
 const input = {
   market: marketInput,
-  from: dateInput.optional(),
-  to: dateInput.optional(),
+  ...rangeInput,
 };
 
 export class GetTradingMetrics extends Query<typeof input, TradingMetrics> {
@@ -29,11 +24,7 @@ export class GetTradingMetrics extends Query<typeof input, TradingMetrics> {
   }
 
   async execute(params: InputOf<typeof input>): Promise<TradingMetrics> {
-    const range = journalRange(
-      parseMarketDate(params.from, 'start'),
-      parseMarketDate(params.to, 'end'),
-      this.deps.clock.now(),
-    );
+    const range = resolveRange(params, this.deps.clock);
     const market = parseMarket(params.market);
     const metrics = await this.deps.repository.getTradingMetrics(range);
     // Thndr keys per-symbol stats by asset id only: resolve tickers best-effort (cached by the resolver).

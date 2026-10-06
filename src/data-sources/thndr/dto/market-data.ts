@@ -42,6 +42,18 @@ export interface AssetDto {
   symbol_state?: string | null;
   stats?: { symbol_state?: string | null } | null;
   feed?: AssetFeedDto | null;
+  /** Labels such as sector, index ("EGX30"), "sharia" or "Same Day Tradable" (live capture 2026-10-06). */
+  tags?: AssetTagDto[] | null;
+  /** Only on an index's details: its member instruments; ThndrX reads `constituents[].id` (module 50766). */
+  constituents?: Array<{ id?: string | null }> | null;
+}
+
+/** One entry of `asset.tags`. */
+export interface AssetTagDto {
+  id?: number | string | null;
+  slug?: string | null;
+  name?: string | null;
+  hidden?: boolean | null;
 }
 
 export interface AssetSearchResponseDto {
@@ -56,6 +68,8 @@ export interface MarketwatchAssetDto {
   arb_name?: string | null;
   eng_desc?: string | null;
   asset_class?: string | null;
+  /** EGX board: NOPL, OOTC, SME, INDX (indices), FNDS… */
+  market_id?: string | null;
   currency?: number | string | null;
   round_digits?: WireNumber;
   symbol_state?: string | null;
@@ -84,7 +98,9 @@ export interface MarketwatchAssetDto {
   low_price_limit?: WireNumber;
   max_limit?: WireNumber;
   min_limit?: WireNumber;
+  avg_5_day?: WireNumber;
   avg_30_day?: WireNumber;
+  avg_90_day?: WireNumber;
   high_52_week?: WireNumber;
   low_52_week?: WireNumber;
 }
@@ -160,6 +176,40 @@ export interface MarketIndicatorDto {
 
 export interface MarketIndicatorsResponseDto {
   results?: MarketIndicatorDto[] | null;
+}
+
+/** `GET /assets-service/assets/{id}/recommendations` ("similar stocks", misc §3); results are asset payloads. */
+export interface RecommendationsResponseDto {
+  count?: number | null;
+  results?: AssetDto[] | null;
+}
+
+/** One filter of a saved screener (§5.1). */
+export interface ScreenerFilterDto {
+  /** A marketwatch field (`total_value`, `eng_desc`…) or a derived key (`price`, `relative_volume`…). */
+  filter_key?: string | null;
+  /** `NumberRange`, `StringArray`, `StringLoose`, `String`, `Number` (and `DateRange`, unused). */
+  type?: string | null;
+  /** Decimal strings; an empty or missing bound is open. */
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  /** `StringArray`: a JSON-encoded array string such as `'["Banks","Real Estate"]'`. */
+  value?: string | number | null;
+  id?: string | null;
+}
+
+/** `GET /users-service/screeners/{id}` (§5.1). */
+export interface ScreenerDto {
+  id?: string | null;
+  name?: string | null;
+  market?: string | null;
+  source?: string | null;
+  filters?: ScreenerFilterDto[] | null;
+}
+
+/** `GET /users-service/screeners?market=` (§5.1). */
+export interface ScreenersResponseDto {
+  screeners?: ScreenerDto[] | null;
 }
 
 /** Value of a krakend `error_*` key (§0.2). */

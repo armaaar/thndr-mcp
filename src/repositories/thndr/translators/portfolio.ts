@@ -8,6 +8,9 @@ import type {
   PositionDto,
   RealizedReturnsDto,
   ReturnsPointDto,
+  SavingsCloudDto,
+  SavingsCloudsDto,
+  SavingsCloudsStatsDto,
   SellJournalDto,
   SymbolStatsDto,
   TradingMetricsDto,
@@ -27,6 +30,7 @@ import { type BracketLeg, createOrder, type Order, type OrderType } from '../../
 import { createPosition, type Position } from '../../../domain/portfolio/position';
 import type { AccountSnapshot } from '../../../domain/portfolio/repository';
 import type { RealizedReturns, ReturnsPoint } from '../../../domain/portfolio/returns';
+import type { SavingsBalances, SavingsCloud, SavingsYield } from '../../../domain/portfolio/savings';
 import {
   CUSTODIANS,
   type Custodian,
@@ -141,6 +145,7 @@ export function toReturnsPoint(dto: ReturnsPointDto | null | undefined): Returns
     date,
     totalReturns: toNumber(dto.total_returns),
     portfolioValue: toNumber(dto.portfolio_value),
+    netDeposits: toNumber(dto.net_deposits),
   });
 }
 
@@ -295,4 +300,59 @@ export function toAccountActivity(dto: AccountActivityDto | null | undefined): A
     description: stringOrNull(dto.description),
     ticker: sanitizeTicker(dto.asset_meta?.symbol),
   });
+}
+
+/** §6 one savings bundle. */
+export function toSavingsCloud(dto: SavingsCloudDto | null | undefined): SavingsCloud | null {
+  if (!isObject(dto)) return null;
+  return Object.freeze({
+    id: toStringOrNull(dto.id),
+    name: stringOrNull(dto.name),
+    type: stringOrNull(dto.cloud_type),
+    amount: toNumber(dto.amount),
+    gains: toNumber(dto.gains),
+    withdrawableAmount: toNumber(dto.withdrawable_amount),
+  });
+}
+
+/** §6 savings balances. `amounts_per_type` keeps the numeric entries only. */
+export function toSavingsBalances(dto: SavingsCloudsDto | null | undefined): SavingsBalances {
+  const d: SavingsCloudsDto = isObject(dto) ? dto : {};
+  const amountsPerType: Record<string, number> = {};
+  if (isObject(d.amounts_per_type)) {
+    for (const [type, raw] of Object.entries(d.amounts_per_type)) {
+      const amount = toNumber(raw);
+      if (amount !== null) amountsPerType[type] = amount;
+    }
+  }
+  return Object.freeze({
+    totalAmount: toNumber(d.total_amount),
+    totalGain: toNumber(d.total_gain),
+    count: toNumber(d.count),
+    amountsPerType: Object.freeze(amountsPerType),
+    clouds: Object.freeze(mapRows(d.clouds, toSavingsCloud)),
+  });
+}
+
+/** §6 savings product yields, in the order Thndr sends them. */
+export function toSavingsYields(dto: SavingsCloudsStatsDto | null | undefined): SavingsYield[] {
+  if (!isObject(dto)) return [];
+  return Object.entries(dto)
+    .filter(([product, stats]) => !product.startsWith('error_') && isObject(stats))
+    .map(([product, stats]) => {
+      const s = stats as NonNullable<typeof stats>;
+      const yields = isObject(s.nominal_yields) ? s.nominal_yields : {};
+      return Object.freeze({
+        product,
+        currentlyEarningPercent: toNumber(s.currently_earning),
+        lastUpdatedAt: stringOrNull(s.last_updated_at),
+        nominalYieldsPercent: Object.freeze({
+          daily: toNumber(yields.daily),
+          weekly: toNumber(yields.weekly),
+          monthly: toNumber(yields.monthly),
+          quarterly: toNumber(yields.quarterly),
+          semiAnnually: toNumber(yields.semi_annually),
+        }),
+      });
+    });
 }

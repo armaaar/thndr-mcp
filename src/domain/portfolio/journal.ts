@@ -92,14 +92,22 @@ export interface DateRange {
   readonly to?: Date;
 }
 
-/** Validates an optional journal date range (both ends optional; "all time" when omitted). */
-export function journalRange(from: Date | undefined, to: Date | undefined, now: Date): DateRange {
+/**
+ * Validates an optional date range (both ends optional; "all time" when omitted). `label` names the data in error
+ * messages.
+ */
+export function journalRange(
+  from: Date | undefined,
+  to: Date | undefined,
+  now: Date,
+  label = 'Journal',
+): DateRange {
   for (const date of [from, to]) {
-    if (date && Number.isNaN(date.getTime())) throw new ValidationError('Journal dates must be valid');
+    if (date && Number.isNaN(date.getTime())) throw new ValidationError(`${label} dates must be valid`);
   }
   if (from && to && from.getTime() >= to.getTime()) {
-    throw new ValidationError('Journal "from" must be before "to"');
+    throw new ValidationError(`${label} "from" must be before "to"`);
   }
-  if (from && from.getTime() > now.getTime()) throw new ValidationError('Journal "from" is in the future');
+  if (from && from.getTime() > now.getTime()) throw new ValidationError(`${label} "from" is in the future`);
   return Object.freeze({ ...(from ? { from } : {}), ...(to ? { to } : {}) });
 }

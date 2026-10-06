@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   anInstrument,
+  aQuote,
   COMI_ID,
+  idFor,
   setupMarketData,
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
@@ -33,5 +35,33 @@ describe('GetInstrumentDetails', () => {
       market: 'us',
     });
     expect(out).toMatchObject({ market: 'us', currency: 'USD' });
+  });
+
+  it('adds the indices the instrument belongs to, and their tags', async () => {
+    const repository = withInstruments();
+    repository.instruments = [anInstrument({ ticker: 'COMI', tags: ['Banks', 'EGX30 Index'] })];
+    repository.quotes = {
+      egypt: [
+        aQuote({ ticker: 'EGX30', board: 'INDX' }),
+        aQuote({ ticker: 'SHARIAH', board: 'INDX' }),
+        aQuote(),
+      ],
+    };
+    repository.constituents = { [idFor('EGX30')]: [COMI_ID], [idFor('SHARIAH')]: [] };
+    const out = await new GetInstrumentDetails(setupMarketData(repository)).run({ symbol: 'COMI' });
+    expect(out).toMatchObject({
+      ticker: expect.objectContaining({ value: 'COMI' }),
+      tags: ['Banks', 'EGX30 Index'],
+    });
+    expect(out.indices).toEqual(['EGX30']);
+  });
+
+  it('returns no indices for a non-member, and null when membership cannot be loaded', async () => {
+    const deps = setupMarketData(withInstruments('COMI'));
+    expect((await new GetInstrumentDetails(deps).run({ symbol: 'COMI' })).indices).toEqual([]);
+    deps.repository.failures.getMarketQuotes = new Error('marketwatch down');
+    const out = await new GetInstrumentDetails(setupMarketData(deps.repository)).run({ symbol: 'COMI' });
+    expect(out.indices).toBeNull();
+    expect(out.ticker.value).toBe('COMI');
   });
 });

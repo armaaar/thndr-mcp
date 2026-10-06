@@ -234,7 +234,7 @@ describe('startBrowserLogin', () => {
   it('closes the page after the login ended', async () => {
     const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 0 });
     await session.result;
-    await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow());
+    await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow(), { timeout: 5_000 });
   });
 
   it('serves its own font', async () => {

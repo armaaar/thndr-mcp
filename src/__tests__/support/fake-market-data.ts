@@ -1,4 +1,6 @@
+import { NotFoundError } from '../../application/errors';
 import type { MarketDataDependencies } from '../../application/market-data/dependencies';
+import { IndexMembership } from '../../application/market-data/services/index-membership';
 import { InstrumentResolver } from '../../application/market-data/services/instrument-resolver';
 import { MarketQuotesCache } from '../../application/market-data/services/market-quotes-cache';
 import type { Clock } from '../../application/ports/clock';
@@ -6,9 +8,11 @@ import type { Candle, CandleResolution } from '../../domain/market-data/candle';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
+import type { Screener } from '../../domain/market-data/screener';
 import { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
+import { FakeResearchRepository } from './fake-research';
 
 /** COMI's real Thndr asset id (docs/api/market-data.md §0.4). */
 export const COMI_ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
@@ -51,6 +55,7 @@ export function aQuote(overrides: QuoteOverrides = {}): Quote {
     ticker: Ticker.of(ticker),
     name: `${ticker} Corp`,
     sector: 'Banks',
+    board: 'NOPL',
     currency: 'EGP',
     last: 100,
     previousClose: 98,
@@ -76,6 +81,11 @@ export function aQuote(overrides: QuoteOverrides = {}): Quote {
     listedShares: 3_000_000_000,
     marketCap: 300_000_000_000,
     averageVolume30d: 800_000,
+    averageVolume5d: 900_000,
+    averageVolume90d: 700_000,
+    // Consistent with `last` unless overridden (0 = nothing traded yet today).
+    lastTradePrice: rest.last === undefined ? 100 : rest.last,
+    lastTradeVolume: 10,
     suspended: false,
     lastTradeAt: new Date('2026-01-01T12:00:00Z'),
     ...rest,
@@ -152,6 +162,12 @@ export class FakeMarketDataRepository implements MarketDataRepository {
   orderBook: OrderBook = anOrderBook();
   trades: TapeTrade[] = [];
   session: MarketSession = aMarketSession();
+  /** Index asset id → member asset ids. */
+  constituents: Record<string, string[]> = {};
+  /** Instrument asset id → Thndr's "similar stocks". */
+  similar: Record<string, Instrument[]> = {};
+  /** The user's saved screeners. */
+  screeners: Screener[] = [];
   /** When set, the named method rejects with this error. */
   failures: Partial<Record<keyof MarketDataRepository, Error>> = {};
 
@@ -164,6 +180,10 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     getRecentTrades: [] as Array<{ id: AssetId; limit: number; before?: string }>,
     getMarketSession: [] as Array<{ market: Market; board?: string | null }>,
     getMarketIndicators: [] as Market[],
+    getIndexConstituents: [] as AssetId[],
+    getSimilarInstruments: [] as Array<{ id: AssetId; market: Market; limit: number }>,
+    getScreeners: [] as Market[],
+    getScreener: [] as string[],
   };
 
   constructor(seed: Partial<Pick<FakeMarketDataRepository, 'instruments' | 'quotes'>> = {}) {
@@ -223,23 +243,66 @@ export class FakeMarketDataRepository implements MarketDataRepository {
     return this.indicators[market] ?? [];
   }
 
+  async getIndexConstituents(indexId: AssetId): Promise<AssetId[]> {
+    this.calls.getIndexConstituents.push(indexId);
+    this.fail('getIndexConstituents');
+    return (this.constituents[indexId.value] ?? []).map((id) => AssetId.of(id));
+  }
+
+  async getSimilarInstruments(id: AssetId, market: Market, limit: number): Promise<Instrument[]> {
+    this.calls.getSimilarInstruments.push({ id, market, limit });
+    this.fail('getSimilarInstruments');
+    return (this.similar[id.value] ?? []).slice(0, limit);
+  }
+
+  async getScreeners(market: Market): Promise<Screener[]> {
+    this.calls.getScreeners.push(market);
+    this.fail('getScreeners');
+    return this.screeners.filter((s) => s.market === null || s.market === market);
+  }
+
+  async getScreener(id: string): Promise<Screener> {
+    this.calls.getScreener.push(id);
+    this.fail('getScreener');
+    const found = this.screeners.find((s) => s.id === id);
+    if (!found) throw new NotFoundError(`No saved screener with id "${id}".`);
+    return found;
+  }
+
   private fail(method: keyof MarketDataRepository): void {
     const error = this.failures[method];
     if (error) throw error;
   }
 }
 
-/** Market Data use-case dependencies over a fake repository (real resolver and quotes cache). */
+/** Market Data use-case dependencies over fake repositories (real resolver and quotes cache). */
 export function setupMarketData(
   repository = new FakeMarketDataRepository(),
   now: string | Date = '2026-01-15T12:00:00Z',
-): MarketDataDependencies & { repository: FakeMarketDataRepository } {
+  research = new FakeResearchRepository(),
+): MarketDataDependencies & { repository: FakeMarketDataRepository; research: FakeResearchRepository } {
   const clock = fixedClock(now);
+  const quotes = new MarketQuotesCache(repository, clock);
   return {
     repository,
+    research,
     clock,
     resolver: new InstrumentResolver(repository),
-    quotes: new MarketQuotesCache(repository, clock),
+    quotes,
+    indices: new IndexMembership(repository, quotes, clock),
+  };
+}
+
+type ScreenerOverrides = Partial<Screener> & { id: string };
+
+export function aScreener(overrides: ScreenerOverrides): Screener {
+  return {
+    name: `Screener ${overrides.id}`,
+    market: 'egypt',
+    preset: false,
+    filters: [],
+    unsupported: [],
+    ...overrides,
   };
 }
 

@@ -3,6 +3,7 @@ import type { Market } from '../shared-kernel/market';
 import type { Candle, CandleResolution } from './candle';
 import type { Instrument, Quote } from './instrument';
 import type { MarketSession, OrderBook, TapeTrade } from './order-book';
+import type { Screener } from './screener';
 
 export interface MarketDataRepository {
   searchInstruments(query: string, market: Market): Promise<Instrument[]>;
@@ -15,4 +16,12 @@ export interface MarketDataRepository {
   getMarketSession(market: Market, board?: string | null): Promise<MarketSession>;
   /** Index levels (EGX30, EGX70…) and reference rates. */
   getMarketIndicators(market: Market): Promise<Quote[]>;
+  /** Member instruments of an index (an `INDX` instrument such as EGX30); empty for anything else. */
+  getIndexConstituents(indexId: AssetId): Promise<AssetId[]>;
+  /** Thndr's "similar stocks" for an instrument, at most `limit`. */
+  getSimilarInstruments(id: AssetId, market: Market, limit: number): Promise<Instrument[]>;
+  /** The user's saved screeners of a market. */
+  getScreeners(market: Market): Promise<Screener[]>;
+  /** One saved screener; `NOT_FOUND` when it does not exist. */
+  getScreener(id: string): Promise<Screener>;
 }

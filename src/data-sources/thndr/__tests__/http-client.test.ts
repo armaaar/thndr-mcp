@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fakeFetch, json } from '../../../__tests__/support/fake-fetch';
 import { NotAuthenticatedError, UpstreamError } from '../../../application/errors';
-import { describeError, ThndrHttpClient } from '../http-client';
+import { describeError, rateLimitWaitMs, ThndrHttpClient } from '../http-client';
 
 function tokens(...values: string[]) {
   let i = 0;
@@ -87,6 +87,108 @@ describe('ThndrHttpClient', () => {
     expect(tp.invalidate).toHaveBeenCalledOnce();
     expect(fetch.calls.map((c) => c.headers.authorization)).toEqual(['Bearer OLD', 'Bearer NEW']);
     expect(logger.info).toHaveBeenCalled();
+  });
+
+  it('retries a rate-limited read once after the Retry-After wait', async () => {
+    const fetch = fakeFetch(
+      () => json({ message: 'Exceeded rate limit' }, 429, { 'retry-after': '2' }),
+      () => json({ v: 2 }),
+    );
+    const sleep = vi.fn(async () => {});
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('T'),
+      runtimeVersion: '1',
+      sleep,
+    });
+    expect(await client.get('/x')).toEqual({ v: 2 });
+    expect(sleep).toHaveBeenCalledWith(2_000);
+    expect(fetch.calls).toHaveLength(2);
+  });
+
+  it('reports a second 429, and never retries a rate-limited write', async () => {
+    const fetch = fakeFetch(() => json({ message: 'Exceeded rate limit' }, 429));
+    const sleep = vi.fn(async () => {});
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('T'),
+      runtimeVersion: '1',
+      sleep,
+    });
+    await expect(client.get('/x')).rejects.toThrow('Thndr API error 429 on GET /x: Exceeded rate limit');
+    expect(fetch.calls).toHaveLength(2);
+    await expect(client.post('/y', {})).rejects.toThrow('429 on POST /y');
+    expect(fetch.calls).toHaveLength(3);
+    expect(sleep).toHaveBeenCalledOnce();
+  });
+
+  it('releases the body of a 429 or 401 response before retrying', async () => {
+    const retried: Response[] = [];
+    const keep = (response: Response) => {
+      retried.push(response);
+      return response;
+    };
+    const fetch = fakeFetch(
+      () => keep(json({ message: 'Exceeded rate limit' }, 429)),
+      () => keep(json({ message: 'expired' }, 401)),
+      () => json({ v: 4 }),
+    );
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('OLD', 'NEW'),
+      runtimeVersion: '1',
+      sleep: async () => {},
+    });
+    expect(await client.get('/x')).toEqual({ v: 4 });
+    expect(retried.map((r) => r.bodyUsed)).toEqual([true, true]);
+  });
+
+  it('retries even when the rejected response body was already consumed', async () => {
+    const fetch = fakeFetch(
+      async () => {
+        const response = json({}, 429);
+        await response.text();
+        return response;
+      },
+      () => json({ v: 5 }),
+    );
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('T'),
+      runtimeVersion: '1',
+      sleep: async () => {},
+    });
+    expect(await client.get('/x')).toEqual({ v: 5 });
+  });
+
+  it('waits Retry-After seconds, capped at 5 s, or 1 s when absent or invalid', () => {
+    expect(rateLimitWaitMs('3')).toBe(3_000);
+    expect(rateLimitWaitMs('120')).toBe(5_000);
+    expect(rateLimitWaitMs(null)).toBe(1_000);
+    expect(rateLimitWaitMs('soon')).toBe(1_000);
+    expect(rateLimitWaitMs('-1')).toBe(1_000);
+  });
+
+  it('waits for real when no sleep is injected', async () => {
+    vi.useFakeTimers();
+    const fetch = fakeFetch(
+      () => json({}, 429, { 'retry-after': '0' }),
+      () => json({ v: 3 }),
+    );
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tokens('T'),
+      runtimeVersion: '1',
+    });
+    const pending = client.get('/x');
+    await vi.runAllTimersAsync();
+    expect(await pending).toEqual({ v: 3 });
+    vi.useRealTimers();
   });
 
   it('throws NotAuthenticatedError when the retry is still 401', async () => {

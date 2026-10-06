@@ -26,6 +26,18 @@ export interface ThndrHttpClientOptions {
   /** Generates the per-request `X-Correlation-ID` (ThndrX sends a UUID on every call). */
   correlationId?: () => string;
   userAgent?: string;
+  /** Waits before retrying a rate-limited read (tests inject a fake). */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** Longest wait honoured before retrying a rate-limited read. */
+const MAX_RATE_LIMIT_WAIT_MS = 5_000;
+
+/** Wait before retrying a 429: `Retry-After` seconds when given (capped), else 1 s. */
+export function rateLimitWaitMs(retryAfter: string | null): number {
+  const seconds = retryAfter === null ? Number.NaN : Number(retryAfter);
+  if (!Number.isFinite(seconds) || seconds < 0) return 1_000;
+  return Math.min(seconds * 1_000, MAX_RATE_LIMIT_WAIT_MS);
 }
 
 export interface HttpResponse<T> {
@@ -37,7 +49,7 @@ export interface HttpResponse<T> {
 /**
  * Minimal browser-equivalent HTTP client for Thndr endpoints (ADR 0004). Mirrors the ThndrX axios interceptors:
  * bearer token, `x-thndrx-runtime-version` and `X-Language` headers, one retry after a 401/403 with a refreshed
- * token.
+ * token. A rate-limited read (GET answered 429) is retried once after a short wait.
  */
 export class ThndrHttpClient {
   private readonly fetchFn: FetchFn;
@@ -78,9 +90,17 @@ export class ThndrHttpClient {
   ): Promise<HttpResponse<T>> {
     const auth = options.auth ?? 'full';
     let response = await this.send(method, path, options, auth);
+    if (method === 'GET' && response.status === 429) {
+      const wait = rateLimitWaitMs(response.headers.get('retry-after'));
+      this.options.logger?.info('thndr: rate limited, retrying once', { method, path, waitMs: wait });
+      await discard(response);
+      await (this.options.sleep ?? delay)(wait);
+      response = await this.send(method, path, options, auth);
+    }
     if (auth === 'full' && (response.status === 401 || response.status === 403)) {
       this.options.logger?.info('thndr: token rejected, refreshing and retrying once', { method, path });
       this.requireTokenProvider().invalidate();
+      await discard(response);
       response = await this.send(method, path, options, auth);
       if (response.status === 401) {
         throw new NotAuthenticatedError('Thndr rejected the session. Please log in again (login_start).');
@@ -172,6 +192,19 @@ export class ThndrHttpClient {
     }
     return payload as T;
   }
+}
+
+/** Releases the body of a response we retry instead of reading, so its connection can be reused. */
+async function discard(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Already consumed or errored: nothing left to release.
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function errorMessage(error: unknown): string {

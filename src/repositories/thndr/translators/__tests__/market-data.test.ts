@@ -8,6 +8,7 @@ import {
   parseTickerOrNull,
   sanitizeTicker,
   toCandle,
+  toConstituentIds,
   toInstrument,
   toOrderBook,
   toQuote,
@@ -115,6 +116,28 @@ describe('toInstrument', () => {
     expect(Object.isFrozen(instrument)).toBe(true);
   });
 
+  it('keeps visible tag names once, in order, and omits tags when Thndr sends none', () => {
+    const tagged = toInstrument(
+      {
+        id: ID,
+        symbol: 'COMI',
+        tags: [
+          { id: 186, slug: 'Banks', name: 'Banks' },
+          { id: 1, slug: 'EGX30', name: ' EGX30 ' },
+          { id: 2, slug: 'secret', name: 'Secret', hidden: true },
+          { id: 3, slug: 'sharia', name: null },
+          { id: 4, slug: 'Banks', name: 'Banks' },
+          { id: 5 },
+          null as unknown as { id: number },
+        ],
+      },
+      'egypt',
+    );
+    expect(tagged?.tags).toEqual(['Banks', 'EGX30', 'sharia']);
+    expect(Object.isFrozen(tagged?.tags)).toBe(true);
+    expect(toInstrument({ id: ID, symbol: 'COMI' }, 'egypt')).not.toHaveProperty('tags');
+  });
+
   it('maps unknown or missing fields to null/defaults', () => {
     expect(
       toInstrument(
@@ -201,9 +224,13 @@ describe('toQuote', () => {
     low_price_limit: 72,
     max_limit: 999,
     min_limit: 1,
+    avg_5_day: 11_000,
     avg_30_day: 10_000,
+    avg_90_day: 9_000,
+    last_trade_volume: 25,
     high_52_week: 95,
     low_52_week: 60,
+    market_id: 'NOPL',
   };
 
   it('maps a marketwatch row', () => {
@@ -213,6 +240,7 @@ describe('toQuote', () => {
       ticker: expect.objectContaining({ value: 'COMI' }),
       name: 'CIB',
       sector: 'Banks',
+      board: 'NOPL',
       currency: 'EGP',
       last: 80.5,
       previousClose: 79,
@@ -238,10 +266,72 @@ describe('toQuote', () => {
       listedShares: 1000,
       marketCap: 80_500,
       averageVolume30d: 10_000,
+      averageVolume5d: 11_000,
+      averageVolume90d: 9_000,
+      lastTradePrice: 80.5,
+      lastTradeVolume: 25,
       suspended: false,
       lastTradeAt: new Date('2026-01-15T12:29:00Z'),
     });
     expect(Object.isFrozen(quote)).toBe(true);
+  });
+
+  it('keeps index rows by sanitising their symbol, and treats a blank sector as unknown', () => {
+    expect(toQuote({ ...row, reuters: 'EGX70 EWI', market_id: 'INDX', eng_desc: ' ' })).toMatchObject({
+      ticker: expect.objectContaining({ value: 'EGX70-EWI' }),
+      board: 'INDX',
+      sector: null,
+    });
+    expect(toQuote({ ...row, reuters: 'EGX70 EWI' })).toBeNull();
+    expect(toQuote({ ...row, eng_desc: 'Banks ' })?.sector).toBe('Banks');
+  });
+
+  it("reports an index row's placeholder stock fields as unknown, keeping its level, range and turnover", () => {
+    const index = toQuote({
+      ...row,
+      reuters: 'EGX30',
+      market_id: 'INDX',
+      last_trade_date: '1900-01-01T00:00:00+02:05:09',
+      last_trade_volume: 0,
+      bid_price: 0,
+      bid_volume: 0,
+      ask_price: 0,
+      ask_volume: 0,
+      total_trades: 0,
+      high_price_limit: 53_553.41,
+      low_price_limit: 53_553.42,
+      pe_ratio: 0,
+      eps: 0,
+      dividend_yield_perc: 0,
+      listed_shares: 0,
+    });
+    expect(index).toMatchObject({
+      last: 80.5,
+      previousClose: 79,
+      high: 81,
+      low: 79.1,
+      change: 1.5,
+      changePercent: 1.9,
+      value: 1_000_000,
+      volume: 12_500,
+      week52High: 95,
+      week52Low: 60,
+      averageVolume30d: 10_000,
+      bid: null,
+      bidSize: null,
+      ask: null,
+      askSize: null,
+      trades: null,
+      lowerLimit: null,
+      upperLimit: null,
+      peRatio: null,
+      eps: null,
+      dividendYieldPercent: null,
+      listedShares: null,
+      marketCap: null,
+      lastTradeVolume: null,
+      lastTradeAt: null,
+    });
   });
 
   it('falls back to close price, computes change, and uses min/max limits', () => {
@@ -256,6 +346,7 @@ describe('toQuote', () => {
     });
     expect(quote).toMatchObject({
       last: 80,
+      lastTradePrice: 0,
       change: 1,
       marketCap: 80_000,
       lowerLimit: 1,
@@ -291,6 +382,17 @@ describe('toQuote', () => {
   });
 });
 
+describe('toConstituentIds', () => {
+  it('maps valid member ids and skips the rest', () => {
+    const ids = toConstituentIds({
+      constituents: [{ id: ID }, { id: 'not-a-uuid' }, {}, null as unknown as { id: string }],
+    });
+    expect(ids.map((id) => id.value)).toEqual([ID]);
+    expect(toConstituentIds({ id: ID })).toEqual([]);
+    expect(toConstituentIds(null)).toEqual([]);
+  });
+});
+
 describe('indicatorToQuote', () => {
   it('uses last_trade_price when positive and sanitises the symbol', () => {
     const quote = indicatorToQuote({
@@ -305,6 +407,8 @@ describe('indicatorToQuote', () => {
       last: 9000.5,
       changePercent: -0.4,
       previousClose: 9036,
+      lastTradePrice: 9000.5,
+      board: null,
       currency: null,
       volume: null,
       suspended: false,
@@ -316,6 +420,7 @@ describe('indicatorToQuote', () => {
     expect(
       indicatorToQuote({ id: ID, symbol: 'USD/EGP', feed: { price: 50.1, last_trade_price: 0 } })?.last,
     ).toBe(50.1);
+    expect(indicatorToQuote({ id: ID, symbol: 'EGX30', feed: { market_id: 'INDX' } })?.board).toBe('INDX');
     expect(indicatorToQuote({ id: ID, symbol: 'EGX30' })).toMatchObject({
       last: null,
       name: null,

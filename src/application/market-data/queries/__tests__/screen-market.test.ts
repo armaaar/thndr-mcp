@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   aQuote,
+  aScreener,
   FakeMarketDataRepository,
+  idFor,
   setupMarketData,
 } from '../../../../__tests__/support/fake-market-data';
 import { ScreenMarket } from '../screen-market';
@@ -67,6 +69,9 @@ describe('ScreenMarket', () => {
       { min_relative_volume: 200 },
       { minPrice: '10' },
       { market: 'mars' },
+      { preset: 'moon-shots' },
+      { screenerId: '' },
+      { index: '' },
     ];
     for (const input of invalid) {
       await expect(uc.run(input), JSON.stringify(input)).rejects.toMatchObject({ code: 'INVALID_INPUT' });
@@ -132,5 +137,118 @@ describe('ScreenMarket', () => {
     expect(tickers(await uc.execute({}))).toEqual(['AAA', 'BBB', 'CCC']);
     expect(tickers(await uc.execute({ limit: 0 }))).toEqual(['AAA']);
     expect((await uc.execute({ limit: 1000 })).results).toHaveLength(3);
+  });
+
+  describe('index rows, index membership, presets and saved screeners', () => {
+    const egx30 = aQuote({
+      ticker: 'EGX30',
+      board: 'INDX',
+      sector: null,
+      last: 30_000,
+      changePercent: 9,
+      value: 1e12,
+      volume: 1e9,
+      peRatio: 0,
+      marketCap: null,
+    });
+    // A momentum mover: value 2M, relative volume 200, 5 % under its 52-week high, up 5.6 %.
+    const mover = aQuote({
+      ticker: 'MOVE',
+      sector: 'Real Estate',
+      last: 95,
+      previousClose: 90,
+      changePercent: 5.56,
+      value: 2_000_000,
+      volume: 200,
+      averageVolume30d: 100,
+      week52High: 100,
+      dividendYieldPercent: 1,
+    });
+    const laggard = aQuote({
+      ticker: 'LAG',
+      last: 50,
+      previousClose: 51,
+      changePercent: -1.96,
+      week52High: 100,
+    });
+
+    function deps() {
+      const repository = new FakeMarketDataRepository({
+        quotes: { egypt: [egx30, mover, laggard, ...quotes] },
+      });
+      repository.constituents = { [idFor('EGX30')]: [idFor('MOVE'), idFor('AAA')] };
+      repository.screeners = [
+        aScreener({
+          id: 's1',
+          name: 'Cheap',
+          filters: [{ field: 'price', condition: { kind: 'between', min: null, max: 60 } }],
+        }),
+        aScreener({ id: 'bad', name: 'Odd', unsupported: ['filter key "ref_price" is not supported'] }),
+      ];
+      return setupMarketData(repository);
+    }
+    const run = (criteria: Record<string, unknown>) => new ScreenMarket(deps()).run(criteria);
+
+    it('never returns index rows, even with the largest value and volume or a 0 P/E', async () => {
+      expect(tickers(await run({ sortBy: 'value', limit: 1 }))).toEqual(['LAG']);
+      expect(tickers(await run({ sortBy: 'volume', limit: 1 }))).not.toContain('EGX30');
+      expect(tickers(await run({ maxPeRatio: 1, includeSuspended: true }))).toEqual([]);
+      expect((await run({ limit: 100 })).results.map((r) => r.board)).not.toContain('INDX');
+    });
+
+    it('screens the members of an index only', async () => {
+      const out = await run({ index: 'egx30' });
+      expect(out.index).toBe('EGX30');
+      expect(tickers(out)).toEqual(['MOVE', 'AAA']);
+      await expect(run({ index: 'NOPE' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+
+    it("applies a ThndrX preset with ThndrX's rules and reports its filters", async () => {
+      const out = await run({ preset: 'momentum-movers' });
+      expect(tickers(out)).toEqual(['MOVE']);
+      expect(out.screeners).toEqual([
+        {
+          id: 'momentum-movers',
+          name: 'Momentum Movers',
+          filters: [
+            'value ≥ 1,000,000',
+            'relativeVolume ≥ 100',
+            'week52HighDistance ≤ 10',
+            'changePercent ≥ 2',
+          ],
+        },
+      ]);
+      expect(out.index).toBeUndefined();
+    });
+
+    it('applies a saved screener and combines everything with AND', async () => {
+      const d = deps();
+      const saved = await new ScreenMarket(d).run({ screenerId: 's1' });
+      expect(d.repository.calls.getScreener).toEqual(['s1']);
+      expect(tickers(saved)).toEqual(['AAA', 'LAG', 'BBB', 'CCC']);
+      expect(saved.screeners).toEqual([{ id: 's1', name: 'Cheap', filters: ['price ≤ 60'] }]);
+      expect(tickers(await run({ screenerId: 's1', index: 'EGX30' }))).toEqual(['AAA']);
+      expect(tickers(await run({ screenerId: 's1', sector: 'bank' }))).toEqual(['AAA', 'LAG']);
+      expect(tickers(await run({ screenerId: 's1', preset: 'momentum-movers' }))).toEqual([]);
+      expect((await run({ screenerId: 's1', preset: 'reversal-watch' })).screeners?.map((x) => x.id)).toEqual(
+        ['reversal-watch', 's1'],
+      );
+      await expect(run({ screenerId: 's1', market: 'us' })).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message: 'Screener "Cheap" was saved for the egypt market; run it with market "egypt".',
+      });
+    });
+
+    it('refuses a saved screener with filters it cannot evaluate, and unknown ids or presets', async () => {
+      await expect(run({ screenerId: 'bad' })).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        message:
+          'Screener "Odd" has filters thndr-mcp cannot evaluate: filter key "ref_price" is not supported.',
+      });
+      await expect(run({ screenerId: 'missing' })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      await expect(
+        new ScreenMarket(deps()).execute({ preset: 'moon-shots' as 'value-yield' }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+    });
   });
 });

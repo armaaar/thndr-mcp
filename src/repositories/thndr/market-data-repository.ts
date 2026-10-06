@@ -1,4 +1,4 @@
-import { UpstreamError } from '../../application/errors';
+import { NotFoundError, UpstreamError } from '../../application/errors';
 import type {
   AssetDto,
   AssetSearchResponseDto,
@@ -8,6 +8,9 @@ import type {
   MarketIndicatorsResponseDto,
   MarketStatusDto,
   MarketwatchResponseDto,
+  RecommendationsResponseDto,
+  ScreenerDto,
+  ScreenersResponseDto,
   TradesBookResponseDto,
 } from '../../data-sources/thndr/dto/market-data';
 import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
@@ -17,18 +20,21 @@ import type { Candle, CandleResolution } from '../../domain/market-data/candle';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
+import type { Screener } from '../../domain/market-data/screener';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
 import {
   indicatorToQuote,
   mapRows,
   toCandle,
+  toConstituentIds,
   toInstrument,
   toOrderBook,
   toQuote,
   toTapeTrade,
   WIRE_RESOLUTION,
 } from './translators/market-data';
+import { toScreener } from './translators/screener';
 
 const FEED = { include_feed: true, feed_detail: true } as const;
 
@@ -120,5 +126,41 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
       query: { market, page_count: 100, ...FEED },
     });
     return mapRows(data?.results, indicatorToQuote);
+  }
+
+  async getIndexConstituents(indexId: AssetId): Promise<AssetId[]> {
+    const data = await this.api.get<AssetDto>(`/assets-service/assets/${encodeURIComponent(indexId.value)}`);
+    return toConstituentIds(data);
+  }
+
+  async getSimilarInstruments(id: AssetId, market: Market, limit: number): Promise<Instrument[]> {
+    const data = await this.api.get<RecommendationsResponseDto>(
+      `/assets-service/assets/${encodeURIComponent(id.value)}/recommendations`,
+      { query: { market, recommendations_number: limit, ...FEED } },
+    );
+    return mapRows(data?.results, (row) => toInstrument(row, market));
+  }
+
+  async getScreeners(market: Market): Promise<Screener[]> {
+    const data = await this.api.get<ScreenersResponseDto>('/users-service/screeners', { query: { market } });
+    return mapRows(data?.screeners, (row) => toScreener(row, market));
+  }
+
+  async getScreener(id: string): Promise<Screener> {
+    let data: ScreenerDto | null;
+    try {
+      data = await this.api.get<ScreenerDto>(`/users-service/screeners/${encodeURIComponent(id)}`);
+    } catch (error) {
+      if (error instanceof UpstreamError && error.status === 404) {
+        throw new NotFoundError(`No saved screener with id "${id}".`);
+      }
+      throw error;
+    }
+    const screener = toScreener(
+      data && typeof data === 'object' ? { ...data, id: data.id ?? id } : null,
+      null,
+    );
+    if (!screener) throw new UpstreamError(`Unexpected screener payload from Thndr for ${id}`);
+    return screener;
   }
 }

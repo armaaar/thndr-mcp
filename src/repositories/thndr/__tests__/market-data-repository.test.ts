@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fakeFetch, json, type Responder } from '../../../__tests__/support/fake-fetch';
-import { UpstreamError } from '../../../application/errors';
+import { NotFoundError, UpstreamError } from '../../../application/errors';
 import { ThndrHttpClient } from '../../../data-sources/thndr/http-client';
 import { AssetId } from '../../../domain/shared-kernel/asset-id';
 import { ThndrMarketDataRepository } from '../market-data-repository';
@@ -343,6 +343,92 @@ describe('ThndrMarketDataRepository', () => {
     it('returns an empty list when results are missing', async () => {
       const { gateway } = setup(() => json({}));
       expect(await gateway.getMarketIndicators('us')).toEqual([]);
+    });
+  });
+
+  describe('getIndexConstituents', () => {
+    it('reads the member ids from the index asset details', async () => {
+      const { fetch, gateway } = setup(() => json({ id: ID, constituents: [{ id: OTHER }, { id: 'bad' }] }));
+      const out = await gateway.getIndexConstituents(AssetId.of(ID));
+      expect(fetch.calls[0]!.url).toBe(`${API}/assets-service/assets/${ID}`);
+      expect(out.map((id) => id.value)).toEqual([OTHER]);
+    });
+  });
+
+  describe('getSimilarInstruments', () => {
+    it("requests Thndr's similar stocks with feed details and maps the asset payloads", async () => {
+      const { fetch, gateway } = setup(() =>
+        json({
+          count: 4,
+          results: [
+            {
+              id: OTHER,
+              symbol: 'ADIB',
+              name: 'Abu Dhabi Islamic Bank',
+              industry: 'Banks',
+              asset_class: 'STOCK',
+            },
+            { id: 'bad', symbol: 'CANA' },
+          ],
+        }),
+      );
+      const out = await gateway.getSimilarInstruments(AssetId.of(ID), 'egypt', 4);
+      expect(url(fetch.calls[0]!.url)).toEqual({
+        path: `${API}/assets-service/assets/${ID}/recommendations`,
+        query: { market: 'egypt', recommendations_number: '4', include_feed: 'true', feed_detail: 'true' },
+      });
+      expect(out.map((i) => [i.ticker.value, i.sector, i.market])).toEqual([['ADIB', 'Banks', 'egypt']]);
+    });
+
+    it('tolerates an empty payload', async () => {
+      const { gateway } = setup(() => json({}));
+      expect(await gateway.getSimilarInstruments(AssetId.of(ID), 'us', 2)).toEqual([]);
+    });
+  });
+
+  describe('screeners', () => {
+    const screener = {
+      id: 's1',
+      name: 'Dividends',
+      filters: [{ filter_key: 'dividend_yield_perc', type: 'NumberRange', min_value: '4' }],
+    };
+
+    it('lists the saved screeners of a market', async () => {
+      const { fetch, gateway } = setup(() => json({ screeners: [screener, { name: 'no id' }] }));
+      const out = await gateway.getScreeners('egypt');
+      expect(url(fetch.calls[0]!.url)).toEqual({
+        path: `${API}/users-service/screeners`,
+        query: { market: 'egypt' },
+      });
+      expect(out).toEqual([
+        {
+          id: 's1',
+          name: 'Dividends',
+          market: 'egypt',
+          preset: false,
+          filters: [{ field: 'dividendYieldPercent', condition: { kind: 'between', min: 4, max: null } }],
+          unsupported: [],
+        },
+      ]);
+    });
+
+    it('gets one screener by its encoded id, falling back to the requested id', async () => {
+      const { fetch, gateway } = setup(() => json({ ...screener, id: undefined, market: 'egypt' }));
+      const out = await gateway.getScreener('a/b');
+      expect(fetch.calls[0]!.url).toBe(`${API}/users-service/screeners/a%2Fb`);
+      expect(out).toMatchObject({ id: 'a/b', name: 'Dividends', market: 'egypt' });
+    });
+
+    it('turns a 404 into NOT_FOUND and rejects odd payloads', async () => {
+      await expect(
+        setup(() => json({ detail: 'Not found' }, 404)).gateway.getScreener('gone'),
+      ).rejects.toBeInstanceOf(NotFoundError);
+      await expect(
+        setup(() => json({ detail: 'boom' }, 500)).gateway.getScreener('x'),
+      ).rejects.toBeInstanceOf(UpstreamError);
+      await expect(setup(() => json('nope')).gateway.getScreener('x')).rejects.toThrow(
+        'Unexpected screener payload from Thndr for x',
+      );
     });
   });
 });
