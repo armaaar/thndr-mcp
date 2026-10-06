@@ -1,7 +1,8 @@
 # Portfolio use cases
 
 Code: one `Query` class per use case in `src/application/portfolio/queries/` (shared journal input and paging
-helpers in `journal-input.ts`, `paging.ts`). MCP tools and CLI commands are generated from these classes; CLI
+helpers in `portfolio/journal-input.ts` and `src/application/paging.ts`; instrument resolution through Market Data's
+`InstrumentResolver` service). MCP tools and CLI commands are generated from these classes; CLI
 positionals come from `src/presentation/cli/positionals.ts`.
 Domain: [domains/portfolio.md](../domains/portfolio.md). API:
 [api/trading-and-portfolio.md](../api/trading-and-portfolio.md).

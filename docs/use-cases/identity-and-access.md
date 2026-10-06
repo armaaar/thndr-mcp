@@ -1,7 +1,10 @@
 # Identity & Access use cases
 
-Code: one class per use case in `src/application/identity/queries/` and `commands/`; `SessionTokenProvider` in
-`src/application/identity/services/`. MCP tools and CLI commands are generated from these classes; CLI positionals
+Code: one class per use case in `src/application/identity/queries/` and `commands/`; application services
+`SessionTokenProvider` and `DeviceApprovalRequester` in `src/application/identity/services/`. Every login step except
+`auth_status` is a CQS command and returns a flat receipt (ids, flags, a message), never a read model; `auth_status`
+is the query that reports the resulting state
+([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these classes; CLI positionals
 come from `src/presentation/cli/positionals.ts`, the guided `thndr login` from `src/presentation/cli/login-command.ts`. Domain: [domains/identity-and-access.md](../domains/identity-and-access.md).
 API: [api/auth.md](../api/auth.md).
 
@@ -121,7 +124,9 @@ sequenceDiagram
   1. Validate the code format.
   2. Verify it with Thndr; receive a Firebase custom token.
   3. Sign in to Firebase with it (identity is persisted).
-  4. Continue with [Request phone approval](#request-phone-approval--login_request_approval-requestdeviceapproval).
+  4. Create the device approval through the `DeviceApprovalRequester` application service — the same steps as
+     [Request phone approval](#request-phone-approval--login_request_approval-requestdeviceapproval) (use cases never
+     call each other).
 - **Alternative/error flows:**
   - Empty or malformed code → `VALIDATION_ERROR`.
   - No code requested → `LOGIN_NOT_STARTED`.
@@ -138,7 +143,7 @@ sequenceDiagram
 - **Goal:** create a new device approval without an email code (re-approval after `SESSION_EXPIRED`).
 - **Preconditions:** a Firebase identity exists (from an earlier `login_verify_code`).
 - **Input:** none.
-- **Main flow:**
+- **Main flow** (in the `DeviceApprovalRequester` application service, shared with `login_verify_code`):
   1. Get the Firebase ID token.
   2. Create a token request with ThndrX's scope list.
   3. Move the flow to `AWAITING_APPROVAL` and persist it (including the request secret).

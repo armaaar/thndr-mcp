@@ -17,10 +17,11 @@ We cannot run integration tests against the real broker in CI (it needs a real f
 - **Application**: one test file per use-case class (`application/<context>/{queries,commands}/__tests__/`), with
   in-memory fakes of every domain repository and application port; contract validation (`UseCase.run`,
   `INVALID_INPUT`) is tested too.
-- **Infrastructure**: repository and gateway tests (`src/infrastructure/repositories/thndr/__tests__/`) with a stubbed
-  `fetch` that asserts exact URLs, methods, headers and bodies, and feeds recorded/spec-derived JSON fixtures through
-  the translators (`repositories/thndr/translators/`). Data sources (HTTP client, session file, Firebase
-  persistence) are tested on their own. No real network.
+- **Repositories**: repository and gateway tests (`src/repositories/thndr/__tests__/`, `src/repositories/local/__tests__/`)
+  with a stubbed `fetch` that asserts exact URLs, methods, headers and bodies, and feeds recorded/spec-derived JSON
+  fixtures through the translators (`src/repositories/thndr/translators/__tests__/`).
+- **Data sources** (`src/data-sources/**/__tests__/`): HTTP client, KrakenD guard, session file, Firebase persistence
+  and the redacting logger are tested on their own. No real network.
 - **Presentation** (`src/presentation/**/__tests__/`): use cases are tested end-to-end in-process through the MCP
   server (`registerUseCases`), using the SDK's `InMemoryTransport` and a real `Client`, against fake use-case
   dependencies; the presenters (`runAndPresent`, `toView`, `presentError`, `renderText`) and the CLI (argument
@@ -28,6 +29,12 @@ We cannot run integration tests against the real broker in CI (it needs a real f
   `src/presentation/__tests__/parity.test.ts` builds the real container and asserts that MCP and CLI expose the same
   use cases and return identical JSON for identical input, including failures and `INVALID_INPUT`
   ([ADR 0012](0012-use-case-classes-shared-by-mcp-and-cli.md)).
+- **Architecture fitness functions** (`src/__tests__/architecture.test.ts`,
+  [ADR 0015](0015-five-layer-clean-architecture-cqs-and-context-map.md)): the five-layer dependency matrix, the
+  third-party packages allowed per layer, the bounded-context map (customers reach Market Data only through its
+  published interface), the shared kernel's independence, exactly one `Query` / `Command` per file in
+  `queries/` / `commands/`, no use case importing another, and no use cases in presentation. A violation fails the
+  test run like any other test.
 - Coverage is enforced by Vitest thresholds: lines, branches, functions and statements **≥ 95%** (target > 95%).
   The entrypoints `src/presentation/*/main.ts`, the `__tests__/` folders and barrel files are excluded; the
   composition root (`src/container.ts`) is covered by an end-to-end test (`src/__tests__/container.test.ts`).

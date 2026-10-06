@@ -7,8 +7,8 @@ description: Re-sync thndr-mcp with the latest ThndrX (x.thndr.app) deployment �
 
 thndr-mcp talks to Thndr's **private** API, reverse-engineered from ThndrX's public JavaScript bundle (ADR 0004).
 Thndr redeploys without notice, so this workflow re-derives what changed and updates the anti-corruption layer
-(Thndr data source `src/infrastructure/data-sources/thndr/**` and repositories + translators
-`src/infrastructure/repositories/thndr/**`) in one coherent change. Scope stays **read-only** (ADR 0006): if new order-entry or
+(Thndr data source `src/data-sources/thndr/**` and repositories + translators
+`src/repositories/thndr/**`) in one coherent change. Scope stays **read-only** (ADR 0006): if new order-entry or
 fund-movement endpoints appear, note them in the diff summary but do not document or implement them.
 
 ## Bundled tools
@@ -44,7 +44,7 @@ Servers may reject stale versions, so this is the most common fix.
 Find which paths our repositories and auth gateway call (string literals, template literals and path constants):
 
 ```bash
-grep -rhoE "['\`]/[a-zA-Z0-9/_{}\$.:-]+['\`]" src/infrastructure/repositories/thndr/ src/infrastructure/data-sources/thndr/ | sort -u
+grep -rhoE "['\`]/[a-zA-Z0-9/_{}\$.:-]+['\`]" src/repositories/thndr/ src/data-sources/thndr/ | sort -u
 ```
 
 For each used path that changed, locate and read its call sites in the de-minified bundle:
@@ -62,14 +62,18 @@ types are inferred — mark them [I] in the docs).
 Change these in the same commit so they never drift:
 
 1. `docs/api/*.md` — the human spec (keep [C]/[I] markers and evidence snippets with the new chunk names).
-2. `src/infrastructure/data-sources/thndr/dto/*.ts` — wire types (snake_case).
-3. `src/infrastructure/repositories/thndr/translators/*.ts` — translation to the domain (anti-corruption layer);
+2. `src/data-sources/thndr/dto/*.ts` — wire types (snake_case).
+3. `src/repositories/thndr/translators/*.ts` — translation to the domain (anti-corruption layer);
    unknown fields → `null`, never crash.
-4. `src/infrastructure/repositories/thndr/*-repository.ts` and `auth-gateway.ts` — paths/params.
-5. Tests and fixtures in the colocated `__tests__/` folders: `src/infrastructure/repositories/thndr/__tests__/`
-   and `src/infrastructure/repositories/thndr/translators/__tests__/` (and
-   `src/infrastructure/data-sources/thndr/__tests__/` for HTTP-client or KrakenD changes). Use the stubbed fetch in
+4. `src/repositories/thndr/*-repository.ts` and `auth-gateway.ts` — paths/params.
+5. Tests and fixtures in the colocated `__tests__/` folders: `src/repositories/thndr/__tests__/`
+   and `src/repositories/thndr/translators/__tests__/` (and
+   `src/data-sources/thndr/__tests__/` for HTTP-client or KrakenD changes). Use the stubbed fetch in
    `src/__tests__/support/fake-fetch.ts`; never hit the network.
+
+Thndr's wire format must not leak past the translators: DTO types stay in `src/data-sources/thndr/dto`, and only
+`src/repositories/thndr/translators` turn them into domain objects (`src/__tests__/architecture.test.ts` checks the
+layer rules — `npm test` must stay green).
 
 Domain and application code should rarely change; if it must, the API change altered business meaning — call that
 out and consider an ADR. Use-case contracts (`src/application/<context>/{queries,commands}/*.ts`) are the public MCP/CLI

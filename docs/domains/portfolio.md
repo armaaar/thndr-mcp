@@ -1,12 +1,16 @@
 # Portfolio (core subdomain)
 
 A **read-only** view of the account holder's Thndr account: cash, positions, what can be sold, order history and
-status, realized returns, the trading journal and the account statement. Downstream of [Market Data](market-data.md)
-(uses `InstrumentResolver`).
+status, realized returns, the trading journal and the account statement.
+
+**Context map ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)):** Portfolio is a **customer** of [Market Data](market-data.md): it may use only Market
+Data's published interface (its domain types and `src/application/market-data/services/*`, here `InstrumentResolver`).
+It never depends on Engagement or Identity, and no context depends on Portfolio. `AssetId`, `Market` and `Money` come
+from the shared kernel.
 
 Code: `src/domain/portfolio/` (repository interface in `repository.ts`), `src/application/portfolio/`
-(use-case classes in `queries/`), `src/infrastructure/repositories/thndr/portfolio-repository.ts`
-(+ `data-sources/thndr/dto/portfolio.ts`, `repositories/thndr/translators/portfolio.ts`).
+(use-case classes in `queries/`), `src/repositories/thndr/portfolio-repository.ts`
+(+ `src/data-sources/thndr/dto/portfolio.ts`, `src/repositories/thndr/translators/portfolio.ts`).
 API: [docs/api/trading-and-portfolio.md](../api/trading-and-portfolio.md). Use cases:
 [use-cases/portfolio.md](../use-cases/portfolio.md).
 
@@ -74,7 +78,7 @@ always read whole from one upstream call.
 ## Repository
 
 `PortfolioRepository` (domain repository, `src/domain/portfolio/repository.ts`), implemented by
-`ThndrPortfolioRepository` (`src/infrastructure/repositories/thndr/portfolio-repository.ts`). Use cases receive it
+`ThndrPortfolioRepository` (`src/repositories/thndr/portfolio-repository.ts`). Use cases receive it
 as the `repository` dependency:
 
 | Method | Thndr endpoint (`https://prod.thndr.app`) |

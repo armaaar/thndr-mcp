@@ -1,7 +1,12 @@
 # Use cases
 
 Every capability is one **use-case class** (application service) extending `Query` or `Command`
-(`src/application/use-case.ts`), one class per file in `src/application/<context>/queries/` or `commands/`. The class
+(`src/application/use-case.ts`), one class per file in `src/application/<context>/queries/` or `commands/`.
+Command–Query Separation ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)): a `Query`
+returns data and has no observable side effect; a `Command` changes state and returns only a flat **receipt**
+(`Receipt`: ids, flags, primitive values, a message — never a read model). To see the new state after a command, call
+the matching query (e.g. `create_watchlist` → `get_watchlist`). Use cases never call each other; shared logic lives in
+application services (`src/application/<context>/services/`). The class
 owns its contract — `name`, `title`, `description`, bounded `context` and a zod `input` whose camelCase fields are
 the `execute` parameters — and `run(rawInput)` validates untrusted input before calling `execute`. The composition
 root (`src/container.ts`) returns the `useCases` list; both delivery mechanisms are generated from it and run every
@@ -42,7 +47,7 @@ business-rule codes such as `LOGIN_NOT_STARTED`, and `INTERNAL_ERROR` for anythi
 | --- | --- | --- | --- | --- |
 | `auth_status` | `thndr auth-status` | `GetAuthStatus` (`identity/queries/get-auth-status.ts`) | — (local session + Firebase) | — |
 | `login_start` | `thndr login-start <email>` | `StartLogin` (`identity/commands/start-login.ts`) | `POST prod /auth-service/v2/users/email-code` | — |
-| `login_verify_code` | `thndr login-verify-code <code>` | `VerifyLoginCode` (`identity/commands/verify-login-code.ts`) (→ `RequestDeviceApproval`) | `POST prod /auth-service/v2/users/login`, Firebase `signInWithCustomToken`, `POST prod /auth-service/tokens/request` | — |
+| `login_verify_code` | `thndr login-verify-code <code>` | `VerifyLoginCode` (`identity/commands/verify-login-code.ts`) (→ `DeviceApprovalRequester` service, shared with `RequestDeviceApproval`) | `POST prod /auth-service/v2/users/login`, Firebase `signInWithCustomToken`, `POST prod /auth-service/tokens/request` | — |
 | `login_request_approval` | `thndr login-request-approval` | `RequestDeviceApproval` (`identity/commands/request-device-approval.ts`) | `POST prod /auth-service/tokens/request` | — |
 | `login_complete` | `thndr login-complete` | `CompleteLogin` (`identity/commands/complete-login.ts`) | `POST prod /auth-service/tokens/request/{id}/status` (polled), `POST web /auth/login` | — |
 | `login_import_session` | `thndr login-import-session <cookieHeader>` | `ImportSession` (`identity/commands/import-session.ts`) | `POST web /auth/refresh` | — |

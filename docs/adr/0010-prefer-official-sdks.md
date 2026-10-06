@@ -25,5 +25,5 @@ Raw HTTP is used only for Thndr's own endpoints, for which no SDK exists.
 
 - Less code to maintain; Firebase token refresh semantics are handled by Google's code.
 - The custom persistence relies on the shape of Firebase's persistence classes (`_get/_set/_remove`). It is
-  isolated in `src/infrastructure/data-sources/firebase/` and covered by tests; if it breaks, the fallback is simply that the user
+  isolated in `src/data-sources/firebase/` and covered by tests; if it breaks, the fallback is simply that the user
   repeats the email OTP step.

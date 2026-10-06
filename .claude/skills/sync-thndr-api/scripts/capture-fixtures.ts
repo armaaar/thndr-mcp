@@ -12,7 +12,7 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { loadConfig } from '../../../../src/config';
 import { compose } from '../../../../src/container';
-import { assertNoKrakendError } from '../../../../src/infrastructure/data-sources/thndr/krakend';
+import { assertNoKrakendError } from '../../../../src/data-sources/thndr/krakend';
 
 const OUT = resolve(process.argv[2] ?? '.cache/fixtures');
 const PII =
@@ -162,7 +162,7 @@ async function main(): Promise<void> {
   }
   await writeFile(join(OUT, 'SHAPES.md'), `${report.join('\n')}\n`, { mode: 0o600 });
   process.stdout.write(
-    `\nWrote ${OUT}/SHAPES.md — compare it with docs/api/*.md and src/infrastructure/thndr/dto/*.\n`,
+    `\nWrote ${OUT}/SHAPES.md — compare it with docs/api/*.md and src/data-sources/thndr/dto/*.\n`,
   );
 }
 

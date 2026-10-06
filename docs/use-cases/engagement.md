@@ -1,7 +1,7 @@
 # Engagement use cases
 
-Code: one class per use case in `src/application/engagement/queries/` and `commands/`; shared `InstrumentLabeler`
-in `src/application/engagement/services/`. MCP tools and CLI commands are generated from these classes; CLI
+Code: one class per use case in `src/application/engagement/queries/` and `commands/`; application services
+`InstrumentLabeler` and `WatchlistReader` in `src/application/engagement/services/`. MCP tools and CLI commands are generated from these classes; CLI
 positionals come from `src/presentation/cli/positionals.ts`. Domain: [domains/engagement.md](../domains/engagement.md).
 API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool names mirror the IBKR MCP
 ([ADR 0008](../adr/0008-ibkr-mcp-as-reference.md)).
@@ -14,8 +14,9 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 
 - **Preconditions:** a Thndr session exists (full-access bearer token on every call).
 - **Input conventions:** `market` is `egypt` (default) or `us`; symbols are tickers (`COMI`, any case) or Thndr
-  asset ids, resolved by `InstrumentResolver`. Results always carry tickers next to asset ids (via
-  `InstrumentLabeler`; unknown ids get `ticker: null` instead of failing).
+  asset ids, resolved by `InstrumentResolver`. Query results always carry tickers next to asset ids (via
+  `InstrumentLabeler`; unknown ids get `ticker: null` instead of failing); watchlist command receipts carry asset
+  ids only.
 - **Common error flows:**
   - No session → `NOT_AUTHENTICATED`; refresh credential rejected → `SESSION_EXPIRED`.
   - Argument outside the use case's zod contract (empty id, name over 50 characters, bad direction/frequency, too
@@ -23,6 +24,10 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   - Invalid ticker format, or a rule rejected by the domain → `VALIDATION_ERROR`.
   - Ticker with no exact match → `NOT_FOUND`.
   - Thndr HTTP error, network error, KrakenD embedded `error_*` key or unexpected payload → `UPSTREAM_ERROR`.
+- **CQS ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)):** queries return read
+  models; commands return a flat **receipt** (ids, flags, primitive values — type `Receipt` in
+  `src/application/use-case.ts`), never a read model. To see the new state, call the matching query
+  (`get_watchlist`, `get_alert`, `get_alerts`, `get_notifications`).
 - Hosts: `prod` = `https://prod.thndr.app`, `krakend` = `https://prod.thndr.app/krakend-thndr-x`.
 
 ---
@@ -44,7 +49,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetWatchlist` (`Query`) in `src/application/engagement/queries/get-watchlist.ts`
 - **Invoke:** MCP `get_watchlist {"id": "…"}` · CLI `thndr get-watchlist <id>`
 - **Input:** `id`, `market`.
-- **Flow:** 1. Read the watchlist detail (only asset ids). 2. When it has no name, take name/colour/icon from the
+- **Flow:** delegated to the `WatchlistReader` application service. 1. Read the watchlist detail (only asset ids). 2. When it has no name, take name/colour/icon from the
   list of the market (a failing list is tolerated). 3. Label instruments with ticker, name, last price, change %.
 - **Errors:** empty id → `INVALID_INPUT`; unknown id → `UPSTREAM_ERROR` (404); common errors.
 - **Output:** `{ id, name, color, icon, count, market, instruments: [{ instrumentId, ticker, name, last,
@@ -58,10 +63,10 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Invoke:** MCP `create_watchlist {"name": "Banks", "symbols": ["COMI", "CIEB"]}` · CLI `thndr create-watchlist Banks COMI CIEB` (first positional = `name`, the rest = `symbols`)
 - **Input:** `name` (1–50 chars), `symbols` (optional, ≤ 100), `market`.
 - **Flow:** 1. Validate the name. 2. Resolve and de-duplicate symbols (all before writing). 3. Create with
-  `source: "thndrx"`. 4. Return the labelled watchlist.
+  `source: "thndrx"`. 4. Return a receipt.
 - **Errors:** empty or over-long name / too many symbols → `INVALID_INPUT`; unknown ticker → `NOT_FOUND` (nothing created);
   response without id → `UPSTREAM_ERROR`.
-- **Output:** as `get_watchlist`.
+- **Output (receipt):** `{ id, name, instrumentIds: assetId[] }`. Read the list with `get_watchlist`.
 - **Thndr endpoints:** `POST prod /users-service/watchlists` `{ name, market, source: "thndrx", asset_ids }`.
 
 ## Edit a watchlist — `edit_watchlist` (`EditWatchlist`)
@@ -71,14 +76,14 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Input:** `id`, optional `name`, `add` (symbols, ≤ 100), `remove` (symbols or asset ids, ≤ 100), `market`.
 - **Flow:** 1. Validate; at least one change is required. 2. Resolve `add`; for `remove`, raw asset ids are used
   as-is (so delisted instruments can be removed), tickers are resolved. 3. Reject an instrument present in both.
-  4. Apply in order: rename → watch → unwatch (each only if needed). 5. Re-read the watchlist.
+  4. Apply in order: rename → watch → unwatch (each only if needed). 5. Return a receipt (no re-read).
 - **Errors:** empty or over-long name → `INVALID_INPUT`; nothing to change / conflict → `VALIDATION_ERROR`; unknown ticker → `NOT_FOUND` (before
   any write). A failure mid-way leaves earlier steps applied (Thndr has no transaction); the error says which call
   failed.
-- **Output:** as `get_watchlist` plus `changes: { renamed, added: assetId[], removed: assetId[] }`.
+- **Output (receipt):** `{ id, renamed, name, added: assetId[], removed: assetId[] }` (`name` is the new name, or
+  `null` when not renamed). Read the updated list with `get_watchlist`.
 - **Thndr endpoints:** `PATCH prod /users-service/watchlists/{id}` `{ name }`, `POST prod
-  /users-service/watchlists/{id}/watch-assets` `{ asset_ids }`, `POST …/unwatch-assets` `{ asset_ids }`, then the
-  `get_watchlist` endpoints.
+  /users-service/watchlists/{id}/watch-assets` `{ asset_ids }`, `POST …/unwatch-assets` `{ asset_ids }`.
 
 ## Delete a watchlist — `delete_watchlist` (`DeleteWatchlist`)
 
@@ -87,7 +92,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Input:** `id`.
 - **Flow:** delete the watchlist.
 - **Errors:** empty id → `INVALID_INPUT`; common errors.
-- **Output:** `{ id, deleted: true }`.
+- **Output (receipt):** `{ id, deleted: true }`.
 - **Thndr endpoints:** `DELETE prod /users-service/watchlists/{id}`.
 
 ## List price alerts — `get_alerts` (`GetAlerts`)
@@ -128,7 +133,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Errors:** bad input (non-positive price, unknown enum value) → `INVALID_INPUT`; no current price and no
   direction → `VALIDATION_ERROR`; KrakenD
   `error_price_alerts` → `UPSTREAM_ERROR`.
-- **Output:** alert view; `id` is `null` only when the created alert could not be identified.
+- **Output (receipt):** `{ id, ticker, targetPrice, direction, frequency }`; `id` is `null` only when the created
+  alert could not be identified. Read it with `get_alert` (or `get_alerts`).
 - **Thndr endpoints:** marketwatch (current price), `POST krakend /price-alerts/v1/alerts` `{ asset_id, price,
   frequency, direction, market }`, fallback `GET krakend /price-alerts/v1/asset-alerts/{assetId}`.
 
@@ -144,7 +150,8 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Errors:** bad input → `INVALID_INPUT`; nothing to change / underivable direction → `VALIDATION_ERROR` (both
   before deleting);
   unknown id → `NOT_FOUND`; re-creation failure → `UPSTREAM_ERROR` stating whether the original was restored.
-- **Output:** the new alert view (**new id**) plus `previousId`.
+- **Output (receipt):** `{ id, ticker, targetPrice, direction, frequency, previousId }` — `id` is the **new** id.
+  Read it with `get_alert`.
 - **Thndr endpoints:** alert list pages, `DELETE krakend /price-alerts/v1/alerts/{id}`, `POST krakend
   /price-alerts/v1/alerts`.
 
@@ -155,7 +162,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Input:** `id`.
 - **Flow:** delete; a 404 (already fired or deleted) counts as success.
 - **Errors:** empty id → `INVALID_INPUT`; other upstream errors → `UPSTREAM_ERROR`.
-- **Output:** `{ id, deleted: true }`.
+- **Output (receipt):** `{ id, deleted: true }`.
 - **Thndr endpoints:** `DELETE krakend /price-alerts/v1/alerts/{id}`.
 
 ## List notifications — `get_notifications` (`GetNotifications`)
@@ -176,6 +183,6 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Flow:** batch-mark the ids, or mark everything read.
 - **Errors:** empty id or > 200 ids → `INVALID_INPUT`; neither or both given → `VALIDATION_ERROR`; KrakenD
   `error_patch_notifications_batch` / `error_patch_notifications_read_all` → `UPSTREAM_ERROR`.
-- **Output:** `{ all, ids }`.
+- **Output (receipt):** `{ all, ids }`.
 - **Thndr endpoints:** `PATCH krakend /notifications/v1/batch?field=is_read` body `[{ id }, …]`, or `PATCH krakend
   /notifications/v1/read-all` (no body).

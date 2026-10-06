@@ -1,7 +1,9 @@
 # Market Data use cases
 
 Code: one `Query` class per use case in `src/application/market-data/queries/`; shared `InstrumentResolver` and
-`MarketQuotesCache` in `src/application/market-data/services/`. MCP tools and CLI commands are generated from these
+`MarketQuotesCache` in `src/application/market-data/services/` — Market Data's Open Host Service, which the
+Portfolio and Engagement use cases also consume
+([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these
 classes; CLI positionals come from `src/presentation/cli/positionals.ts`.
 Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-data.md](../api/market-data.md).
 

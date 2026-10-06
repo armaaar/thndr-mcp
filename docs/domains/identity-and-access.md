@@ -6,7 +6,15 @@ Thndr with a valid bearer token. Based on [docs/api/auth.md](../api/auth.md),
 
 Code: `src/domain/identity/` (repository interfaces in `repository.ts`), `src/application/identity/`,
 `src/application/ports/identity.ts`, `src/application/ports/access-token-provider.ts`; use-case classes in
-`src/application/identity/queries/` and `commands/`, `SessionTokenProvider` in `src/application/identity/services/`.
+`src/application/identity/queries/` and `commands/`, application services `SessionTokenProvider` and
+`DeviceApprovalRequester` in `src/application/identity/services/`.
+
+**Context map ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)):** Identity & Access is a generic subdomain and **independent**: it depends on no other
+context, and no context's domain or application code imports it. The other contexts reach it only indirectly: the
+Thndr HTTP client (`src/data-sources/thndr/http-client.ts`) gets its bearer token from the `AccessTokenProvider`
+application port, which `SessionTokenProvider` implements. The login commands return flat CQS receipts (ids, flags,
+a message); `auth_status` is the query for the resulting state. `VerifyLoginCode` and `RequestDeviceApproval` share
+the `DeviceApprovalRequester` service rather than calling each other.
 Use cases: [use-cases/identity-and-access.md](../use-cases/identity-and-access.md).
 
 ## Ubiquitous language
@@ -108,22 +116,22 @@ Mirrors ThndrX (`docs/api/auth.md` §2.4, §3):
 
 ## Repositories, ports and adapters
 
-Repository interfaces belong to the domain (`src/domain/identity/repository.ts`); infrastructure services the domain
-does not care about are application ports (`src/application/ports/`), [ADR 0011](../adr/0011-ddd-layered-architecture.md).
+Repository interfaces belong to the domain (`src/domain/identity/repository.ts`); technical services the domain
+does not care about are application ports (`src/application/ports/`), [ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md).
 
 | Contract | Kind | Methods | Implementation |
 | --- | --- | --- | --- |
-| `SessionRepository` | domain repository | `load`, `save`, `clear` | `FileSessionRepository` (`infrastructure/repositories/local/session-repository.ts`), `thndr` section of the session file |
-| `LoginFlowRepository` | domain repository | `load`, `save` | `FileLoginFlowRepository` (`infrastructure/repositories/local/login-flow-repository.ts`), `loginFlow` section of the session file; `InMemoryLoginFlowRepository` (`infrastructure/repositories/memory/login-flow-repository.ts`) for tests |
-| `ThndrAuthGateway` | application port (`ports/identity.ts`) | `sendEmailCode`, `verifyEmailCode`, `createApprovalRequest`, `getApprovalStatus`, `exchangeApproval`, `refreshAccess`, `logout` | `HttpThndrAuthGateway` (`infrastructure/repositories/thndr/auth-gateway.ts`); requests the ThndrX web scope list, platform `thndrx_web` |
-| `IdentityProvider` | application port (`ports/identity.ts`) | `signInWithCustomToken`, `getIdToken`, `signOut` | `FirebaseIdentityProvider` (`infrastructure/data-sources/firebase/`), official `@firebase/auth` SDK with file-backed persistence (`firebase` section of the session file) |
+| `SessionRepository` | domain repository | `load`, `save`, `clear` | `FileSessionRepository` (`repositories/local/session-repository.ts`), `thndr` section of the session file |
+| `LoginFlowRepository` | domain repository | `load`, `save` | `FileLoginFlowRepository` (`repositories/local/login-flow-repository.ts`), `loginFlow` section of the session file; `InMemoryLoginFlowRepository` (`repositories/memory/login-flow-repository.ts`) for tests |
+| `ThndrAuthGateway` | application port (`ports/identity.ts`) | `sendEmailCode`, `verifyEmailCode`, `createApprovalRequest`, `getApprovalStatus`, `exchangeApproval`, `refreshAccess`, `logout` | `HttpThndrAuthGateway` (`repositories/thndr/auth-gateway.ts`); requests the ThndrX web scope list, platform `thndrx_web` |
+| `IdentityProvider` | application port (`ports/identity.ts`) | `signInWithCustomToken`, `getIdToken`, `signOut` | `FirebaseIdentityProvider` (`data-sources/firebase/`), official `@firebase/auth` SDK with file-backed persistence (`firebase` section of the session file) |
 | `AccessTokenProvider` (consumed by all contexts) | application port | `getAccessToken`, `invalidate` | `SessionTokenProvider` (`application/identity/services/session-token-provider.ts`) |
-| `Clock`, `Logger` | application ports | `now()`; `debug/info/warn/error` | `systemClock`; redacting stderr logger |
+| `Clock`, `Logger` | application ports | `now()`; `debug/info/warn/error` | `systemClock`; redacting stderr logger (`data-sources/logging/`) |
 
 ### The session file (shared by MCP and CLI)
 
 All three sections live in one JSON document managed by `SessionFile`
-(`src/infrastructure/data-sources/local/session-file.ts`): `$THNDR_SESSION_FILE`, else
+(`src/data-sources/local/session-file.ts`): `$THNDR_SESSION_FILE`, else
 `$XDG_CONFIG_HOME/thndr-mcp/session.json` (default `~/.config/thndr-mcp/session.json`), mode `0600` in a `0700`
 directory.
 

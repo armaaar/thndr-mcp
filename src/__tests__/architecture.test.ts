@@ -127,7 +127,7 @@ describe('architecture: Clean Architecture layers', () => {
           : `${file.path} → ${target}`;
       }
       if (from === 'presentation' && layerOf(target) === 'domain' && !COMPOSITION.has(file.path)) {
-        return target.startsWith('domain/shared-kernel/') ? null : `${file.path} → ${target}`;
+        return target === 'domain/shared-kernel/errors' ? null : `${file.path} → ${target}`;
       }
       return null;
     });

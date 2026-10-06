@@ -102,8 +102,10 @@ The session is stored in `~/.config/thndr-mcp/session.json` (mode `0600`). Delet
 | Portfolio | `get_account_summary`, `get_account_positions`, `get_position`, `get_account_orders`, `get_realized_returns`, `get_closed_trades`, `get_sell_journal`, `get_trading_metrics`, `get_account_activity` |
 | Engagement | `get_watchlists`, `get_watchlist`, `create_watchlist`, `edit_watchlist`, `delete_watchlist`, `get_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert`, `get_notifications`, `mark_notifications_read` |
 
-Tool names follow the [IBKR MCP](docs/adr/0008-ibkr-mcp-as-reference.md) where Thndr has an equivalent. Details are in
-[`docs/use-cases`](docs/use-cases).
+Tool names follow the [IBKR MCP](docs/adr/0008-ibkr-mcp-as-reference.md) where Thndr has an equivalent. Commands
+(create, edit, delete, mark read, login steps) return a short receipt — ids, flags and a message — rather than the
+full object; call the matching query to see the new state (e.g. `create_watchlist` → `get_watchlist`,
+`update_alert` → `get_alert`). Details are in [`docs/use-cases`](docs/use-cases).
 
 ## Configuration
 
@@ -126,10 +128,13 @@ npm run sync:api       # re-download ThndrX and regenerate docs/api/endpoints.ge
 npm run capture:fixtures  # (logged in) capture real response shapes to .cache/fixtures
 ```
 
-Architecture: Domain-Driven Design layers ([ADR 0011](docs/adr/0011-ddd-layered-architecture.md)): domain (entities,
-value objects, repository interfaces, shared kernel) → application (use-case classes extending `Query` / `Command`,
-[ADR 0012](docs/adr/0012-use-case-classes-shared-by-mcp-and-cli.md)) → infrastructure (repositories, data sources)
-and presentation (presenters, MCP and CLI apps). `npm run build` bundles the two binaries with tsup
+Architecture: Domain-Driven Design in five Clean Architecture layers with Command–Query Separation and an enforced
+context map ([ADR 0015](docs/adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)): `src/domain` (entities,
+value objects, repository interfaces, shared kernel) ← `src/application` (use-case classes extending `Query` /
+`Command`, [ADR 0012](docs/adr/0012-use-case-classes-shared-by-mcp-and-cli.md); application services; ports) ←
+`src/repositories` (repository implementations, translators) → `src/data-sources` (Thndr HTTP client and DTOs,
+Firebase, session file, logging), and `src/presentation` (presenters, MCP and CLI apps). The rules are checked by
+`src/__tests__/architecture.test.ts`. `npm run build` bundles the two binaries with tsup
 (`dist/thndr-mcp.js`, `dist/thndr.js`; [ADR 0014](docs/adr/0014-extensionless-imports-and-bundled-build.md)).
 See [`docs/`](docs/README.md) for ADRs, domain models, use cases and the API specs, and [`CLAUDE.md`](CLAUDE.md) for
 contributor rules.

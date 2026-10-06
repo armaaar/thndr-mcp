@@ -23,7 +23,7 @@ contexts with rules a test can check.
 | 4 | Data sources | `data-sources/` | Raw clients for external systems: Thndr HTTP + wire DTOs, Firebase SDK, session file, stderr logger | `application` ports and errors only |
 | 5 | Presentation | `presentation/` | Presenters and the two apps (MCP server, CLI) | `application`, shared-kernel errors |
 
-`container.ts`, `config.ts` and the entrypoints `presentation/{mcp,cli}/main.ts` form the composition root and may wire
+`container.ts`, `config.ts`, `version.ts` and the entrypoints `presentation/{mcp,cli}/main.ts` form the composition root and may wire
 every layer.
 
 ### Command–Query Separation

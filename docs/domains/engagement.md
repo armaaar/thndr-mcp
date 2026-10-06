@@ -2,13 +2,21 @@
 
 The user's own lists and signals around the market: **custom watchlists**, **price alerts** and in-app
 **notifications**. None of it moves money, so it is allowed by [ADR 0006](../adr/0006-trading-safety.md) as
-non-financial list management. It is downstream of [Market Data](market-data.md): users name instruments by ticker,
-Thndr stores asset ids, and Market Data translates between the two.
+non-financial list management. Users name instruments by ticker, Thndr stores asset ids, and Market Data translates
+between the two.
+
+**Context map ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)):** Engagement is a **customer** of [Market Data](market-data.md): it may use only Market
+Data's published interface (its domain types and `src/application/market-data/services/*`, here `InstrumentResolver`
+and `MarketQuotesCache`). It never depends on Portfolio or Identity, and no context depends on Engagement. `AssetId`
+and `Market` come from the shared kernel.
+
+**CQS:** the watchlist and alert commands return flat receipts (ids, flags, primitive values), never a read model;
+read the new state with `get_watchlist` / `get_alert`. See [use-cases/engagement.md](../use-cases/engagement.md).
 
 Code: `src/domain/engagement/` (repository interface in `repository.ts`), `src/application/engagement/`,
-`src/infrastructure/repositories/thndr/engagement-repository.ts` (+ `data-sources/thndr/dto/engagement.ts`,
-`repositories/thndr/translators/engagement.ts`); use-case classes in `src/application/engagement/queries/` and
-`commands/`, shared `InstrumentLabeler` in `src/application/engagement/services/`.
+`src/repositories/thndr/engagement-repository.ts` (+ `src/data-sources/thndr/dto/engagement.ts`,
+`src/repositories/thndr/translators/engagement.ts`); use-case classes in `src/application/engagement/queries/` and
+`commands/`, application services `InstrumentLabeler` and `WatchlistReader` in `src/application/engagement/services/`.
 API: [docs/api/market-data.md](../api/market-data.md) §4 (watchlists), §5.2 (price alerts) and the misc part §5
 (notifications). Use cases: [use-cases/engagement.md](../use-cases/engagement.md).
 
@@ -58,10 +66,15 @@ Turns asset ids into tickers (and quote snippets) for presentation. It reads the
 funds). It **never fails**: snapshot errors and unknown/delisted ids produce a label with `null` fields, so a stale
 id in a watchlist never breaks listing it. `currentPrice(id, market)` gives the last price used by the direction rule.
 
+### `WatchlistReader`
+Loads one watchlist as a labelled view for `GetWatchlist`: reads the detail (asset ids only), borrows name, colour
+and icon from the market's list when the detail has no name (a failing list is tolerated), then labels the
+instruments through `InstrumentLabeler`. Commands do not use it: they return receipts instead of re-reading.
+
 ## Repository
 
 `EngagementRepository` (domain repository, `src/domain/engagement/repository.ts`), implemented by
-`ThndrEngagementRepository` (`src/infrastructure/repositories/thndr/engagement-repository.ts`) and received by the
+`ThndrEngagementRepository` (`src/repositories/thndr/engagement-repository.ts`) and received by the
 use cases as the `repository` dependency: `listWatchlists`, `getWatchlist`, `createWatchlist`,
 `renameWatchlist`, `deleteWatchlist`, `addToWatchlist`, `removeFromWatchlist`, `listPriceAlerts`,
 `listAlertsForInstrument`, `createPriceAlert` (returns `null` when Thndr's reply does not describe the alert),

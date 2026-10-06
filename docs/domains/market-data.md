@@ -1,11 +1,16 @@
 # Market Data (core subdomain)
 
 Everything about the market itself — instruments, live quotes, history, order book, tape and the trading session —
-plus screening of the whole-market snapshot. It is upstream of [Portfolio](portfolio.md) and
-[Engagement](engagement.md), which use its `InstrumentResolver`.
+plus screening of the whole-market snapshot.
+
+**Context map ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)):** Market Data is the upstream **supplier** of [Portfolio](portfolio.md) and
+[Engagement](engagement.md) and depends on no other context. It offers an **Open Host Service** —
+`src/application/market-data/services/*` (`InstrumentResolver`, `MarketQuotesCache`) — with its domain types
+(`src/domain/market-data/`) as the published language; customers never import its use cases. `AssetId` and `Market`
+live in the shared kernel (`src/domain/shared-kernel/`), not in this context.
 
 Code: `src/domain/market-data/` (repository interface in `repository.ts`), `src/application/market-data/`,
-`src/infrastructure/repositories/thndr/market-data-repository.ts` (+ `data-sources/thndr/dto/market-data.ts`,
+`src/repositories/thndr/market-data-repository.ts` (+ `src/data-sources/thndr/dto/market-data.ts`,
 `repositories/thndr/translators/market-data.ts`); use-case classes in `src/application/market-data/queries/`,
 shared `InstrumentResolver` and `MarketQuotesCache` in `src/application/market-data/services/`.
 API: [docs/api/market-data.md](../api/market-data.md), market status in
@@ -41,9 +46,9 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 
 | Element | Kind | Invariants / behaviour |
 | --- | --- | --- |
-| `AssetId` | value object | Must be a UUID (`8-4-4-4-12` hex); normalised to lower-case. `AssetId.isAssetId(raw)` tests without throwing. |
-| `Market` | enum + `parseMarket` | Empty → `egypt`; unknown → `VALIDATION_ERROR`. |
-| `AssetClass` | enum + `parseAssetClass` | Unknown wire values become `UNKNOWN` (never fails). |
+| `AssetId` (shared kernel, `shared-kernel/asset-id.ts`) | value object | Must be a UUID (`8-4-4-4-12` hex); normalised to lower-case. `AssetId.isAssetId(raw)` tests without throwing. |
+| `Market` (shared kernel, `shared-kernel/market.ts`) | enum + `parseMarket` | Empty → `egypt`; unknown → `VALIDATION_ERROR`. |
+| `AssetClass` (shared kernel, `shared-kernel/market.ts`) | enum + `parseAssetClass` | Unknown wire values become `UNKNOWN` (never fails). |
 | `Instrument` | read model | `id`, `ticker`, `name`, `assetClass`, `market`, `currency` (`EGP`/`USD`/null), `sector`, `board`, `tradable`, `suspended`, `priceDecimals` (2 or 3 on EGX), optional `description`, `logoUrl`. |
 | `Quote` | read model | Every numeric field nullable (Thndr often omits them). `relativeVolume(quote)` returns null without a 30-day average. |
 | `Candle` | value (`createCandle`) | All of OHLCV finite, valid time, `high ≥ low`. Frozen. |
@@ -106,7 +111,7 @@ From the ThndrX TradingView config and market-status endpoints:
 ## Repository
 
 `MarketDataRepository` (domain repository, `src/domain/market-data/repository.ts`), implemented by
-`ThndrMarketDataRepository` (`src/infrastructure/repositories/thndr/market-data-repository.ts`). Use cases receive
+`ThndrMarketDataRepository` (`src/repositories/thndr/market-data-repository.ts`). Use cases receive
 it as the `repository` dependency:
 
 | Method | Thndr endpoint |
