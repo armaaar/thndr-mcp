@@ -3,7 +3,10 @@ import { z } from 'zod';
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export const MARKET_TIME_ZONE = 'Africa/Cairo';
 
-/** UTC offset (e.g. `+03:00`) of `timeZone` around the given calendar day. */
+/**
+ * UTC offset (e.g. `+03:00`) of `timeZone` on the given calendar day, sampled at noon. On a DST-change day the
+ * midnight bound may be off by one hour; EGX is closed at that time, so it has no practical effect.
+ */
 export function utcOffset(day: string, timeZone = MARKET_TIME_ZONE): string {
   const noon = new Date(`${day}T12:00:00Z`);
   const name = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'longOffset' })

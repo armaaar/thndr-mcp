@@ -34,7 +34,8 @@ Rules:
 - Thndr wire formats (snake_case DTOs) stay inside `src/infrastructure/thndr/`. Map to domain objects there.
 - Value objects are immutable (`Object.freeze`) and validate in their static factory (`X.of(...)`).
 - Use cases are classes with an `execute(input)` method in `src/application/<context>/use-cases.ts`.
-- Never write to **stdout** in MCP mode — it is the stdio channel (only the CLI commands in `src/main.ts` may). Log via the `Logger` port (stderr, redacted). `console.*`
+- Never write to **stdout** in MCP mode — it is the stdio channel (only the CLI commands in `src/main.ts`
+  may). Log via the `Logger` port (stderr, redacted). `console.*`
   is a lint error in `src/`.
 - Never log, print or commit tokens, refresh tokens, cookies or the session file.
 
