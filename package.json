@@ -34,6 +34,7 @@
   "dependencies": {
     "@firebase/app": "^0.16.2",
     "@firebase/auth": "^1.13.6",
+    "@fontsource-variable/dm-sans": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "qrcode": "^1.5.4",
     "zod": "^4.6.5"

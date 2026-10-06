@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createRequire } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import type { Logger } from '../../application/ports/logger';
 import type { UseCase } from '../../application/use-case';
@@ -31,11 +33,30 @@ export interface BrowserLoginOptions {
   lifetimeMs?: number;
   /** How long the page stays up after the login ended, so it can show the outcome (default 30 s). */
   lingerMs?: number;
+  /** The page font (default: the bundled DM Sans). */
+  font?: () => Promise<Buffer | null>;
 }
 
 export type StartBrowserLogin = (useCases: readonly UseCase[]) => Promise<BrowserLoginSession>;
 
 const MAX_BODY_BYTES = 2048;
+
+/** DM Sans (SIL Open Font License), served by this page itself so that it loads nothing from the internet. */
+const FONT_FILE = '@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2';
+
+/** Reads the bundled font; without it (e.g. not installed) the page falls back to the system font. */
+export function readFont(resolve: (id: string) => string): Promise<Buffer | null> {
+  return Promise.resolve()
+    .then(() => readFile(resolve(FONT_FILE)))
+    .catch(() => null);
+}
+
+let font: Promise<Buffer | null> | null = null;
+/** The bundled font, read once per process. */
+export function loadFont(): Promise<Buffer | null> {
+  font ??= readFont(createRequire(import.meta.url).resolve);
+  return font;
+}
 const CANCELLED: GuidedLoginResult = { ok: false, message: 'Login cancelled.' };
 
 class HttpError extends Error {
@@ -59,7 +80,7 @@ export async function startBrowserLogin(
   useCases: readonly UseCase[],
   options: BrowserLoginOptions = {},
 ): Promise<BrowserLoginSession> {
-  const { logger, lifetimeMs = 15 * 60_000, lingerMs = 30_000 } = options;
+  const { logger, lifetimeMs = 15 * 60_000, lingerMs = 30_000, font: pageFont = loadFont } = options;
   const token = randomBytes(24).toString('base64url');
   const nonce = () => randomBytes(16).toString('base64');
 
@@ -171,12 +192,23 @@ export async function startBrowserLogin(
       const scriptNonce = nonce();
       res.setHeader(
         'content-security-policy',
-        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; ` +
+        `default-src 'none'; script-src 'nonce-${scriptNonce}'; style-src 'unsafe-inline'; font-src 'self'; ` +
           "connect-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
       );
       return send(res, 200, 'text/html; charset=utf-8', renderLoginPage(scriptNonce));
     }
     if (route === 'GET state') return send(res, 200, 'application/json', JSON.stringify(state));
+    if (route === 'GET font.woff2') {
+      const bytes = await pageFont();
+      if (!bytes) throw new HttpError(404, 'Not found');
+      res.writeHead(200, {
+        'content-type': 'font/woff2',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+      });
+      res.end(bytes);
+      return;
+    }
     if (req.method !== 'POST') throw new HttpError(404, 'Not found');
 
     const origins = [origin, `http://localhost:${port}`];

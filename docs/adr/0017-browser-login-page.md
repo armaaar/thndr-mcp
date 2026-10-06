@@ -38,18 +38,20 @@ We will run the whole login in a **local browser page**:
 - Security of the page: the URL carries a 192-bit random token; only `127.0.0.1`/`localhost` `Host` headers are
   served (DNS rebinding); state-changing requests must be same-origin `application/json` (no cross-site form posts);
   bodies are capped at 2 KB; responses are `no-store` with `Referrer-Policy: no-referrer`; the page has a strict CSP
-  (nonce-only inline script; the only external resources are the DM Sans stylesheet and font files from Google
-  Fonts).
+  (nonce-only inline script, `font-src 'self'`) and loads **nothing from the internet**: its font is served by the
+  page itself.
 - `thndr login` keeps the terminal dialog (a terminal can show the QR code drawn with half blocks). The model-driven
   `login_*` tools stay as the fallback for machines without a browser.
 - The page follows **Thndr's brand** as shown by its logo, app and App Store listing: bright yellow `#ffff00` with
   black, rounded cards and pill buttons, green for success (ThndrX's web stylesheet uses an indigo accent, but the brand
-  colour is yellow). Light: an off-white page, a white card and yellow pill buttons; dark: a near-black page, a dark card
-  and yellow pill buttons; it adapts to phone screens; pasted whitespace is stripped from the email and code fields; every text colour meets WCAG AA. It follows the system theme until a header button pins light or
-  dark for that page (nothing is stored: each login runs on a new port). Typography is DM Sans, as on ThndrX. It is
-  labelled "thndr-mcp — unofficial community tool, not affiliated with Thndr" and uses no Thndr logo, so it never
-  passes itself off as Thndr's own login page. DM Sans comes from Google Fonts (the CSP allows only
-  `fonts.googleapis.com` / `fonts.gstatic.com` besides the page); offline, it falls back to the system font.
+  colour is yellow). Light: an off-white page, a white card and yellow pill buttons; dark: a near-black page, a dark
+  card and yellow pill buttons. It adapts to phone screens, strips pasted whitespace from the email and code fields,
+  and every text colour meets WCAG AA. It follows the system theme until a header button pins light or dark for that
+  page (nothing is stored: each login runs on a new port). Typography is DM Sans, as on ThndrX, bundled from
+  `@fontsource-variable/dm-sans` (SIL Open Font License) and served at `font.woff2`; if it is missing, the system font
+  is used. It uses no Thndr logo and says, in the header and in the card next to the form, that it is unofficial and
+  not affiliated with Thndr, that everything runs locally and no data is collected, and that the email and code go
+  only to thndr-mcp on this machine, which sends them straight to Thndr.
 - To keep the QR code small, the deep link's `user_agent` parameter carries a short device name
   (`THNDR_DEVICE_NAME`, default `thndr-mcp`).
 
@@ -62,7 +64,6 @@ We will run the whole login in a **local browser page**:
 - The server now listens on a loopback port while a login is in progress. The token, host and origin checks keep
   other local web pages from driving it; other local processes of the same user are outside the threat model (they
   could read the session file anyway).
-- Opening the page contacts Google Fonts for DM Sans, so Google sees the user's IP address at login time (never the
-  page token: `Referrer-Policy: no-referrer`). Offline, the page falls back to the system font.
+- The page works offline up to the calls to Thndr and tells no third party that the user is logging in.
 - The QR code needs no explanation in a dialog that may truncate it, and the user does not have to come back and press
   Accept: the page and the tool call both see the approval directly.

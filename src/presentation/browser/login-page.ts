@@ -26,14 +26,14 @@ export function renderLoginPage(nonce: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>thndr-mcp · Log in to Thndr</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,800&display=swap">
 <style>
   /* Theme: the system's by default; the header button pins one with data-theme on <html>. */
   :root { ${DARK} }
   :root[data-theme="light"] { ${LIGHT} }
   @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { ${LIGHT} } }
+  /* DM Sans is served by this page (font.woff2), so it loads nothing from the internet. */
+  @font-face { font-family: "DM Sans"; src: url("font.woff2") format("woff2"); font-weight: 100 1000;
+    font-style: normal; font-display: swap; }
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; background: var(--page);
     color: var(--page-text); font: 16px/1.5 "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -82,7 +82,9 @@ export function renderLoginPage(nonce: string): string {
     font-weight: 700; border-radius: 50%; background: var(--pill); color: var(--on-pill); }
   .done-icon:empty { display: none; }
   a { color: var(--muted); font-size: 12px; word-break: break-all; }
-  footer { padding: 16px 24px 24px; color: var(--page-muted); font-size: 12px; text-align: center; }
+  .notice { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--outline); color: var(--muted);
+    font-size: 12.5px; line-height: 1.55; }
+  .notice strong { color: var(--text); }
   [hidden] { display: none !important; }
   @media (max-width: 520px) {
     header { flex-wrap: wrap; padding: 14px 16px; row-gap: 4px; }
@@ -96,7 +98,6 @@ export function renderLoginPage(nonce: string): string {
     form { margin-top: 22px; }
     input.code { font-size: 22px; letter-spacing: 0.35em; }
     .qr svg { width: min(216px, 62vw); height: min(216px, 62vw); }
-    footer { padding: 12px 16px 20px; }
   }
 </style>
 </head>
@@ -152,9 +153,11 @@ export function renderLoginPage(nonce: string): string {
 
   <p class="error" id="error" role="alert"></p>
   <button class="link" id="cancel" type="button">Cancel login</button>
+  <p class="notice" id="notice"><strong>Unofficial</strong> — not affiliated with Thndr. Everything runs locally on
+    your computer and no data is collected: your email and code go only to thndr-mcp on this machine, which sends them
+    straight to Thndr.</p>
 </div>
 </main>
-<footer>Your email and code go only to this computer's thndr-mcp, which talks to Thndr for you.</footer>
 <script nonce="${nonce}">
   const $ = (id) => document.getElementById(id);
   const sections = ['working', 'email', 'code', 'approval', 'done'];

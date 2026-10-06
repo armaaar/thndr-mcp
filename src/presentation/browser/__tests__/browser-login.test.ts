@@ -7,7 +7,13 @@ import {
   type LoginHandlers,
 } from '../../../__tests__/support/fake-login';
 import { fakeLogger } from '../../../__tests__/support/identity-fakes';
-import { type BrowserLoginSession, type BrowserLoginState, startBrowserLogin } from '../browser-login';
+import {
+  type BrowserLoginSession,
+  type BrowserLoginState,
+  loadFont,
+  readFont,
+  startBrowserLogin,
+} from '../browser-login';
 
 /** In-process loopback HTTP to the page: the server under test, no external network. */
 function http(
@@ -71,8 +77,9 @@ describe('startBrowserLogin', () => {
     const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
     expect(csp).toContain("default-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain("style-src 'unsafe-inline' https://fonts.googleapis.com;");
-    expect(csp).toContain('font-src https://fonts.gstatic.com;');
+    expect(csp).toContain("style-src 'unsafe-inline';");
+    expect(csp).toContain("font-src 'self';");
+    expect(csp).not.toContain('http');
     expect(csp).not.toContain('*');
     expect(csp).not.toContain('img-src');
     expect(page.text).toContain(`<script nonce="${nonce}">`);
@@ -228,6 +235,27 @@ describe('startBrowserLogin', () => {
     const { session } = await start({ auth_status: () => ({ identified: true }) }, { lingerMs: 0 });
     await session.result;
     await vi.waitFor(() => expect(http(`${session.url}state`)).rejects.toThrow());
+  });
+
+  it('serves its own font', async () => {
+    const { session } = await start();
+    const res = await http(`${session.url}font.woff2`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('font/woff2');
+    expect(res.text.startsWith('wOF2')).toBe(true);
+  });
+
+  it('answers 404 for the font when it is not installed', async () => {
+    const { session } = await start({}, { font: async () => null });
+    expect((await http(`${session.url}font.woff2`)).status).toBe(404);
+  });
+
+  it('reads the font through the given resolver and copes with a missing package', async () => {
+    const missing = () => {
+      throw new Error('Cannot find module');
+    };
+    expect(await readFont(missing)).toBeNull();
+    expect((await loadFont())?.subarray(0, 4).toString()).toBe('wOF2');
   });
 
   describe('rejects requests that do not come from its own page', () => {

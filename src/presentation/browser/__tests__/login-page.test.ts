@@ -4,17 +4,27 @@ import { renderLoginPage } from '../login-page';
 describe('renderLoginPage', () => {
   const page = renderLoginPage('abc123');
 
-  it('runs only the nonce-tagged inline script and loads nothing but the DM Sans stylesheet', () => {
+  it('runs only the nonce-tagged inline script and loads nothing from the internet', () => {
     expect(page).toContain('<script nonce="abc123">');
     expect(page.match(/<script/g)).toHaveLength(1);
-    expect([...page.matchAll(/(?:href|src)="(https?:[^"]+)"/g)].map((m) => new URL(m[1] ?? '').host)).toEqual(
-      ['fonts.googleapis.com', 'fonts.gstatic.com', 'fonts.googleapis.com'],
-    );
+    expect(page).not.toMatch(/(?:href|src)="https?:/);
+    expect(page).not.toMatch(/url\(["']?https?:/);
+    expect(page).toContain('src: url("font.woff2") format("woff2")');
   });
 
   it('labels itself as the unofficial thndr-mcp, not as Thndr', () => {
     expect(page).toContain('<title>thndr-mcp · Log in to Thndr</title>');
     expect(page).toContain('Unofficial community tool · not affiliated with Thndr');
+  });
+
+  it('says next to the form that it is unofficial, runs locally and collects no data', () => {
+    const notice =
+      /<p class="notice" id="notice">([\s\S]*?)<\/p>/.exec(page)?.[1]?.replace(/\s+/g, ' ') ?? '';
+    expect(notice).toContain('<strong>Unofficial</strong> — not affiliated with Thndr.');
+    expect(notice).toContain('Everything runs locally on your computer and no data is collected');
+    expect(notice).toContain(
+      'your email and code go only to thndr-mcp on this machine, which sends them straight to Thndr.',
+    );
   });
 
   it('keeps the escapes of its script regular expressions (it lives in a template literal)', () => {
