@@ -31,8 +31,10 @@ Thanks for helping with thndr-mcp, an unofficial community project (see [DISCLAI
   `main` (its CHANGELOG covers the whole history so far).
 - CI runs `npm run check`, the build and a packaging smoke test on every pull request; it must pass before merging. The
   release pull request is the exception: release-please opens it with the workflow token, which does not trigger CI —
-  it only changes the version, `src/version.ts` and the CHANGELOG, and the publish job re-runs every check on the tag.
+  it only changes the version (`package.json`, `package-lock.json`, `src/version.ts`, `.release-please-manifest.json`)
+  and the CHANGELOG, and the publish job re-runs every check on the tag.
 - If the publish job fails after the release was created (the Release exists without its package), fix the cause on
-  `main` if needed, then re-run the failed job from the Actions tab; or attach the package by hand from the tag:
+  `main`. A re-run of the failed job only helps when the cause is outside the tagged tree (e.g. a flaky runner): the job
+  checks out the tag, so a problem inside it fails again. Otherwise attach the package by hand from the tag:
   `git checkout vX.Y.Z && npm ci && npm pack && sha256sum thndr-mcp-X.Y.Z.tgz > thndr-mcp-X.Y.Z.tgz.sha256 &&
   gh release upload vX.Y.Z thndr-mcp-X.Y.Z.tgz thndr-mcp-X.Y.Z.tgz.sha256`.
