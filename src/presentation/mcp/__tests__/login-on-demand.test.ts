@@ -11,7 +11,7 @@ import { FakeQuery } from '../../../__tests__/support/fake-use-cases';
 import { fakeLogger } from '../../../__tests__/support/identity-fakes';
 import { type ConnectedClient, connect, type ElicitHandler } from '../../../__tests__/support/mcp-client';
 import { NotAuthenticatedError, SessionExpiredError } from '../../../application/errors';
-import { LoginOnDemand } from '../login-on-demand';
+import { elicitationDialog, LoginOnDemand } from '../login-on-demand';
 
 type Params = ElicitRequest['params'];
 const fieldOf = (params: Params) =>
@@ -226,6 +226,76 @@ describe('MCP login on demand (ADR 0016)', () => {
     expect(u.asked.filter((p) => fieldOf(p) === 'email')).toHaveLength(2);
   });
 
+  it('retries the tool only once, even if it still has no session after the login', async () => {
+    const { useCases: login, spies } = identityUseCases({});
+    const tool = vi.fn(() => {
+      throw new NotAuthenticatedError();
+    });
+    const c = await open(
+      [...login, new FakeQuery({ name: 'get_account_positions', context: 'portfolio', handler: tool })],
+      user().elicit,
+    );
+    const result = await c.call('get_account_positions');
+
+    expect(result.json).toMatchObject({ error: 'NOT_AUTHENTICATED' });
+    expect(result.json).not.toHaveProperty('login');
+    expect(tool).toHaveBeenCalledTimes(2);
+    expect(spies.login_start).toHaveBeenCalledOnce();
+  });
+
+  it('reports login progress to a client that asked for it', async () => {
+    const responses = [{ authenticated: false, status: 'pending', message: 'Still waiting…' }];
+    let loggedIn = false;
+    const { useCases: login } = identityUseCases({
+      login_complete: () => {
+        const next = responses.shift();
+        if (next) return next;
+        loggedIn = true;
+        return APPROVED;
+      },
+    });
+    const tool = new FakeQuery({
+      name: 'get_account_positions',
+      context: 'portfolio',
+      handler: () => {
+        if (!loggedIn) throw new NotAuthenticatedError();
+        return { ok: true };
+      },
+    });
+    const c = await open([...login, tool], user().elicit);
+    const progress: Array<{ progress: number; message?: string }> = [];
+    await c.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+      onprogress: (p) => progress.push({ progress: p.progress, message: p.message }),
+    });
+
+    expect(progress).toEqual([{ progress: 1, message: 'Still waiting…' }]);
+  });
+
+  it('stops asking when the tool call is cancelled', async () => {
+    const { useCases, spies } = app();
+    const controller = new AbortController();
+    let release: () => void = () => {};
+    const elicit = vi.fn(
+      (params: Params) =>
+        new Promise<ElicitResult>((resolve) => {
+          release = () => resolve({ action: 'accept', content: { email: 'me@example.com' } });
+          if (fieldOf(params) === 'email') controller.abort();
+        }),
+    );
+    const c = await open(useCases, elicit);
+    await expect(
+      c.client.callTool({ name: 'get_account_positions', arguments: {} }, undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow();
+    release();
+    await vi.waitFor(() => expect(spies.auth_status).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(elicit).toHaveBeenCalledOnce();
+    expect(spies.login_start).not.toHaveBeenCalled();
+  });
+
   it('leaves the error untouched when the client cannot elicit', async () => {
     const { useCases, spies } = app();
     const result = await (await open(useCases)).call('get_account_positions');
@@ -268,5 +338,19 @@ describe('LoginOnDemand', () => {
     const login = new LoginOnDemand(server, useCases);
 
     expect(await login.login()).toEqual({ ok: false, message: 'Login failed — connection closed' });
+  });
+});
+
+describe('elicitationDialog', () => {
+  it('logs progress it could not deliver instead of failing the login', async () => {
+    const logger = fakeLogger();
+    const dialog = elicitationDialog({} as Server, logger, {
+      progress: () => Promise.reject(new Error('closed')),
+    });
+    dialog.notify('Still waiting…');
+    await vi.waitFor(() =>
+      expect(logger.debug).toHaveBeenCalledWith('login: progress not delivered', expect.anything()),
+    );
+    expect(logger.info).toHaveBeenCalledWith('login: Still waiting…');
   });
 });

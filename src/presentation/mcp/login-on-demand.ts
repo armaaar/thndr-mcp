@@ -12,18 +12,24 @@ const ANSWER_TIMEOUT_MS = 10 * 60_000;
 
 type RequestedSchema = ElicitRequestFormParams['requestedSchema'];
 
+/** The tool call that triggered the login: its cancellation signal and, if it asked for progress, a reporter. */
+export interface LoginCall {
+  signal?: AbortSignal;
+  progress?: (message: string) => Promise<void>;
+}
+
 /**
  * The MCP side of the guided login: every question is an MCP form elicitation, so the user answers in the client's
  * own UI and the email and one-time code go straight to this server, never through the model.
  */
-export function elicitationDialog(server: Server, logger?: Logger): LoginDialog {
+export function elicitationDialog(server: Server, logger?: Logger, call: LoginCall = {}): LoginDialog {
   const ask = async (
     message: string,
     requestedSchema: RequestedSchema,
   ): Promise<Record<string, unknown> | null> => {
     const result = await server.elicitInput(
       { mode: 'form', message, requestedSchema },
-      { timeout: ANSWER_TIMEOUT_MS },
+      { timeout: ANSWER_TIMEOUT_MS, ...(call.signal ? { signal: call.signal } : {}) },
     );
     return result.action === 'accept' ? (result.content ?? {}) : null;
   };
@@ -50,7 +56,13 @@ export function elicitationDialog(server: Server, logger?: Logger): LoginDialog 
         `${approval.message}\nOn your phone you can also open: ${approval.deepLink}\nAccept once you have approved it.`,
         { type: 'object', properties: {} },
       )) !== null,
-    notify: (line) => logger?.info(`login: ${line}`),
+    notify: (line) => {
+      logger?.info(`login: ${line}`);
+      // Progress keeps clients that reset their timeout on progress waiting, and shows the user what is happening.
+      call
+        .progress?.(line)
+        .catch((error: unknown) => logger?.debug('login: progress not delivered', { error }));
+    },
   };
 }
 
@@ -76,8 +88,9 @@ export class LoginOnDemand {
     );
   }
 
-  login(): Promise<GuidedLoginResult> {
-    this.inFlight ??= runGuidedLogin(this.useCases, elicitationDialog(this.server, this.logger))
+  /** Runs the guided login, or joins the one already running (which keeps the first call's signal and progress). */
+  login(call: LoginCall = {}): Promise<GuidedLoginResult> {
+    this.inFlight ??= runGuidedLogin(this.useCases, elicitationDialog(this.server, this.logger, call))
       .catch((error: unknown): GuidedLoginResult => {
         this.logger?.warn('login: guided login failed', { error });
         return {

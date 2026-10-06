@@ -29,6 +29,17 @@ type Fields = Record<string, View>;
 class LoginStepError extends Error {}
 
 /**
+ * Use-case messages also guide an agent ("Call login_complete again."); a person in the guided login does not call
+ * tools, so those sentences are dropped.
+ */
+export function forPerson(message: string): string {
+  return message
+    .split(/(?<=\.)\s+/)
+    .filter((sentence) => !/\blogin_[a-z_]+\b/.test(sentence))
+    .join(' ');
+}
+
+/**
  * Guided login shared by `thndr login` and the MCP server's login-on-demand (ADR 0016). It runs the identity use cases
  * in order (auth_status → login_start → login_verify_code | login_request_approval → login_complete) and adds no
  * logic of its own: every step goes through `runAndPresent`, exactly like a single command or tool call.
@@ -42,7 +53,7 @@ export async function runGuidedLogin(
     const useCase = useCases.find((u) => u.name === name);
     if (!useCase) throw new Error(`Use case ${name} is not registered`);
     const outcome = await runAndPresent(useCase, input);
-    if (!outcome.ok) throw new LoginStepError(`${outcome.error.error}: ${outcome.error.message}`);
+    if (!outcome.ok) throw new LoginStepError(`${outcome.error.error}: ${forPerson(outcome.error.message)}`);
     return outcome.view as Fields;
   };
   const cancelled = { ok: false, message: 'Login cancelled.' };
@@ -56,12 +67,15 @@ export async function runGuidedLogin(
     } else {
       const email = (await dialog.askEmail())?.trim();
       if (!email) return cancelled;
-      const sent = String((await run('login_start', { email })).message);
+      const sent = forPerson(String((await run('login_start', { email })).message));
       const code = (await dialog.askCode(sent))?.trim();
       if (!code) return cancelled;
       instructions = await run('login_verify_code', { code });
     }
-    const approval = { message: String(instructions.message), deepLink: String(instructions.deepLink) };
+    const approval = {
+      message: forPerson(String(instructions.message)),
+      deepLink: String(instructions.deepLink),
+    };
     if (!(await dialog.confirmApproval(approval))) return cancelled;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -69,13 +83,13 @@ export async function runGuidedLogin(
       if (result.authenticated === true) {
         return {
           ok: true,
-          message: `✔ ${String(result.message)} Session valid until ${String(result.sessionExpiresAt ?? 'the server ends it')}.`,
+          message: `✔ ${forPerson(String(result.message))} Session valid until ${String(result.sessionExpiresAt ?? 'the server ends it')}.`,
         };
       }
       if (result.status !== 'pending' && result.status !== 'unknown') {
-        return { ok: false, message: String(result.message) };
+        return { ok: false, message: forPerson(String(result.message)) };
       }
-      dialog.notify(String(result.message));
+      dialog.notify(forPerson(String(result.message)));
     }
     return { ok: false, message: 'Gave up waiting for approval.' };
   } catch (error) {

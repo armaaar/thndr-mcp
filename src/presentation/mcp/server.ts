@@ -1,11 +1,17 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
+import type { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import type {
+  CallToolResult,
+  ServerNotification,
+  ServerRequest,
+  ToolAnnotations,
+} from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import type { Logger } from '../../application/ports/logger';
 import { Command, type UseCase } from '../../application/use-case';
 import { runAndPresent } from '../presenters/outcome';
 import { isRecord } from '../presenters/view';
-import { LoginOnDemand } from './login-on-demand';
+import { type LoginCall, LoginOnDemand } from './login-on-demand';
 
 export const SERVER_INSTRUCTIONS = `Unofficial MCP server for Thndr (Egyptian Exchange broker), built on the private API of ThndrX.
 - Read-only for money: it can analyse markets, the account, positions, orders and activity, and manage watchlists
@@ -42,6 +48,26 @@ export function toolInputSchema(useCase: UseCase): z.ZodType {
   return z.looseObject({}).meta(contract);
 }
 
+type ToolCallExtra = RequestHandlerExtra<ServerRequest, ServerNotification>;
+
+/** Ties a login on demand to the tool call that needs it: cancelling the call cancels the login dialog. */
+function loginCall(extra: ToolCallExtra): LoginCall {
+  const token = extra._meta?.progressToken;
+  let progress = 0;
+  return {
+    signal: extra.signal,
+    ...(token === undefined
+      ? {}
+      : {
+          progress: (message: string) =>
+            extra.sendNotification({
+              method: 'notifications/progress',
+              params: { progressToken: token, progress: ++progress, message },
+            }),
+        }),
+  };
+}
+
 function text(value: unknown): CallToolResult['content'] {
   return [{ type: 'text', text: JSON.stringify(value, null, 2) }];
 }
@@ -61,10 +87,10 @@ export function registerUseCases(server: McpServer, useCases: readonly UseCase[]
         inputSchema: toolInputSchema(useCase),
         annotations: annotationsFor(useCase),
       },
-      async (args: unknown): Promise<CallToolResult> => {
+      async (args: unknown, extra: ToolCallExtra): Promise<CallToolResult> => {
         let outcome = await runAndPresent(useCase, args, logger);
         if (!outcome.ok && loginOnDemand.applies(useCase, outcome.error.error)) {
-          const login = await loginOnDemand.login();
+          const login = await loginOnDemand.login(loginCall(extra));
           if (!login.ok) return { isError: true, content: text({ ...outcome.error, login: login.message }) };
           outcome = await runAndPresent(useCase, args, logger);
         }

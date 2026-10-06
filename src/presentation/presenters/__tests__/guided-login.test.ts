@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { APPROVAL, identityUseCases } from '../../../__tests__/support/fake-login';
-import { type LoginDialog, runGuidedLogin } from '../guided-login';
+import { NotAuthenticatedError } from '../../../application/errors';
+import { forPerson, type LoginDialog, runGuidedLogin } from '../guided-login';
 
 function dialog(overrides: Partial<LoginDialog> = {}) {
   return {
@@ -64,5 +65,48 @@ describe('runGuidedLogin', () => {
       ['Already identified with Thndr. Requesting a new approval on your phone…'],
       ['Still waiting…'],
     ]);
+  });
+});
+
+describe('forPerson', () => {
+  it('drops the sentences that tell an agent which tool to call', () => {
+    expect(
+      forPerson('A 6-digit verification code was sent to m***@example.com. Call login_verify_code with it.'),
+    ).toBe('A 6-digit verification code was sent to m***@example.com.');
+    expect(
+      forPerson('Still waiting for approval in the Thndr app. Approve it, then call login_complete again.'),
+    ).toBe('Still waiting for approval in the Thndr app.');
+    expect(forPerson('Logged in.')).toBe('Logged in.');
+  });
+
+  it('is applied to every message the guided login shows', async () => {
+    const { useCases } = identityUseCases({
+      login_start: () => ({ message: 'Code sent to m***@example.com. Call login_verify_code with it.' }),
+      login_verify_code: () => ({ ...APPROVAL, message: `${APPROVAL.message} Then call login_complete.` }),
+      login_complete: () => ({
+        authenticated: false,
+        status: 'expired',
+        message: 'Expired. Call login_request_approval.',
+      }),
+    });
+    const d = dialog();
+    expect(await runGuidedLogin(useCases, d)).toEqual({ ok: false, message: 'Expired.' });
+    expect(d.askCode).toHaveBeenCalledWith('Code sent to m***@example.com.');
+    expect(d.confirmApproval).toHaveBeenCalledWith(APPROVAL);
+  });
+
+  it('is applied to failed steps', async () => {
+    const { useCases } = identityUseCases({
+      auth_status: () => ({ identified: true }),
+      login_request_approval: () => {
+        throw new NotAuthenticatedError(
+          'Not identified with Thndr yet. Call login_start with your email first.',
+        );
+      },
+    });
+    expect(await runGuidedLogin(useCases, dialog())).toEqual({
+      ok: false,
+      message: 'Login failed — NOT_AUTHENTICATED: Not identified with Thndr yet.',
+    });
   });
 });
