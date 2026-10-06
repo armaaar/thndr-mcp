@@ -5,7 +5,7 @@ Code: one class per use case in `src/application/identity/queries/` and `command
 `auth_status` is a CQS command and returns a flat receipt (ids, flags, a message), never a read model; `auth_status`
 is the query that reports the resulting state
 ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these classes; CLI positionals
-come from `src/presentation/cli/positionals.ts`, the guided `thndr login` from `src/presentation/cli/login-command.ts`. Domain: [domains/identity-and-access.md](../domains/identity-and-access.md).
+come from `src/presentation/cli/positionals.ts`, the guided login (`thndr login` and the MCP login on demand) from `src/presentation/presenters/guided-login.ts`. Domain: [domains/identity-and-access.md](../domains/identity-and-access.md).
 API: [api/auth.md](../api/auth.md).
 
 **Actor** for every use case: the LLM agent (MCP) or the account holder at a terminal (CLI `thndr`), acting on
@@ -20,10 +20,16 @@ The pending login (`LoginFlow`) and the session are persisted in the same owner-
 - Each login step can run in a separate process: `thndr login-start`, `thndr login-verify-code` and
   `thndr login-complete` are three CLI invocations, and an MCP login survives a server restart between steps.
 - Logging in (or out) through the MCP server or the CLI affects both: they read the same file, uncached.
-- `thndr login` is a **CLI-only guided composite** of the same use cases (`auth_status` → `login_start` →
+- The **guided login** is a presentation-layer composite of the same use cases (`auth_status` → `login_start` →
   `login_verify_code`, or `login_request_approval` when already identified → `login_complete`, retried up to 5 times
-  with a 60 s timeout). It prompts for the email and code and runs every step through `runAndPresent`; it adds no
-  logic ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)).
+  with a 60 s timeout). It runs every step through `runAndPresent` and adds no logic
+  ([ADR 0012](../adr/0012-use-case-classes-shared-by-mcp-and-cli.md)); it talks to the user through a `LoginDialog`:
+  - `thndr login` prompts on the terminal (`presentation/cli/login-command.ts`).
+  - The MCP server runs it **on demand** ([ADR 0016](../adr/0016-login-on-demand-via-mcp-elicitation.md),
+    `presentation/mcp/login-on-demand.ts`): when a non-identity tool fails with `NOT_AUTHENTICATED` or
+    `SESSION_EXPIRED` and the client supports form elicitation, the server asks for the email, the code and the phone
+    approval through elicitation, then retries the tool once. Declined or failed logins return the original error plus
+    a `login` field. Without elicitation the error is returned unchanged.
 
 ```sh
 thndr login                          # guided: prompts for email, code, then waits for phone approval

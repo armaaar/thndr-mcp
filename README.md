@@ -84,9 +84,14 @@ You can do it from the terminal:
 thndr login        # or step by step: thndr login-start you@example.com → thndr login-verify-code 123456 → thndr login-complete
 ```
 
-…or just ask Claude to "log in to Thndr". It will use `login_start` → `login_verify_code` → (you approve on your
-phone) → `login_complete`. The session is renewed automatically. When it finally expires, Claude calls
-`login_request_approval` and you approve once more on your phone (no new email code).
+…or just ask Claude for what you want ("how is my portfolio doing?"). If you are not logged in, the MCP server asks
+you itself — in Claude Code's own prompt, not in the chat — for your email, the emailed code and the approval on your
+phone, then answers the request ([ADR 0016](docs/adr/0016-login-on-demand-via-mcp-elicitation.md)). Your code never
+passes through the model. The session is renewed automatically; when it finally expires you are only asked to approve
+once more on your phone (no new email code).
+
+Clients without MCP elicitation log in step by step instead: Claude calls `login_start` → `login_verify_code` → (you
+approve on your phone) → `login_complete`, and `login_request_approval` when the session expires.
 
 Accounts that only use Google/Apple sign-in can use `login_import_session` with the `Cookie` header of a logged-in
 `x.thndr.app` browser session.

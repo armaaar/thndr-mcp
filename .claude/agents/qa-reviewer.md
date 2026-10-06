@@ -73,8 +73,8 @@ read, run checks and report.
      `src/container.ts` (`registerUseCases` in `presentation/mcp/server.ts`, `runCli` in `presentation/cli/`) and
      execute through `runAndPresent` (`presentation/presenters/outcome.ts`). Reject any use-case logic, validation
      or result shaping in `src/presentation/` (the CLI may only parse arguments, map positionals via
-     `presentation/cli/positionals.ts`, render help/text and run the guided `thndr login`, which composes identity
-     use cases and adds no logic). A new use case must be registered in `src/container.ts` and listed in
+     `presentation/cli/positionals.ts`, render help/text and run the guided login — `presentation/presenters/guided-login.ts`, shared by `thndr login` and
+     the MCP login on demand of ADR 0016 — which composes identity use cases and adds no logic). A new use case must be registered in `src/container.ts` and listed in
      `docs/use-cases/README.md` (MCP tool, CLI command, use-case class and file); `src/presentation/__tests__/parity.test.ts`
      must keep passing.
 3. **Correctness** — compare the Thndr repositories and auth gateway (`src/repositories/thndr/`) against `docs/api/*.md` (the reverse-engineered spec): paths,

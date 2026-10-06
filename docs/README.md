@@ -29,6 +29,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [0013](adr/0013-persisted-login-flow-and-shared-session.md) | `LoginFlowRepository` persists the pending login; uncached session file shared by MCP and CLI. |
 | [0014](adr/0014-extensionless-imports-and-bundled-build.md) | Extensionless imports; `tsc` only typechecks; tsup bundles `dist/thndr-mcp.js` and `dist/thndr.js`. |
 | [0015](adr/0015-five-layer-clean-architecture-cqs-and-context-map.md) | Five layers (`domain/`, `application/`, `repositories/`, `data-sources/`, `presentation/`); CQS — commands return flat receipts, never read models; context map (Market Data = upstream supplier with an Open Host Service, Portfolio and Engagement = customers, Identity independent); all enforced by `src/__tests__/architecture.test.ts`. |
+| [0016](adr/0016-login-on-demand-via-mcp-elicitation.md) | Login on demand: when a tool needs a session and the client supports MCP elicitation, the server asks for email, code and phone approval itself (shared guided login with `thndr login`), then retries the tool. |
 
 ## Domains — [`domains/`](domains/README.md)
 
