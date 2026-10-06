@@ -18,44 +18,41 @@ Thndr has no public API; we reverse-engineered the API used by its official web 
 | **All gates**            | `npm run check`               |
 | Re-sync the Thndr API    | `npm run sync:api` / `npm run capture:fixtures` (tools live in the `sync-thndr-api` skill) |
 
-## Architecture (DDD layers — ADR 0011, use-case classes — ADR 0012)
+## Architecture (5-layer Clean Architecture + CQS + context map — ADR 0015, use-case classes — ADR 0012)
 
 ```
-src/domain/<context>/                 entities, value objects, aggregates, repository interfaces (repository.ts)
-src/domain/shared-kernel/             Shared Kernel: Money, Ticker, domain errors, guards
-src/application/use-case.ts           abstract UseCase → Query | Command (contract + execute + run)
-src/application/<context>/queries/    one Query use case per file
-src/application/<context>/commands/   one Command use case per file
-src/application/<context>/services/   application services shared by the use cases (plain helpers — inputs, views, constants,
-                                      dependencies.ts — sit at the context root; cross-context helpers at application/)
-src/application/ports/                non-repository ports: Clock, Logger, AccessTokenProvider, ThndrAuthGateway, IdentityProvider
-src/infrastructure/repositories/      repository implementations (thndr/, local/, memory/) + thndr/translators (anti-corruption layer)
-src/infrastructure/data-sources/      raw external access: thndr/ (HTTP client, wire DTOs), firebase/, local/ (session file)
-src/infrastructure/logging/           redacting stderr logger
-src/presentation/presenters/          view models, error presentation, terminal text, runAndPresent
-src/presentation/mcp/, cli/           driving adapters (delivery mechanisms) + entrypoints (main.ts)
-src/container.ts                      composition root — builds the `useCases` list (config in src/config.ts)
+src/domain/                1 Domain: <context>/ entities, value objects, repository interfaces; shared-kernel/ (Money, Ticker, AssetId, Market, errors)
+src/application/           2 Application: use-case.ts (UseCase → Query | Command), <context>/{queries,commands,services}/, ports/
+src/repositories/          3 Repositories: thndr/ (+ translators = anti-corruption layer), local/, memory/
+src/data-sources/          4 Data sources: thndr/ (HTTP client, wire DTOs), firebase/, local/ (session file), logging/
+src/presentation/          5 Presentation: presenters/, mcp/, cli/ (driving adapters + main.ts entrypoints)
+src/container.ts           composition root — builds the `useCases` list (config in src/config.ts)
 ```
 
-Rules:
+Rules (enforced by `src/__tests__/architecture.test.ts`):
 
-- Dependency rule: `domain` imports nothing outside `domain`; `application` → `domain` (+ zod for input
-  contracts); `infrastructure` → `application` (ports, errors) + `domain`; `presentation` → `application` + `domain`.
-- Imports are **extensionless** (`from './money'`), per ADR 0014. `tsc` only typechecks; `tsup` bundles.
-- A use case is a class extending `Query` or `Command`. It declares `name` (snake_case, the MCP tool name; the CLI
-  command is kebab-case), `title`, `description`, `context`, a zod `input` whose camelCase fields equal the
-  `execute` params, and `execute`. Register it in `src/container.ts`; MCP and CLI expose it automatically.
-- Never put use-case logic in `presentation/`. Both apps run use cases through `runAndPresent` (MCP/CLI parity).
-  CLI-only ergonomics (positional args) live in `presentation/cli/positionals.ts`.
-- Thndr wire formats (snake_case DTOs) live only in `infrastructure/data-sources/thndr/dto` and the translators.
+- Dependencies point inward: domain → nothing; application → domain (+ zod); repositories → data-sources,
+  application, domain; data-sources → application ports/errors only; presentation → application (+ shared-kernel
+  errors). Only the composition root wires concrete classes.
+- **CQS**: a `Query` reads and returns data; a `Command` changes state and returns a flat `Receipt` (ids, flags,
+  messages — type-enforced). One use case per file in `queries/` or `commands/`. Use cases never call each other;
+  shared logic goes in `services/`.
+- **Context map**: Identity and Market Data depend on no other context; Portfolio and Engagement may use only Market
+  Data's domain and `application/market-data/services/*`; nothing depends on Portfolio or Engagement. Shared concepts
+  live in the shared kernel.
+- A use case declares `name` (snake_case MCP tool name; CLI command = kebab-case), `title`, `description`, `context`,
+  a zod `input` whose camelCase fields equal the `execute` params. Register it in `src/container.ts`; MCP and CLI
+  expose it automatically through `runAndPresent` (parity). CLI-only positionals live in `presentation/cli/positionals.ts`.
+- Imports are extensionless (ADR 0014). Thndr wire formats live only in `data-sources/thndr/dto` and
+  `repositories/thndr/translators`.
 - Value objects are immutable (`Object.freeze`) and validate in their static factory (`X.of(...)`).
-- MCP mode must never write to **stdout** (it is the stdio channel). The CLI prints results to stdout and errors to
-  stderr. Log via the `Logger` port (stderr, redacted). `console.*` is a lint error in `src/`.
+- MCP mode never writes to stdout. The CLI prints results to stdout, errors to stderr. Log via the `Logger` port.
 - Never log, print or commit tokens, refresh tokens, cookies or the session file.
 
 ## Bounded contexts
 
-Identity & Access · Market Data · Portfolio (account, positions, orders, activity, journal) · Engagement (watchlists, alerts, notifications).
+Identity & Access (generic) · Market Data (core, upstream supplier) · Portfolio (core, customer of Market Data) ·
+Engagement (supporting, customer of Market Data). See the context map in ADR 0015.
 See `docs/domains/` for the ubiquitous language and `docs/use-cases/` for each use case.
 
 ## Scope (ADR 0006)

@@ -1,6 +1,6 @@
 # 0011. DDD layered architecture (refines 0003)
 
-- Status: Accepted
+- Status: Superseded by [0015](0015-five-layer-clean-architecture-cqs-and-context-map.md) (layout); vocabulary still applies
 - Date: 2026-10-06
 - Refines: [0003](0003-ddd-hexagonal-architecture.md) (directory layout and vocabulary)
 

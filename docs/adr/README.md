@@ -16,7 +16,8 @@ is changed by adding a new ADR that supersedes the old one.
 | 0008 | [IBKR MCP as the reference tool surface](0008-ibkr-mcp-as-reference.md)  | Accepted |
 | 0009 | [stdio transport and logging to stderr](0009-stdio-transport-and-logging.md) | Accepted |
 | 0010 | [Prefer official SDKs over hand-rolled API calls](0010-prefer-official-sdks.md) | Accepted |
-| 0011 | [DDD layered architecture](0011-ddd-layered-architecture.md) | Accepted |
+| 0011 | [DDD layered architecture](0011-ddd-layered-architecture.md) | Superseded by 0015 |
 | 0012 | [Self-describing use-case classes shared by MCP and CLI](0012-use-case-classes-shared-by-mcp-and-cli.md) | Accepted |
 | 0013 | [Persisted login flow and shared session](0013-persisted-login-flow-and-shared-session.md) | Accepted |
 | 0014 | [Extensionless imports and a bundled build](0014-extensionless-imports-and-bundled-build.md) | Accepted |
+| 0015 | [Five-layer Clean Architecture, CQS and an enforced context map](0015-five-layer-clean-architecture-cqs-and-context-map.md) | Accepted |
