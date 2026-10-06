@@ -12,7 +12,7 @@ usage, or type guessed).
 
 Evidence references:
 - `Mxxxx` = Metro module id (from `__d(factory, id, deps)`), with the exported names.
-- `S:nnnn` = line in `out/simplified.js` (folded pseudo-JS); `D:nnnn` = line in `out/decompiled.js` (raw hermes-dec).
+- `S:nnnn` = line in `simplified.js` (folded pseudo-JS); `D:nnnn` = line in `decompiled.js` (raw hermes-dec).
 - Function names come from Hermes' preserved function names ("Original name").
 
 ## Contents
@@ -20,18 +20,22 @@ Evidence references:
 
 ## How this was produced (reproducible)
 
-All tools live in `an/` (outside the download dir); Python was run with `-I`.
+With the committed `sync-thndr-mobile-api` skill (scripts in `.claude/skills/sync-thndr-mobile-api/scripts/`); outputs
+stay in the git-ignored `.cache/thndr-mobile/<version>/decompiled/`. Python runs with `-I`; nothing from the download
+is executed.
 
 | step | command | output |
 |---|---|---|
-| install decompiler (project-local venv) | `python3 -m venv an/venv && an/venv/bin/pip install git+https://github.com/P1sec/hermes-dec` (hermes-dec 0.1.7, has `hbc96`) | |
-| decompile | `hbc-decompiler index.android.bundle an/out/decompiled.js` (via `python -I -c …main()`) | 113 MB, 2.97 M lines |
-| string table (proper, by index) | `python -I an/tools/dump_strings.py <bundle> an/out/strings_table.tsv` | `index<TAB>string` |
-| fold register code into readable pseudo-JS, per module, resolve `require(dep)` to module ids + exports | `python -I an/tools/simplify.py an/out/decompiled.js an/out` | `simplified.js` (1.16 M lines), `modules.tsv` |
-| list every HTTP call site | `python -I an/tools/calls.py an/out/simplified.js > an/out/calls.tsv` | 350 call sites |
+| download and unpack | `fetch-apk.sh` (apkeep 1.1.0, sha256-pinned) | split APKs and `base/assets/index.android.bundle` |
+| decompile | `decompile.sh` (hermes-dec pinned at `a0f18f9`, supports bytecode v96) | `decompiled.js` (113 MB, 2.97 M lines) |
+| string table | `dump-strings.py <bundle> strings.tsv` (run with the skill's venv) | `index<TAB>string`, 101,597 strings |
+| readable pseudo-JS per module | `simplify.py decompiled.js <dir>` | `simplified.js` (1.16 M lines), `modules.tsv` |
+| HTTP call sites | `list-calls.py simplified.js > calls.tsv` | 350 call sites |
 
-`simplify.py` caveats: a call result may be printed inline more than once; `{}.x` means an object literal whose keys
-were not tracked (check `decompiled.js` at the module's `D:` line).
+References in this document: `M####` = Metro module id, `S:` = line in `simplified.js`, `D:` = line in
+`decompiled.js`. `simplify.py` caveats: a call result may be printed inline more than once; `{}.x` means an object
+literal whose keys were not tracked (check `decompiled.js` at the module's `D:` line).
+
 
 ---
 
@@ -911,7 +915,7 @@ section). Evidence is `Mxxxx` (module) and `S:line` (simplified.js). [C] = read 
 
 ### W.1 Per-market order capabilities — `ORDERS_MARKET_CONFIG` (M3637, D:1256090) [C]
 
-Evaluated symbolically (`an/tools/eval_config.py`, output `an/out/orders_market_config.json`). Keys are `MarketName`
+Evaluated symbolically from the module's constant table (a one-off helper, not committed). Keys are `MarketName`
 values (`abudhabi` = UAE/ADX; `adsm` is mapped to `abudhabi` before order calls).
 
 | feature | egypt | us | abudhabi (UAE) | simulator |
@@ -1113,5 +1117,6 @@ All [C]. Egypt only (EGP) [I: no market param, EGP enums].
   default cited in this report was re-checked in `decompiled.js`: trades-book `v2`/`v3`, alert prefix
   `assets-service`/`price-alerts-service`, the `market_exchange` map, the `AVAILABLE_EGYPT` default, the `adsm`↔`abudhabi`
   maps for indicators and Thndr-lists, and the activities page size 10.
-- **Artifacts** (all in `an/out/`): `decompiled.js`, `simplified.js`, `strings_table.tsv`, `calls.tsv`, `modules.tsv`,
-  `flags.txt` (267 Unleash flags), `service-registry-M4125.txt`, `orders_market_config.json`. Tools are in `an/tools/`.
+- **Artifacts** (regenerated under `.cache/thndr-mobile/<version>/decompiled/` by the skill, not committed):
+  `decompiled.js`, `simplified.js`, `strings.tsv`, `calls.tsv`, `modules.tsv`. The flag list (267 Unleash flags), the
+  service registry and the order config were one-off extractions.

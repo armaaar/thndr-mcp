@@ -14,6 +14,7 @@ implement and verify it. You work from code, not from the live service.
 - Pick the skill that matches the client and follow it: `.claude/skills/sync-thndr-web-api/SKILL.md` for the ThndrX
   web bundle (x.thndr.app), `.claude/skills/sync-thndr-mobile-api/SKILL.md` for the Android app. Use their scripts
   rather than reinventing them; if you write a helper that would help next time, say so in your report.
+  Stop after the skill's discovery steps (§1–3): its live verification and code updates (§4 onwards) are the lead's.
 - Downloaded and decompiled code is large (the app's decompiled bundle is ~110 MB): search it (`grep -a`, the skills'
   `find-*` scripts) and read only the excerpts you need.
 - For each finding give the client/base URL, method, path, query or body, the response fields the client reads, the

@@ -1,0 +1,50 @@
+# 0021. Support every Thndr market, with per-market capabilities
+
+- Status: Accepted
+- Date: 2026-10-06
+
+## Context
+
+thndr-mcp was built from the ThndrX web bundle, which only serves Egypt. The Android app (analysed in
+[docs/api/mobile-app.md](../api/mobile-app.md)) and live read-only checks with a real account (2026-10-06) show that
+Thndr serves four markets and that each offers a different set of features:
+
+- `compliance-service/eligibilities/v2/visible-markets` lists the user's markets: `egypt`, `us`, `abudhabi`,
+  `simulator` (here none restricted).
+- The UAE market has two wire codes: `adsm` for instrument data (search, details, charts) and `abudhabi` for account
+  data (wallet, orders, alerts, watchlists, market status with `market_exchange=adsm`). The mobile gateway's search
+  takes `abudhabi`.
+- Market status needs `market_exchange`: the asset's board for Egypt (`NOPL` by default), `NOPL` for the US, `adsm`
+  for the UAE. Without it Thndr answers 422 — our `get_market_status` was broken for every market.
+- Only Egypt has the marketwatch snapshot (400 "not supported" elsewhere), OHLC candles (empty for US/UAE), order
+  book and trades book (403 FEATURE_DISABLED for US/UAE), financials (404 for US/UAE symbols), indices with
+  constituents, savings (Clouds) and the full trading journal (422 for the US).
+- Every market has bulk quotes through the mobile gateway (`krakend-thndr-app/securities/v2/price`, which accepts our
+  token), closing-price history (`assets-service/charts`), news, watchlists, price alerts, orders and wallet.
+- Gainers/losers (`assets-service/assets/rank`) work for Egypt and the US (500 for the UAE).
+- Activity providers differ per market: `EGID`, `ALPACA`, `ADX_UAE`, `THNDR` (simulator).
+
+## Decision
+
+- **Markets** in the domain (shared kernel): `egypt` (EGX, EGP, Africa/Cairo), `us` (NYSE, Nasdaq and ETFs via
+  Alpaca, USD, America/New_York), `uae` (ADX, AED, Asia/Dubai) and `simulator` (Thndr's paper-trading market). Inputs
+  accept aliases (`egx`, `usa`, `nasdaq`, `nyse`, `adx`, `abudhabi`, `adsm`, `sim`…). Thndr's wire codes stay in the
+  Thndr adapters (anti-corruption layer): `uae` → `adsm` for instruments, `abudhabi` for accounts.
+- **Capabilities** are domain knowledge per market (`marketSupports(market, feature)`), based on the live checks
+  above. A use case asked for a feature a market lacks fails fast with `FEATURE_DISABLED` and a message naming the
+  market and what to use instead — it does not call Thndr for an answer that cannot exist. A `get_markets` tool lists
+  the user's markets (from Thndr) with what each supports; tool descriptions say which markets they serve.
+- **Market data outside Egypt** comes from the endpoints Thndr offers there: quotes from the gateway's bulk price,
+  price history as closing prices (`assets-service/charts`) labelled as such — we do not invent open/high/low values —
+  and performance figures from those closes.
+- **New read-only features** from the mobile app: gainers/losers, trending instruments, tags (themes) with their
+  instruments, dividends per instrument, and the default index list per market.
+- Write operations stay documented only (ADR 0006, ADR 0019).
+
+## Consequences
+
+- One market parameter works everywhere, and unsupported combinations explain themselves instead of returning Thndr
+  errors.
+- The capability table must be re-checked when Thndr adds features (the `sync-thndr-mobile-api` skill and a live check);
+  a wrong "unsupported" entry hides a feature until then.
+- The mobile gateway becomes a third base URL (`krakend-thndr-app`), with the same token and KrakenD error envelope.

@@ -50,7 +50,15 @@ virtualenv:
 ```
 
 `decompiled.js` (~110 MB) is register-level pseudo-JS: readable enough to follow a call, too big to read whole — search
-it. `strings.tsv` lists every string literal with its index (use `grep -a`: some strings hold binary bytes). If a newer
+it. For a readable version per module and a list of every HTTP call site:
+
+```bash
+python3 -I .claude/skills/sync-thndr-mobile-api/scripts/simplify.py .cache/thndr-mobile/latest/decompiled/decompiled.js .cache/thndr-mobile/latest/decompiled
+python3 -I .claude/skills/sync-thndr-mobile-api/scripts/list-calls.py .cache/thndr-mobile/latest/decompiled/simplified.js > .cache/thndr-mobile/latest/decompiled/calls.tsv
+```
+
+`npm run sync:mobile` runs `fetch-apk.sh` then `decompile.sh` with their default folders (an argument after `--` reaches
+only `decompile.sh`). `strings.tsv` lists every string literal with its index (use `grep -a`: some strings hold binary bytes). If a newer
 bytecode version is not supported, check hermes-dec's releases and bump the pinned commit in `decompile.sh`.
 
 ## 3. Find the API surface
