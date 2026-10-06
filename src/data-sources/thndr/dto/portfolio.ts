@@ -196,3 +196,38 @@ export interface AccountActivitiesResponseDto {
   results?: AccountActivityDto[] | null;
   count?: WireNumber;
 }
+
+/** §6 one savings bundle of krakend `GET /savings/v1/clouds` (fields inferred from the bundle). */
+export interface SavingsCloudDto {
+  id?: string | number | null;
+  name?: string | null;
+  cloud_type?: string | null;
+  amount?: WireNumber;
+  gains?: WireNumber;
+  withdrawable_amount?: WireNumber;
+}
+
+/** §6 krakend `GET /savings/v1/clouds` (live 2026-10-06). */
+export interface SavingsCloudsDto {
+  amounts_per_type?: Record<string, unknown> | null;
+  clouds?: SavingsCloudDto[] | null;
+  count?: WireNumber;
+  total_amount?: WireNumber;
+  total_gain?: WireNumber;
+}
+
+/** §6 one product of krakend `GET /savings/v1/clouds-stats` (live 2026-10-06). */
+export interface SavingsProductStatsDto {
+  currently_earning?: WireNumber;
+  last_updated_at?: string | null;
+  nominal_yields?: {
+    daily?: WireNumber;
+    weekly?: WireNumber;
+    monthly?: WireNumber;
+    quarterly?: WireNumber;
+    semi_annually?: WireNumber;
+  } | null;
+}
+
+/** §6 krakend `GET /savings/v1/clouds-stats`: product type (`INSTANT_EGP`, `MONTHLY_EGP`…) → stats. */
+export type SavingsCloudsStatsDto = Record<string, SavingsProductStatsDto | null>;

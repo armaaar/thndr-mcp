@@ -8,6 +8,8 @@ import type {
   PositionDto,
   RealizedReturnsDto,
   ReturnsPointDto,
+  SavingsCloudsDto,
+  SavingsCloudsStatsDto,
   TradingMetricsDto,
   WalletAndPortfolioDto,
 } from '../../data-sources/thndr/dto/portfolio';
@@ -31,6 +33,7 @@ import type {
   PortfolioRepository,
 } from '../../domain/portfolio/repository';
 import type { RealizedReturns, ReturnsInterval, ReturnsPoint } from '../../domain/portfolio/returns';
+import type { SavingsBalances, SavingsYield } from '../../domain/portfolio/savings';
 import type { SellableQuantity } from '../../domain/portfolio/sellable-quantity';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
@@ -43,6 +46,8 @@ import {
   toPosition,
   toRealizedReturns,
   toReturnsPoint,
+  toSavingsBalances,
+  toSavingsYields,
   toSellableQuantity,
   toSellJournalEntry,
   toTradingMetrics,
@@ -62,7 +67,8 @@ export const ACTIVITY_PROVIDER: Record<Market, string> = { egypt: 'EGID', us: 'A
 
 /**
  * Read-only adapter for Thndr's account, portfolio, order-history, journal and activity endpoints
- * (docs/api/trading-and-portfolio.md). It intentionally implements no order entry or fund movement (ADR 0006).
+ * (docs/api/trading-and-portfolio.md), plus savings balances and yields. It intentionally implements no order entry
+ * or fund movement — no savings transfers either (ADR 0006).
  * `api` targets https://prod.thndr.app, `krakend` https://prod.thndr.app/krakend-thndr-x; every krakend response
  * goes through {@link assertNoKrakendError}.
  */
@@ -180,6 +186,20 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
       page,
       hasMore: rows > 0 && rows === pageSize,
     });
+  }
+
+  async getSavings(): Promise<SavingsBalances> {
+    const path = '/savings/v1/clouds';
+    const data = await this.krakend.get<SavingsCloudsDto>(path);
+    assertNoKrakendError(data, `GET ${path}`);
+    return toSavingsBalances(data);
+  }
+
+  async getSavingsYields(): Promise<SavingsYield[]> {
+    const path = '/savings/v1/clouds-stats';
+    const data = await this.krakend.get<SavingsCloudsStatsDto>(path);
+    assertNoKrakendError(data, `GET ${path}`);
+    return toSavingsYields(data);
   }
 }
 

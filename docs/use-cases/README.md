@@ -84,12 +84,16 @@ All read-only ([ADR 0006](../adr/0006-trading-safety.md)).
 | `get_position` | `thndr get-position <symbol>` | `GetPosition` (`portfolio/queries/get-position.ts`) | (resolve) + `GET krakend /portfolio/v1/position/{id}`, optionally `GET prod /market-service/accounts/positions/blocked-quantities/{id}` | `get_account_positions` |
 | `get_account_orders` | `thndr get-account-orders` | `ListOrders` (`portfolio/queries/list-orders.ts`) | `GET prod /market-service/v3/orders` (+ resolve when filtered by symbol) | `get_account_orders` |
 | `get_realized_returns` | `thndr get-realized-returns` | `GetRealizedReturns` (`portfolio/queries/get-realized-returns.ts`) | `GET prod /market-service/realized-returns`, `GET prod /market-service/realized-returns/chart/{interval}` | `get_pa_performance_all_periods` (closest) |
-| `get_closed_trades` | `thndr get-closed-trades` | `GetClosedTrades` (`portfolio/queries/get-closed-trades.ts`) | `GET prod /market-service/trading-journals/full-trades` | `get_account_trades` |
+| `get_closed_trades` | `thndr get-closed-trades` | `GetClosedTrades` (`portfolio/queries/get-closed-trades.ts`) | `GET prod /market-service/trading-journals/full-trades` (`from`/`to` or `period`) | `get_account_trades` |
 | `get_sell_journal` | `thndr get-sell-journal` | `GetSellJournal` (`portfolio/queries/get-sell-journal.ts`) | `GET krakend /trading-journals/v1/grouped-sells` | `get_account_trades` |
 | `get_trading_metrics` | `thndr get-trading-metrics` | `GetTradingMetrics` (`portfolio/queries/get-trading-metrics.ts`) | `GET krakend /trading-journals/v1/trading-metrics` (+ resolve tickers) | — |
-| `get_account_activity` | `thndr get-account-activity` | `ListAccountActivity` (`portfolio/queries/list-account-activity.ts`) | `GET prod /funding-service/account-activities` | `get_account_trades` (activity) |
+| `get_account_activity` | `thndr get-account-activity` | `ListAccountActivity` (`portfolio/queries/list-account-activity.ts`) | `GET prod /funding-service/account-activities` (one page, or paged through a `from`/`to`/`period` range) | `get_account_trades` (activity) |
+| `get_portfolio_allocation` | `thndr get-portfolio-allocation` | `GetPortfolioAllocation` (`portfolio/queries/get-portfolio-allocation.ts`) (→ `MarketQuotesCache`, `IndexMembership`) | `GET prod /market-service/accounts/wallet-and-portfolio`, `GET prod /assets-service/assets/marketwatch`, index `constituents` (`GET prod /assets-service/assets/{id}`, cached 6 h) | `get_pa_allocation` |
+| `get_portfolio_performance` | `thndr get-portfolio-performance` | `GetPortfolioPerformance` (`portfolio/queries/get-portfolio-performance.ts`) | `GET prod /market-service/realized-returns/chart/6M` and `/2Y` | `get_pa_performance_all_periods` |
+| `get_savings` | `thndr get-savings` | `GetSavings` (`portfolio/queries/get-savings.ts`) | `GET krakend /savings/v1/clouds`, `GET krakend /savings/v1/clouds-stats` | `get_account_balances` (closest) |
 
-Not provided by design: `create_order_instruction`, `delete_order_instruction` and any fund movement.
+Not provided by design: `create_order_instruction`, `delete_order_instruction` and any fund movement (savings
+transfers included; `get_savings` only reads balances and yields).
 
 ## Engagement — [details](engagement.md)
 

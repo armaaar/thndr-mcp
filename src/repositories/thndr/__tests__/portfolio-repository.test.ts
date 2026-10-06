@@ -589,3 +589,131 @@ describe('ThndrPortfolioRepository.listActivities', () => {
     expect((await nil.gateway.listActivities('egypt', 1, 10)).hasMore).toBe(false);
   });
 });
+
+describe('ThndrPortfolioRepository savings (read-only)', () => {
+  it('maps the clouds balances from krakend', async () => {
+    const { gateway, url } = setup(() =>
+      json({
+        amounts_per_type: { INSTANT_EGP: '5,000', MONTHLY_EGP: 2_000, WEIRD: { nested: true } },
+        clouds: [
+          {
+            id: 7,
+            name: 'Rainy day',
+            cloud_type: 'INSTANT_EGP',
+            amount: '5,000',
+            gains: 120.5,
+            withdrawable_amount: 4_900,
+          },
+          null,
+          { name: '' },
+        ],
+        count: 2,
+        total_amount: 7_000,
+        total_gain: '150.25',
+      }),
+    );
+    const savings = await gateway.getSavings();
+    expect(url().href).toBe('https://api.test/krakend-thndr-x/savings/v1/clouds');
+    expect(savings).toEqual({
+      totalAmount: 7_000,
+      totalGain: 150.25,
+      count: 2,
+      amountsPerType: { INSTANT_EGP: 5_000, MONTHLY_EGP: 2_000 },
+      clouds: [
+        {
+          id: '7',
+          name: 'Rainy day',
+          type: 'INSTANT_EGP',
+          amount: 5_000,
+          gains: 120.5,
+          withdrawableAmount: 4_900,
+        },
+        { id: null, name: null, type: null, amount: null, gains: null, withdrawableAmount: null },
+      ],
+    });
+    expect(Object.isFrozen(savings.clouds)).toBe(true);
+  });
+
+  it('maps an account without savings and tolerates empty payloads', async () => {
+    const { gateway } = setup(
+      () => json({ amounts_per_type: {}, clouds: [], count: 0, total_amount: 0, total_gain: 0 }),
+      () => json(null),
+    );
+    expect(await gateway.getSavings()).toEqual({
+      totalAmount: 0,
+      totalGain: 0,
+      count: 0,
+      amountsPerType: {},
+      clouds: [],
+    });
+    expect(await gateway.getSavings()).toEqual({
+      totalAmount: null,
+      totalGain: null,
+      count: null,
+      amountsPerType: {},
+      clouds: [],
+    });
+  });
+
+  it('maps the yields of each savings product', async () => {
+    const { gateway, url } = setup(
+      () =>
+        json({
+          INSTANT_EGP: {
+            currently_earning: 17.31,
+            last_updated_at: '2026-10-06T15:02:19',
+            nominal_yields: {
+              daily: 15.97,
+              monthly: 16.07,
+              quarterly: 16.29,
+              semi_annually: 16.62,
+              weekly: 15.99,
+            },
+          },
+          MONTHLY_EGP: { currently_earning: '20.26', nominal_yields: null },
+          BROKEN: null,
+        }),
+      () => json(null),
+    );
+    const yields = await gateway.getSavingsYields();
+    expect(url().href).toBe('https://api.test/krakend-thndr-x/savings/v1/clouds-stats');
+    expect(yields).toEqual([
+      {
+        product: 'INSTANT_EGP',
+        currentlyEarningPercent: 17.31,
+        lastUpdatedAt: '2026-10-06T15:02:19',
+        nominalYieldsPercent: {
+          daily: 15.97,
+          weekly: 15.99,
+          monthly: 16.07,
+          quarterly: 16.29,
+          semiAnnually: 16.62,
+        },
+      },
+      {
+        product: 'MONTHLY_EGP',
+        currentlyEarningPercent: 20.26,
+        lastUpdatedAt: null,
+        nominalYieldsPercent: {
+          daily: null,
+          weekly: null,
+          monthly: null,
+          quarterly: null,
+          semiAnnually: null,
+        },
+      },
+    ]);
+    expect(await gateway.getSavingsYields()).toEqual([]);
+  });
+
+  it('surfaces krakend backend errors', async () => {
+    const error = { error_get_clouds: { http_status_code: 503, http_body: '{"detail":{"msg":"down"}}' } };
+    const stats = { error_clouds_stats: { http_status_code: 500, http_body: '' } };
+    const { gateway } = setup(
+      () => json(error),
+      () => json(stats),
+    );
+    await expect(gateway.getSavings()).rejects.toThrow(/error_get_clouds.*down/);
+    await expect(gateway.getSavingsYields()).rejects.toThrow(/error_clouds_stats/);
+  });
+});
