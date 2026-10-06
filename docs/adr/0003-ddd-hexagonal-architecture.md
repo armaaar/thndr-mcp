@@ -1,6 +1,6 @@
 # 0003. Domain-Driven Design with hexagonal architecture
 
-- Status: Accepted
+- Status: Accepted — directory layout and naming refined by [0011](0011-ddd-layered-architecture.md)
 - Date: 2026-10-06
 
 ## Context

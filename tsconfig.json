@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["ES2023"],
     "types": ["node"],
     "strict": true,
@@ -16,10 +16,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true,
-    "sourceMap": true,
-    "declaration": false,
-    "outDir": "dist",
-    "rootDir": "."
+    "noEmit": true
   },
-  "include": ["src", "tests", "vitest.config.ts", "scripts"]
+  "include": ["src", "tests", "vitest.config.ts", ".claude/skills/*/scripts", "tsup.config.ts"]
 }

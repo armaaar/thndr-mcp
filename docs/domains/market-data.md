@@ -4,7 +4,9 @@ Everything about the market itself — instruments, live quotes, history, order 
 plus screening of the whole-market snapshot. It is upstream of [Portfolio](portfolio.md) and
 [Engagement](engagement.md), which use its `InstrumentResolver`.
 
-Code: `src/domain/market-data/`, `src/application/market-data/`, `src/application/ports/market-data.ts`.
+Code: `src/domain/market-data/` (repository interface in `repository.ts`), `src/application/market-data/`,
+`src/infrastructure/repositories/thndr/market-data-repository.ts` (+ `data-sources/thndr/dto/market-data.ts`,
+`repositories/thndr/translators/market-data.ts`); operations in `src/interfaces/catalog/market-data.ts`.
 API: [docs/api/market-data.md](../api/market-data.md), market status in
 [docs/api/trading-and-portfolio.md §2](../api/trading-and-portfolio.md). Use cases:
 [use-cases/market-data.md](../use-cases/market-data.md).
@@ -100,9 +102,11 @@ From the ThndrX TradingView config and market-status endpoints:
   trading.
 - EGX prices have 2 or 3 decimals; prices are in EGP for `egypt`.
 
-## Port
+## Repository
 
-`MarketDataRepository` (`src/application/ports/market-data.ts`), implemented by `ThndrMarketDataRepository`:
+`MarketDataRepository` (domain repository, `src/domain/market-data/repository.ts`), implemented by
+`ThndrMarketDataRepository` (`src/infrastructure/repositories/thndr/market-data-repository.ts`). Use cases receive
+it as the `repository` dependency:
 
 | Method | Thndr endpoint |
 | --- | --- |

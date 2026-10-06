@@ -4,8 +4,9 @@ Obtains and keeps an authenticated ThndrX session on behalf of the account holde
 Thndr with a valid bearer token. Based on [docs/api/auth.md](../api/auth.md),
 [ADR 0007](../adr/0007-authentication-and-session.md) and [ADR 0010](../adr/0010-prefer-official-sdks.md).
 
-Code: `src/domain/identity/`, `src/application/identity/`, `src/application/ports/identity.ts`,
-`src/application/ports/access-token-provider.ts`. Use cases: [use-cases/identity-and-access.md](../use-cases/identity-and-access.md).
+Code: `src/domain/identity/` (repository interfaces in `repository.ts`), `src/application/identity/`,
+`src/application/ports/identity.ts`, `src/application/ports/access-token-provider.ts`; operations in
+`src/interfaces/catalog/identity.ts`. Use cases: [use-cases/identity-and-access.md](../use-cases/identity-and-access.md).
 
 ## Ubiquitous language
 
@@ -20,7 +21,7 @@ Code: `src/domain/identity/`, `src/application/identity/`, `src/application/port
 | **Full-access token** (`AccessToken`) | The ~15-minute JWT sent as `Authorization: Bearer`. |
 | **Refresh credential** | The httpOnly cookie(s) set by `x.thndr.app/api/auth/login`. The cookie name is invisible to ThndrX JS, so **all** cookies are kept and replayed. Client-side hint: ~6 h. |
 | **Session** (`ThndrSession`) | Refresh credential + optional cached access token + `establishedAt`. "Logged in" means a session exists and its refresh credential has not expired. |
-| **Login flow** | The in-process state machine of an interactive login (`IDLE` → `CODE_SENT` → `AWAITING_APPROVAL` → `IDLE`). |
+| **Login flow** | The state machine of an interactive login (`IDLE` → `CODE_SENT` → `AWAITING_APPROVAL` → `IDLE`). Persisted between steps, so each step may run in a different process. |
 | **Re-approval** | Creating a new device approval request for an already identified user (no OTP), used when the session expired. |
 | **Session import** | Fallback: build a session from the `Cookie` header of a logged-in `x.thndr.app` browser (for Google/Apple-only accounts). |
 
@@ -54,11 +55,17 @@ All are immutable (`Object.freeze`) and validate in their factory.
 - `usableAccessToken(now)` returns the cached token only when its status is `VALID`.
 - Persisted as a whole through `SessionRepository`.
 
-### `LoginFlow` (aggregate, process state) — `login-flow.ts`
+### `LoginFlow` (aggregate) — `login-flow.ts`
 - Fields: `stage`, `email`, `verificationId`, `approval`.
 - Guards: `requireCodeSent()` throws `LOGIN_NOT_STARTED`; `requireAwaitingApproval()` throws
   `NO_PENDING_APPROVAL` (both `BusinessRuleViolation`).
-- Held in memory by `LoginFlowHolder` (application); it is **not** persisted.
+- Persisted through the domain repository `LoginFlowRepository` (`load()` → `LoginFlow`, `idle()` when nothing is
+  stored; `save(flow)`), [ADR 0013](../adr/0013-persisted-login-flow-and-shared-session.md). Every login use case
+  loads the flow, applies one transition and saves it, so a login started with `thndr login-start` can be finished
+  with `thndr login-complete` (separate processes), or survive an MCP server restart.
+- Production storage is the `loginFlow` section of the session file: `stage`, `email`, `verificationId` and the
+  pending `approval` (`id`, `secret`, `humanId`, `createdAt`). `IDLE` is stored as `null`; an unreadable record is
+  treated as `IDLE`. The approval `secret` is short-lived and protected like the refresh cookie (file mode `0600`).
 
 ```mermaid
 stateDiagram-v2
@@ -98,18 +105,39 @@ Mirrors ThndrX (`docs/api/auth.md` §2.4, §3):
   identity is kept, so re-approval needs no OTP.
 - No session at all → `NOT_AUTHENTICATED`.
 
-## Ports and adapters
+## Repositories, ports and adapters
 
-| Port (`src/application/ports/`) | Methods | Adapter |
-| --- | --- | --- |
-| `ThndrAuthGateway` | `sendEmailCode`, `verifyEmailCode`, `createApprovalRequest`, `getApprovalStatus`, `exchangeApproval`, `refreshAccess`, `logout` | `HttpThndrAuthGateway` (`infrastructure/thndr/auth-gateway.ts`); requests the ThndrX web scope list, platform `thndrx_web` |
-| `IdentityProvider` | `signInWithCustomToken`, `getIdToken`, `signOut` | `FirebaseIdentityProvider` (`infrastructure/firebase/`), official `@firebase/auth` SDK with file-backed persistence |
-| `SessionRepository` | `load`, `save`, `clear` | `FileSessionRepository` (`infrastructure/persistence/`): one JSON file, `$THNDR_SESSION_FILE` or `~/.config/thndr-mcp/session.json`, mode `0600` in a `0700` dir, atomic writes |
-| `AccessTokenProvider` (consumed by all contexts) | `getAccessToken`, `invalidate` | `SessionTokenProvider` (`application/identity/session-token-provider.ts`) |
-| `Clock`, `Logger` | `now()`; `debug/info/warn/error` | `systemClock`; redacting stderr logger |
+Repository interfaces belong to the domain (`src/domain/identity/repository.ts`); infrastructure services the domain
+does not care about are application ports (`src/application/ports/`), [ADR 0011](../adr/0011-ddd-layered-architecture.md).
 
-The session file holds Firebase persistence entries plus `{cookies, refreshExpiresAt, accessToken,
-accessTokenExpiresAt, establishedAt}`. It is git-ignored and never logged.
+| Contract | Kind | Methods | Implementation |
+| --- | --- | --- | --- |
+| `SessionRepository` | domain repository | `load`, `save`, `clear` | `FileSessionRepository` (`infrastructure/repositories/local/session-repository.ts`), `thndr` section of the session file |
+| `LoginFlowRepository` | domain repository | `load`, `save` | `FileLoginFlowRepository` (`infrastructure/repositories/local/login-flow-repository.ts`), `loginFlow` section of the session file; `InMemoryLoginFlowRepository` (`infrastructure/repositories/memory/login-flow-repository.ts`) for tests |
+| `ThndrAuthGateway` | application port (`ports/identity.ts`) | `sendEmailCode`, `verifyEmailCode`, `createApprovalRequest`, `getApprovalStatus`, `exchangeApproval`, `refreshAccess`, `logout` | `HttpThndrAuthGateway` (`infrastructure/repositories/thndr/auth-gateway.ts`); requests the ThndrX web scope list, platform `thndrx_web` |
+| `IdentityProvider` | application port (`ports/identity.ts`) | `signInWithCustomToken`, `getIdToken`, `signOut` | `FirebaseIdentityProvider` (`infrastructure/data-sources/firebase/`), official `@firebase/auth` SDK with file-backed persistence (`firebase` section of the session file) |
+| `AccessTokenProvider` (consumed by all contexts) | application port | `getAccessToken`, `invalidate` | `SessionTokenProvider` (`application/identity/session-token-provider.ts`) |
+| `Clock`, `Logger` | application ports | `now()`; `debug/info/warn/error` | `systemClock`; redacting stderr logger |
+
+### The session file (shared by MCP and CLI)
+
+All three sections live in one JSON document managed by `SessionFile`
+(`src/infrastructure/data-sources/local/session-file.ts`): `$THNDR_SESSION_FILE`, else
+`$XDG_CONFIG_HOME/thndr-mcp/session.json` (default `~/.config/thndr-mcp/session.json`), mode `0600` in a `0700`
+directory.
+
+| Section | Contents |
+| --- | --- |
+| `firebase` | Firebase Auth persistence entries (ADR 0010). |
+| `thndr` | `{cookies, refreshExpiresAt, accessToken, accessTokenExpiresAt, establishedAt}` — the `ThndrSession`. |
+| `loginFlow` | The pending `LoginFlow`, or `null` (ADR 0013). |
+
+- **No caching** ([ADR 0013](../adr/0013-persisted-login-flow-and-shared-session.md)): every read goes to disk, and
+  every write is a read-modify-write that is serialised within the process and atomic on disk (temp file + rename).
+- The MCP server (`thndr-mcp`) and the CLI (`thndr`) use the same file, so **logging in through either one logs in
+  both**, and cookies rotated by a refresh in one process are seen by the other. Two processes refreshing at the
+  same moment is harmless: the last write wins and both tokens are valid.
+- The file is git-ignored and never logged.
 
 ## Rules
 

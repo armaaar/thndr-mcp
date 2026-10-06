@@ -5,8 +5,9 @@ The user's own lists and signals around the market: **custom watchlists**, **pri
 non-financial list management. It is downstream of [Market Data](market-data.md): users name instruments by ticker,
 Thndr stores asset ids, and Market Data translates between the two.
 
-Code: `src/domain/engagement/`, `src/application/engagement/`, `src/application/ports/engagement.ts`,
-`src/infrastructure/thndr/engagement-gateway.ts` (+ `dto/engagement.ts`, `mappers/engagement.ts`).
+Code: `src/domain/engagement/` (repository interface in `repository.ts`), `src/application/engagement/`,
+`src/infrastructure/repositories/thndr/engagement-repository.ts` (+ `data-sources/thndr/dto/engagement.ts`,
+`repositories/thndr/translators/engagement.ts`); operations in `src/interfaces/catalog/engagement.ts`.
 API: [docs/api/market-data.md](../api/market-data.md) §4 (watchlists), §5.2 (price alerts) and the misc part §5
 (notifications). Use cases: [use-cases/engagement.md](../use-cases/engagement.md).
 
@@ -56,9 +57,11 @@ Turns asset ids into tickers (and quote snippets) for presentation. It reads the
 funds). It **never fails**: snapshot errors and unknown/delisted ids produce a label with `null` fields, so a stale
 id in a watchlist never breaks listing it. `currentPrice(id, market)` gives the last price used by the direction rule.
 
-## Ports
+## Repository
 
-`EngagementRepository` (`src/application/ports/engagement.ts`): `listWatchlists`, `getWatchlist`, `createWatchlist`,
+`EngagementRepository` (domain repository, `src/domain/engagement/repository.ts`), implemented by
+`ThndrEngagementRepository` (`src/infrastructure/repositories/thndr/engagement-repository.ts`) and received by the
+use cases as the `repository` dependency: `listWatchlists`, `getWatchlist`, `createWatchlist`,
 `renameWatchlist`, `deleteWatchlist`, `addToWatchlist`, `removeFromWatchlist`, `listPriceAlerts`,
 `listAlertsForInstrument`, `createPriceAlert` (returns `null` when Thndr's reply does not describe the alert),
 `deletePriceAlert` (idempotent), `listNotifications`, `hasUnreadNotifications`, `markNotificationsRead`,
@@ -70,9 +73,9 @@ id in a watchlist never breaks listing it. `currentPrice(id, market)` gives the 
   (`https://prod.thndr.app/krakend-thndr-x`) — every KrakenD response is checked with `assertNoKrakendError`
   (`error_price_alerts`, `error_get_notifications`, `error_get_notifications_has_unread`,
   `error_patch_notifications_batch`, `error_patch_notifications_read_all`).
-- Watchlist detail returns only `{ asset_ids }`: the adapter keeps the requested id and the use case borrows the
+- Watchlist detail returns only `{ asset_ids }`: the repository keeps the requested id and the use case borrows the
   name/colour/icon from the list.
-- Create-watchlist and create-alert responses are only partly known: the adapter completes them with the request
+- Create-watchlist and create-alert responses are only partly known: the repository completes them with the request
   values. A created watchlist without an id is an `UPSTREAM_ERROR`; a created alert without one is looked up in the
   per-asset alert list.
 - The notifications list is a bare array per ThndrX; a KrakenD `{ collection: [...] }` wrapper is accepted too.

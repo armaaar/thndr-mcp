@@ -1,10 +1,13 @@
 # Engagement use cases
 
-Code: `src/application/engagement/use-cases.ts`. Domain: [domains/engagement.md](../domains/engagement.md).
+Code: `src/application/engagement/use-cases.ts`; operations (MCP tools and CLI commands) in
+`src/interfaces/catalog/engagement.ts`. Domain: [domains/engagement.md](../domains/engagement.md).
 API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool names mirror the IBKR MCP
 ([ADR 0008](../adr/0008-ibkr-mcp-as-reference.md)).
 
-**Actor** for every use case: the LLM agent acting on behalf of the Thndr account holder.
+**Actor** for every use case: the LLM agent (MCP) or a user at a terminal (CLI `thndr`), acting on behalf of the
+Thndr account holder. Both run the same catalog operation through `executeOperation`
+([ADR 0012](../adr/0012-shared-operation-catalog.md)); add `--json` to a CLI command to get the exact MCP JSON.
 
 **Common to all use cases**
 
@@ -23,6 +26,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## List watchlists — `get_watchlists` (`GetWatchlists`)
 
+- **Invoke:** MCP `get_watchlists` · CLI `thndr get-watchlists`
 - **Input:** `market`.
 - **Flow:** 1. List the market's custom watchlists. 2. Label every asset id (one cached marketwatch call, resolver
   for the rest).
@@ -33,6 +37,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Get one watchlist — `get_watchlist` (`GetWatchlist`)
 
+- **Invoke:** MCP `get_watchlist {"id": "…"}` · CLI `thndr get-watchlist <id>`
 - **Input:** `id`, `market`.
 - **Flow:** 1. Read the watchlist detail (only asset ids). 2. When it has no name, take name/colour/icon from the
   list of the market (a failing list is tolerated). 3. Label instruments with ticker, name, last price, change %.
@@ -44,6 +49,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Create a watchlist — `create_watchlist` (`CreateWatchlist`)
 
+- **Invoke:** MCP `create_watchlist {"name": "Banks", "symbols": ["COMI", "CIEB"]}` · CLI `thndr create-watchlist Banks COMI CIEB` (first positional = `name`, the rest = `symbols`)
 - **Input:** `name` (1–50 chars), `symbols` (optional, ≤ 100), `market`.
 - **Flow:** 1. Validate the name. 2. Resolve and de-duplicate symbols (all before writing). 3. Create with
   `source: "thndrx"`. 4. Return the labelled watchlist.
@@ -54,6 +60,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Edit a watchlist — `edit_watchlist` (`EditWatchlist`)
 
+- **Invoke:** MCP `edit_watchlist {"id": "…", "add": ["HRHO"], "remove": ["CIEB"]}` · CLI `thndr edit-watchlist <id> --add HRHO --remove CIEB [--name "New name"]`
 - **Input:** `id`, optional `name`, `add` (symbols, ≤ 100), `remove` (symbols or asset ids, ≤ 100), `market`.
 - **Flow:** 1. Validate; at least one change is required. 2. Resolve `add`; for `remove`, raw asset ids are used
   as-is (so delisted instruments can be removed), tickers are resolved. 3. Reject an instrument present in both.
@@ -68,6 +75,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Delete a watchlist — `delete_watchlist` (`DeleteWatchlist`)
 
+- **Invoke:** MCP `delete_watchlist {"id": "…"}` · CLI `thndr delete-watchlist <id>`
 - **Input:** `id`.
 - **Flow:** delete the watchlist.
 - **Errors:** empty id → `VALIDATION_ERROR`; common errors.
@@ -76,8 +84,9 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## List price alerts — `get_alerts` (`GetAlerts`)
 
+- **Invoke:** MCP `get_alerts {"symbol": "COMI"}` · CLI `thndr get-alerts [--symbol COMI | --page 2 --page-count 50]`
 - **Input:** `market`, and either `symbol` (alerts of one instrument) or paging `page` (≥ 1, default 1) and
-  `pageCount` (1–100, default 20).
+  `page_count` (1–100, default 20).
 - **Flow:** *By symbol:* resolve, list that asset's alerts. *Otherwise:* list one page of the market's alerts.
   Then label tickers and attach the current price.
 - **Errors:** common errors.
@@ -88,6 +97,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Get one price alert — `get_alert` (`GetAlert`)
 
+- **Invoke:** MCP `get_alert {"id": "…"}` · CLI `thndr get-alert <id>`
 - **Input:** `id`, `market`.
 - **Flow:** scan the market's alert pages (50 per page) until the id is found, a short page ends the list, or 10
   pages (500 alerts) were scanned.
@@ -97,8 +107,10 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Create a price alert — `create_alert` (`CreateAlert`)
 
-- **Input:** `symbol`, `price` (> 0), optional `direction` (`UP`/`DOWN`, aliases `above`/`below`), `frequency`
-  (`ONE_TIME` default, or `RECURRING`), `market`.
+- **Invoke:** MCP `create_alert {"symbol": "COMI", "price": 90}` · CLI `thndr create-alert COMI 90 [--direction UP] [--frequency RECURRING]`
+- **Input:** `symbol`, `price` (> 0), optional `direction` (`UP`/`DOWN`), `frequency`
+  (`ONE_TIME` default, or `RECURRING`), `market`. The operation schema accepts only these enum values; the
+  domain parsers' aliases (`above`/`below`, `once`/`repeat`) apply only to direct use-case callers.
 - **Flow:** 1. Validate price/direction/frequency. 2. Resolve the symbol. 3. Without a direction, derive it from the
   last price (`target < last → DOWN`, else `UP`). 4. Create. 5. If Thndr's reply does not describe the alert, look
   it up in the asset's alert list by price (and direction/frequency when known).
@@ -110,6 +122,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Update a price alert — `update_alert` (`UpdateAlert`)
 
+- **Invoke:** MCP `update_alert {"id": "…", "price": 95}` · CLI `thndr update-alert <id> --price 95`
 - **Input:** `id`, at least one of `price`, `direction`, `frequency`; `market`.
 - **Flow:** Thndr has **no update endpoint**; like ThndrX we delete and re-create. 1. Find the alert (as
   `get_alert`). 2. Merge: unchanged fields are carried over; if the price changed (or the stored direction is
@@ -123,6 +136,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Delete a price alert — `delete_alert` (`DeleteAlert`)
 
+- **Invoke:** MCP `delete_alert {"id": "…"}` · CLI `thndr delete-alert <id>`
 - **Input:** `id`.
 - **Flow:** delete; a 404 (already fired or deleted) counts as success.
 - **Errors:** empty id → `VALIDATION_ERROR`; other upstream errors → `UPSTREAM_ERROR`.
@@ -131,7 +145,8 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## List notifications — `get_notifications` (`GetNotifications`)
 
-- **Input:** `page` (≥ 1, default 1), `pageCount` (1–100, default 20), `unreadOnly` (filters the page client-side).
+- **Invoke:** MCP `get_notifications {"unread_only": true}` · CLI `thndr get-notifications --unread-only [--page 2] [--page-count 50]`
+- **Input:** `page` (≥ 1, default 1), `page_count` (1–100, default 20), `unread_only` (filters the page client-side).
 - **Flow:** fetch the page and the global unread flag in parallel.
 - **Errors:** KrakenD `error_get_notifications` / `error_get_notifications_has_unread` → `UPSTREAM_ERROR`.
 - **Output:** `{ page, pageCount, hasMore, hasUnread, notifications: [{ id, title, text, read, createdAt, type }] }`.
@@ -139,6 +154,7 @@ API: [api/market-data.md](../api/market-data.md) §4, §5.2 and misc §5. Tool n
 
 ## Mark notifications read — `mark_notifications_read` (`MarkNotificationsRead`)
 
+- **Invoke:** MCP `mark_notifications_read {"ids": ["…"]}` · CLI `thndr mark-notifications-read <id> <id>…` or `thndr mark-notifications-read --all`
 - **Input:** either `ids` (1–200, trimmed and de-duplicated) or `all: true` — not both.
 - **Flow:** batch-mark the ids, or mark everything read.
 - **Errors:** neither or both given, empty id, > 200 ids → `VALIDATION_ERROR`; KrakenD

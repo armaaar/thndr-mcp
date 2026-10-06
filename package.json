@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "thndr-mcp": "dist/interfaces/mcp/main.js"
+    "thndr-mcp": "dist/thndr-mcp.js",
+    "thndr": "dist/thndr.js"
   },
   "files": [
     "dist"
@@ -14,10 +15,10 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "dev": "tsx src/interfaces/mcp/main.ts",
-    "start": "node dist/interfaces/mcp/main.js",
-    "login": "tsx src/interfaces/mcp/main.ts login",
+    "build": "tsup",
+    "dev": "tsx src/presentation/mcp/main.ts",
+    "start": "node dist/thndr-mcp.js",
+    "login": "tsx src/presentation/cli/main.ts login",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -25,8 +26,10 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run coverage",
-    "sync:api": "node scripts/sync-thndr-bundle.mjs",
-    "capture:fixtures": "tsx scripts/capture-fixtures.ts"
+    "sync:api": "tsx .claude/skills/sync-thndr-api/scripts/sync-thndr-bundle.ts",
+    "capture:fixtures": "tsx .claude/skills/sync-thndr-api/scripts/capture-fixtures.ts",
+    "cli": "tsx src/presentation/cli/main.ts",
+    "find:call-sites": "tsx .claude/skills/sync-thndr-api/scripts/find-call-sites.ts"
   },
   "dependencies": {
     "@firebase/app": "^0.16.2",
@@ -36,8 +39,11 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@types/js-beautify": "^1.14.3",
     "@types/node": "^26.6.4",
     "@vitest/coverage-v8": "^5.0.3",
+    "js-beautify": "^2.0.3",
+    "tsup": "^8.5.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"

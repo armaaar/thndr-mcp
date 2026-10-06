@@ -15,6 +15,9 @@ a JSON-RPC frame corrupts the protocol. The server also handles bearer tokens th
   that looks like a JWT.
 - `console.log` is banned in `src/` (lint rule `noConsole`).
 
+The CLI (ADR 0012) is a different process type: it writes results to stdout and errors to stderr. The logger
+still writes only to stderr.
+
 ## Consequences
 
 - Safe to run under any MCP client; logs remain visible in the client's server log.

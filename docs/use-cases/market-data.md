@@ -1,9 +1,12 @@
 # Market Data use cases
 
-Code: `src/application/market-data/use-cases.ts`; tools in `src/interface/mcp/market-data-tools.ts`.
+Code: `src/application/market-data/use-cases.ts`; operations (MCP tools and CLI commands) in
+`src/interfaces/catalog/market-data.ts`.
 Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-data.md](../api/market-data.md).
 
-**Actor** for every use case: the LLM agent acting on behalf of the Thndr account holder.
+**Actor** for every use case: the LLM agent (MCP) or a user at a terminal (CLI `thndr`), acting on behalf of the
+Thndr account holder. Both run the same catalog operation through `executeOperation`
+([ADR 0012](../adr/0012-shared-operation-catalog.md)); add `--json` to a CLI command to get the exact MCP JSON.
 
 **Common to all use cases**
 
@@ -21,6 +24,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Search instruments — `search_instruments` (`SearchInstruments`)
 
+- **Invoke:** MCP `search_instruments {"query": "commercial"}` · CLI `thndr search-instruments commercial [--market us] [--limit 10]`
 - **Goal:** find instruments by ticker or company name (English or Arabic).
 - **Input:** `query` (non-empty), `market`, `limit` (1–50, default 20).
 - **Main flow:**
@@ -34,6 +38,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Instrument details — `get_instrument_details` (`GetInstrumentDetails`)
 
+- **Invoke:** MCP `get_instrument_details {"symbol": "COMI"}` · CLI `thndr get-instrument-details COMI`
 - **Goal:** company profile and listing details of one instrument.
 - **Input:** `symbol`, `market`.
 - **Main flow:**
@@ -45,6 +50,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Price snapshot — `get_price_snapshot` (`GetPriceSnapshot`)
 
+- **Invoke:** MCP `get_price_snapshot {"symbols": ["COMI", "HRHO"]}` · CLI `thndr get-price-snapshot COMI HRHO` (or `--symbols COMI,HRHO`)
 - **Goal:** current quotes for up to 50 instruments.
 - **Input:** `symbols` (1–50), `market`.
 - **Main flow:**
@@ -61,6 +67,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Price history — `get_price_history` (`GetPriceHistory`)
 
+- **Invoke:** MCP `get_price_history {"symbol": "COMI", "resolution": "1d", "bars": 60}` · CLI `thndr get-price-history COMI --resolution 1d --bars 60` (or `--from 2026-01-01 --to 2026-01-31`)
 - **Goal:** OHLCV candles for charting or indicators.
 - **Input:** `symbol`, `market`, `resolution` (`1min`, `5min`, `10min`, `1h`, `1d` default, `1w`), and either
   `bars` (1–2000, default 100) or `from`/`to` (ISO-8601).
@@ -78,6 +85,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Market depth — `get_market_depth` (`GetMarketDepth`)
 
+- **Invoke:** MCP `get_market_depth {"symbol": "COMI"}` · CLI `thndr get-market-depth COMI [--levels 20]`
 - **Goal:** see the order book and spread.
 - **Input:** `symbol`, `market`, `levels` (1–50, default 10).
 - **Main flow:**
@@ -90,6 +98,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Recent trades — `get_recent_trades` (`GetRecentTrades`)
 
+- **Invoke:** MCP `get_recent_trades {"symbol": "COMI"}` · CLI `thndr get-recent-trades COMI [--limit 100] [--before <cursor>]`
 - **Goal:** time & sales (the tape).
 - **Input:** `symbol`, `market`, `limit` (1–200, default 50), `before` (cursor from a previous call).
 - **Main flow:**
@@ -103,6 +112,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Market status — `get_market_status` (`GetMarketStatus`)
 
+- **Invoke:** MCP `get_market_status` · CLI `thndr get-market-status [--market us]`
 - **Goal:** is the market open now, today's session times and index levels.
 - **Input:** `market`.
 - **Main flow:**
@@ -117,6 +127,7 @@ Domain: [domains/market-data.md](../domains/market-data.md). API: [api/market-da
 
 ## Screen the market — `screen_market` (`ScreenMarket`)
 
+- **Invoke:** MCP `screen_market {"sort_by": "value", "limit": 10}` · CLI `thndr screen-market --sort-by value --limit 10` (e.g. `--sector Banks --min-change-percent 2`)
 - **Goal:** filter and rank every instrument — top gainers/losers, most active, unusual volume, value stocks,
   a sector.
 - **Input:** `market`, `sector` (substring), `min_price`, `max_price`, `min_change_percent`,

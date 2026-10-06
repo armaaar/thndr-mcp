@@ -2,7 +2,7 @@
   "mcpServers": {
     "thndr": {
       "command": "npx",
-      "args": ["tsx", "src/interfaces/mcp/main.ts"],
+      "args": ["tsx", "src/presentation/mcp/main.ts"],
       "env": { "THNDR_LOG_LEVEL": "info" }
     }
   }

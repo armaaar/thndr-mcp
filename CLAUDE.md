@@ -1,42 +1,55 @@
 # thndr-mcp — project instructions
 
-Community, **unofficial** MCP server for [Thndr](https://thndr.app), an Egyptian Exchange (EGX) broker. Thndr has
-no public API; we reverse-engineered the API used by its official web platform **ThndrX** (`https://x.thndr.app`).
-The [IBKR MCP](docs/adr/0008-ibkr-mcp-as-reference.md) is the reference for the tool surface.
+Community, **unofficial** MCP server **and CLI** for [Thndr](https://thndr.app), an Egyptian Exchange (EGX) broker.
+Thndr has no public API; we reverse-engineered the API used by its official web platform **ThndrX**
+(`https://x.thndr.app`). The [IBKR MCP](docs/adr/0008-ibkr-mcp-as-reference.md) is the reference for the operations.
 
 ## Commands
 
 | Task                     | Command                       |
 | ------------------------ | ----------------------------- |
 | Install                  | `npm install`                 |
-| Run (dev, stdio)         | `npm run dev`                 |
-| Interactive login (CLI)  | `npm run login`               |
-| Build                    | `npm run build`               |
+| MCP server (dev, stdio)  | `npm run dev`                 |
+| CLI (dev)                | `npm run cli -- <command> …` (e.g. `npm run cli -- get-price-snapshot COMI`) |
+| Interactive login        | `npm run login` (= `thndr login`) |
+| Build                    | `npm run build` (tsup → `dist/thndr-mcp.js`, `dist/thndr.js`) |
 | Typecheck / lint / tests | `npm run typecheck` / `npm run lint` / `npm test` |
 | Coverage (gate > 95%)    | `npm run coverage`            |
 | **All gates**            | `npm run check`               |
-| Re-sync the Thndr API    | `npm run sync:api` (see the `sync-thndr-api` skill) |
+| Re-sync the Thndr API    | `npm run sync:api` / `npm run capture:fixtures` (tools live in the `sync-thndr-api` skill) |
 
-## Architecture (DDD + hexagonal — ADR 0003)
+## Architecture (DDD layers — ADR 0011, use-case classes — ADR 0012)
 
 ```
-src/domain/          pure model, no I/O, no third-party imports
-src/application/     use cases + ports (interfaces); depends only on domain
-src/infrastructure/  adapters: thndr/ (anti-corruption layer: DTOs + mappers), firebase/, persistence/, logging/
-src/interface/       MCP tools (zod schemas, presenters) and CLI
-src/composition.ts   composition root — the only place that wires concrete adapters (config in src/config.ts)
-src/main.ts          entrypoint: MCP over stdio, or the `login` / `--version` CLI commands
+src/domain/<context>/                 entities, value objects, aggregates, repository interfaces (repository.ts)
+src/domain/shared-kernel/             Shared Kernel: Money, Ticker, domain errors, guards
+src/application/use-case.ts           abstract UseCase → Query | Command (contract + execute + run)
+src/application/<context>/queries/    one Query use case per file
+src/application/<context>/commands/   one Command use case per file
+src/application/<context>/services/   application services shared by the use cases
+src/application/ports/                non-repository ports: Clock, Logger, AccessTokenProvider, ThndrAuthGateway, IdentityProvider
+src/infrastructure/repositories/      repository implementations (thndr/, local/, memory/) + thndr/translators (anti-corruption layer)
+src/infrastructure/data-sources/      raw external access: thndr/ (HTTP client, wire DTOs), firebase/, local/ (session file)
+src/infrastructure/logging/           redacting stderr logger
+src/presentation/presenters/          view models, error presentation, terminal text, runAndPresent
+src/presentation/mcp/, cli/           driving adapters (delivery mechanisms) + entrypoints (main.ts)
+src/container.ts                      composition root — builds the `useCases` list (config in src/config.ts)
 ```
 
 Rules:
 
-- `domain` imports nothing outside `domain`. `application` imports only `domain` and `application`.
-- Thndr wire formats (snake_case DTOs) stay inside `src/infrastructure/thndr/`. Map to domain objects there.
+- Dependency rule: `domain` imports nothing outside `domain`; `application` → `domain` (+ zod for input
+  contracts); `infrastructure` → `application` (ports, errors) + `domain`; `presentation` → `application` + `domain`.
+- Imports are **extensionless** (`from './money'`), per ADR 0014. `tsc` only typechecks; `tsup` bundles.
+- A use case is a class extending `Query` or `Command`. It declares `name` (snake_case, the MCP tool name; the CLI
+  command is kebab-case), `title`, `description`, `context`, a zod `input` whose camelCase fields equal the
+  `execute` params, and `execute`. Register it in `src/container.ts`; MCP and CLI expose it automatically.
+- Never put use-case logic in `presentation/`. Both apps run use cases through `runAndPresent` (MCP/CLI parity).
+  CLI-only ergonomics (positional args) live in `presentation/cli/positionals.ts`.
+- Thndr wire formats (snake_case DTOs) live only in `infrastructure/data-sources/thndr/dto` and the translators.
 - Value objects are immutable (`Object.freeze`) and validate in their static factory (`X.of(...)`).
-- Use cases are classes with an `execute(input)` method in `src/application/<context>/use-cases.ts`.
-- Never write to **stdout** in MCP mode — it is the stdio channel (only the CLI commands in `src/main.ts`
-  may). Log via the `Logger` port (stderr, redacted). `console.*`
-  is a lint error in `src/`.
+- MCP mode must never write to **stdout** (it is the stdio channel). The CLI prints results to stdout and errors to
+  stderr. Log via the `Logger` port (stderr, redacted). `console.*` is a lint error in `src/`.
 - Never log, print or commit tokens, refresh tokens, cookies or the session file.
 
 ## Bounded contexts
@@ -46,14 +59,15 @@ See `docs/domains/` for the ubiquitous language and `docs/use-cases/` for each u
 
 ## Scope (ADR 0006)
 
-The server is read-only with respect to money: no tools place, modify or cancel orders or move funds. Do not add
+The app is read-only with respect to money: no operations place, modify or cancel orders or move funds. Do not add
 any without a superseding ADR.
 
 ## Testing (ADR 0005)
 
 - Vitest; tests live in `tests/` mirroring `src/`. No real network — use `tests/support/fake-fetch.ts`.
 - Coverage thresholds are 95% for lines/branches/functions/statements; keep it above that.
-- MCP tools are tested in-process with `InMemoryTransport` + a real MCP `Client`.
+- MCP tools are tested in-process with `InMemoryTransport` + a real MCP `Client`; the CLI via `runCli` with
+  captured output. `tests/interfaces/parity.test.ts` asserts both return identical results.
 
 ## Workflow
 
@@ -64,4 +78,4 @@ any without a superseding ADR.
   to review. The author of a change never approves their own work.
 - Any new architectural decision → new ADR in `docs/adr/` (copy `template.md`) and add it to the index.
 - When the Thndr API changes, run `npm run sync:api`, diff `docs/api/endpoints.generated.md`, update
-  `docs/api/*.md`, DTOs/mappers, fixtures and tests together.
+  `docs/api/*.md`, DTOs/translators, fixtures and tests together.

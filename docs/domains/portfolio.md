@@ -4,7 +4,9 @@ A **read-only** view of the account holder's Thndr account: cash, positions, wha
 status, realized returns, the trading journal and the account statement. Downstream of [Market Data](market-data.md)
 (uses `InstrumentResolver`).
 
-Code: `src/domain/portfolio/`, `src/application/portfolio/use-cases.ts`, `src/application/ports/portfolio.ts`.
+Code: `src/domain/portfolio/` (repository interface in `repository.ts`), `src/application/portfolio/use-cases.ts`,
+`src/infrastructure/repositories/thndr/portfolio-repository.ts` (+ `data-sources/thndr/dto/portfolio.ts`,
+`repositories/thndr/translators/portfolio.ts`); operations in `src/interfaces/catalog/portfolio.ts`.
 API: [docs/api/trading-and-portfolio.md](../api/trading-and-portfolio.md). Use cases:
 [use-cases/portfolio.md](../use-cases/portfolio.md).
 
@@ -69,9 +71,11 @@ always read whole from one upstream call.
 - Activity category filtering is applied to the fetched page (Thndr has no reliable server filter), so a page may
   contain fewer rows than `pageSize`.
 
-## Port
+## Repository
 
-`PortfolioRepository` (`src/application/ports/portfolio.ts`), implemented by `ThndrPortfolioRepository`:
+`PortfolioRepository` (domain repository, `src/domain/portfolio/repository.ts`), implemented by
+`ThndrPortfolioRepository` (`src/infrastructure/repositories/thndr/portfolio-repository.ts`). Use cases receive it
+as the `repository` dependency:
 
 | Method | Thndr endpoint (`https://prod.thndr.app`) |
 | --- | --- |
