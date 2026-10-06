@@ -1,55 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
-import { FakeCommand, FakeQuery } from '../../../__tests__/support/fake-use-cases';
+import { APPROVAL, APPROVED, identityUseCases } from '../../../__tests__/support/fake-login';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { EXIT_FAILURE, EXIT_OK } from '../cli';
 import { runLoginCommand } from '../login-command';
-
-type Handler = (input: Record<string, unknown>) => unknown;
-type Handlers = Partial<
-  Record<
-    'auth_status' | 'login_start' | 'login_verify_code' | 'login_request_approval' | 'login_complete',
-    Handler
-  >
->;
-
-const APPROVAL = {
-  message: 'Approve request H7 in the Thndr app.',
-  deepLink: 'thndr://approve?requestId=req-1',
-};
-const APPROVED = {
-  authenticated: true,
-  status: 'approved',
-  message: 'Logged in.',
-  sessionExpiresAt: '2026-03-01T16:00:00.000Z',
-};
-
-/** The identity use cases the wizard drives, as concrete fakes with spied behaviour. */
-function identityUseCases(handlers: Handlers) {
-  const spies = {
-    auth_status: vi.fn(handlers.auth_status ?? (() => ({ authenticated: false, identified: false }))),
-    login_start: vi.fn(handlers.login_start ?? (() => ({ message: 'Code sent to m***@example.com.' }))),
-    login_verify_code: vi.fn(handlers.login_verify_code ?? (() => APPROVAL)),
-    login_request_approval: vi.fn(handlers.login_request_approval ?? (() => APPROVAL)),
-    login_complete: vi.fn(handlers.login_complete ?? (() => APPROVED)),
-  };
-  const useCases = [
-    new FakeQuery({ name: 'auth_status', local: true, handler: spies.auth_status }),
-    new FakeCommand({ name: 'login_start', input: { email: z.string() }, handler: spies.login_start }),
-    new FakeCommand({
-      name: 'login_verify_code',
-      input: { code: z.string() },
-      handler: spies.login_verify_code,
-    }),
-    new FakeCommand({ name: 'login_request_approval', handler: spies.login_request_approval }),
-    new FakeCommand({
-      name: 'login_complete',
-      input: { timeoutSeconds: z.number().int().min(0).default(30) },
-      handler: spies.login_complete,
-    }),
-  ];
-  return { useCases, spies };
-}
 
 function io(answers: string[] = []) {
   const printed: string[] = [];
