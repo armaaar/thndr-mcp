@@ -24,7 +24,8 @@ src/domain/          pure model, no I/O, no third-party imports
 src/application/     use cases + ports (interfaces); depends only on domain
 src/infrastructure/  adapters: thndr/ (anti-corruption layer: DTOs + mappers), firebase/, persistence/, logging/
 src/interface/       MCP tools (zod schemas, presenters) and CLI
-src/main.ts          composition root — the only place that wires concrete adapters
+src/composition.ts   composition root — the only place that wires concrete adapters (config in src/config.ts)
+src/main.ts          entrypoint: MCP over stdio, or the `login` / `--version` CLI commands
 ```
 
 Rules:
@@ -32,8 +33,8 @@ Rules:
 - `domain` imports nothing outside `domain`. `application` imports only `domain` and `application`.
 - Thndr wire formats (snake_case DTOs) stay inside `src/infrastructure/thndr/`. Map to domain objects there.
 - Value objects are immutable (`Object.freeze`) and validate in their static factory (`X.of(...)`).
-- One use-case class per file in `src/application/use-cases/`, with an `execute(input)` method.
-- Never write to **stdout** — it is the MCP stdio channel. Log via the `Logger` port (stderr, redacted). `console.*`
+- Use cases are classes with an `execute(input)` method in `src/application/<context>/use-cases.ts`.
+- Never write to **stdout** in MCP mode — it is the stdio channel (only the CLI commands in `src/main.ts` may). Log via the `Logger` port (stderr, redacted). `console.*`
   is a lint error in `src/`.
 - Never log, print or commit tokens, refresh tokens, cookies or the session file.
 

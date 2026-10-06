@@ -59,3 +59,15 @@ describe('RefreshCredential', () => {
     expect(credential.isExpired(expiry)).toBe(true);
   });
 });
+
+describe('RefreshCredential serialisation', () => {
+  it('never exposes cookies via JSON or util.inspect', async () => {
+    const { inspect } = await import('node:util');
+    const { RefreshCredential: Credential } = await import(
+      '../../../src/domain/identity/refresh-credential.js'
+    );
+    const credential = Credential.of({ rt: 'secret' });
+    expect(JSON.stringify(credential)).toBe('"[REDACTED RefreshCredential]"');
+    expect(inspect(credential)).toBe('[REDACTED RefreshCredential]');
+  });
+});

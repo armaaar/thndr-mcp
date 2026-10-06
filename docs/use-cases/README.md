@@ -63,4 +63,4 @@ Not provided by design: `create_order_instruction`, `delete_order_instruction` a
 
 Watchlist, price-alert and notification tools (`get_watchlists`, `get_watchlist`, `create_watchlist`,
 `edit_watchlist`, `delete_watchlist`, `get_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert`,
-and notification tools) are documented in [engagement.md](engagement.md). They mirror the IBKR MCP names.
+and the notification tools `get_notifications`, `mark_notifications_read`) are documented in [engagement.md](engagement.md). They mirror the IBKR MCP names.

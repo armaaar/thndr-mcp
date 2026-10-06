@@ -74,7 +74,7 @@ Other adapters: `src/infrastructure/firebase/` (Firebase Auth via the official S
 ```
 interface → application → domain
 infrastructure → application (ports) → domain
-main.ts wires concrete adapters (composition root)
+composition.ts wires concrete adapters (composition root); main.ts is the entrypoint
 ```
 
 - `domain` imports nothing outside `domain`: no I/O, no framework, no third-party code.

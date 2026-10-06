@@ -50,3 +50,13 @@ describe('AccessToken', () => {
     expect(token.isUsable(expiresAt)).toBe(false);
   });
 });
+
+describe('AccessToken serialisation', () => {
+  it('never exposes the secret via JSON or util.inspect', async () => {
+    const { inspect } = await import('node:util');
+    const { AccessToken: Token } = await import('../../../src/domain/identity/access-token.js');
+    const token = Token.of('super-secret', new Date('2026-01-01T00:00:00Z'));
+    expect(JSON.stringify({ token })).toBe('{"token":"[REDACTED AccessToken]"}');
+    expect(inspect(token)).toBe('[REDACTED AccessToken]');
+  });
+});

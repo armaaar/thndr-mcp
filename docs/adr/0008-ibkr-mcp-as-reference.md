@@ -17,7 +17,7 @@ We mirror IBKR's tool families and naming where Thndr has an equivalent capabili
 | `get_account_summary`, `get_account_balances`         | `get_account_summary`                            |
 | `get_account_positions`                               | `get_account_positions`                          |
 | `get_account_orders`                                  | `get_account_orders`                             |
-| `get_account_trades`                                  | `get_account_trades`, `get_account_activity`     |
+| `get_account_trades`                                  | `get_closed_trades`, `get_sell_journal`, `get_account_activity` |
 | `search_contracts`                                    | `search_instruments`                             |
 | `get_price_snapshot`                                  | `get_price_snapshot`                             |
 | `get_price_history`                                   | `get_price_history`                              |

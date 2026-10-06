@@ -14,6 +14,7 @@ import { POSITION_SORT_FIELDS } from '../../application/portfolio/use-cases.js';
 import { ACTIVITY_CATEGORIES } from '../../domain/portfolio/activity.js';
 import { ORDER_STATUS_FILTERS } from '../../domain/portfolio/order.js';
 import { RETURNS_INTERVALS } from '../../domain/portfolio/returns.js';
+import { dateArg, parseDateArg } from './dates.js';
 import { market, symbol } from './market-data-tools.js';
 import { type AnyTool, defineTool, READ_ONLY } from './tool.js';
 
@@ -29,16 +30,11 @@ export interface PortfolioUseCases {
   listAccountActivity: ListAccountActivity;
 }
 
-const date = z
-  .string()
-  .refine((v) => !Number.isNaN(Date.parse(v)), 'Must be an ISO-8601 date')
-  .describe('ISO-8601 date, e.g. 2026-01-31');
-const toDate = (v: string | undefined) => (v ? new Date(v) : undefined);
 const journalInput = {
   market,
   symbol: z.string().optional().describe('Only this ticker'),
-  from: date.optional(),
-  to: date.optional(),
+  from: dateArg.optional(),
+  to: dateArg.optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(100).default(20),
 };
@@ -121,7 +117,12 @@ export function portfolioTools(useCases: PortfolioUseCases): AnyTool[] {
         'Trading journal of round trips: entry/exit dates and prices, volume, net P/L and holding period.',
       input: journalInput,
       annotations: READ_ONLY,
-      handler: (a) => useCases.getClosedTrades.execute({ ...a, from: toDate(a.from), to: toDate(a.to) }),
+      handler: (a) =>
+        useCases.getClosedTrades.execute({
+          ...a,
+          from: parseDateArg(a.from, 'start'),
+          to: parseDateArg(a.to, 'end'),
+        }),
     }),
     defineTool({
       name: 'get_sell_journal',
@@ -129,7 +130,12 @@ export function portfolioTools(useCases: PortfolioUseCases): AnyTool[] {
       description: 'Each sell execution with exit price, volume, average entry price and net P/L.',
       input: journalInput,
       annotations: READ_ONLY,
-      handler: (a) => useCases.getSellJournal.execute({ ...a, from: toDate(a.from), to: toDate(a.to) }),
+      handler: (a) =>
+        useCases.getSellJournal.execute({
+          ...a,
+          from: parseDateArg(a.from, 'start'),
+          to: parseDateArg(a.to, 'end'),
+        }),
     }),
     defineTool({
       name: 'get_trading_metrics',
@@ -137,10 +143,14 @@ export function portfolioTools(useCases: PortfolioUseCases): AnyTool[] {
       description:
         'Performance statistics: total return, win rate, profit factor, expectancy, average win/loss, risk/reward, ' +
         'average holding period, and per-instrument stats.',
-      input: { market, from: date.optional(), to: date.optional() },
+      input: { market, from: dateArg.optional(), to: dateArg.optional() },
       annotations: READ_ONLY,
       handler: ({ market: m, from, to }) =>
-        useCases.getTradingMetrics.execute({ market: m, from: toDate(from), to: toDate(to) }),
+        useCases.getTradingMetrics.execute({
+          market: m,
+          from: parseDateArg(from, 'start'),
+          to: parseDateArg(to, 'end'),
+        }),
     }),
     defineTool({
       name: 'get_account_activity',

@@ -23,6 +23,15 @@ export class RefreshCredential {
     return new RefreshCredential(Object.freeze(Object.fromEntries(entries)), expiresAt);
   }
 
+  /** Never serialise the secret (defence in depth against accidental logging). */
+  toJSON(): string {
+    return '[REDACTED RefreshCredential]';
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return '[REDACTED RefreshCredential]';
+  }
+
   /** Parses a browser `Cookie` header (`a=1; b=2`). */
   static fromCookieHeader(header: string, expiresAt: Date | null = null): RefreshCredential {
     const cookies: Record<string, string> = {};

@@ -21,14 +21,15 @@ src/
     ports/         Interfaces the application needs (gateways, session store, clock, logger).
   infrastructure/  Adapters implementing ports:
     thndr/         Anti-corruption layer: HTTP client, DTOs (wire format) and mappers to the domain.
-    firebase/      Firebase Identity Toolkit REST client.
+    firebase/      Firebase Auth via the official SDK (ADR 0010).
     persistence/   File-based session store.
   interface/       Driving adapters: MCP tools (zod schemas, presenters) and CLI commands.
-  main.ts          Composition root (manual dependency injection).
+  composition.ts   Composition root (manual dependency injection); config.ts reads the environment.
+  main.ts          Entrypoint (stdio MCP server, CLI commands).
 ```
 
 Dependency rule: `interface → application → domain`, `infrastructure → application(ports) → domain`. Nothing
-depends on `interface` or `infrastructure` except `main.ts`.
+depends on `interface` or `infrastructure` except the composition root.
 
 Bounded contexts (see `docs/domains/`): **Identity & Access**, **Market Data**, **Portfolio**
 (account, wallet, positions, order history, activity, journal), and **Engagement** (watchlists, price alerts, notifications).

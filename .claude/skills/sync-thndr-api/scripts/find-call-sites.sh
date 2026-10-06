@@ -9,7 +9,9 @@ js="$root/.cache/thndr-bundle/js"
 pretty="$root/.cache/thndr-bundle/pretty"
 [ -d "$js" ] || { echo "No bundle at $js — run: npm run sync:api" >&2; exit 1; }
 mkdir -p "$pretty"
-grep -lF -- "$fragment" "$js"/*.js | while read -r file; do
+files="$(grep -lF -- "$fragment" "$js"/*.js || true)"
+[ -n "$files" ] || { echo "No call sites for \"$fragment\" in the synced bundle." >&2; exit 0; }
+echo "$files" | while read -r file; do
   out="$pretty/$(basename "$file")"
   [ -s "$out" ] || npx --yes js-beautify -s 2 "$file" > "$out"
   echo "=== $(basename "$file") ==="

@@ -17,6 +17,13 @@ expose tools that place, modify or cancel orders, or move funds. Users act on in
 
 Order-entry endpoints seen during reverse engineering are deliberately left undocumented and unimplemented.
 
+## Accepted risk
+
+To be indistinguishable from ThndrX, the login requests the same token scopes the web client requests, which include
+`order:write` and `funding:write`. The stored session could therefore trade if misused; no code path in this server
+does so, and the session file is owner-only (ADR 0007). `login_import_session` passes browser cookies through the
+model's context — prefer `npm run login` when possible.
+
 ## Consequences
 
 - Safe default for analysis, monitoring and journaling use cases.

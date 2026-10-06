@@ -26,6 +26,15 @@ export class AccessToken {
     return new AccessToken(value.trim(), new Date(expiresAt.getTime()));
   }
 
+  /** Never serialise the secret (defence in depth against accidental logging). */
+  toJSON(): string {
+    return '[REDACTED AccessToken]';
+  }
+
+  [Symbol.for('nodejs.util.inspect.custom')](): string {
+    return '[REDACTED AccessToken]';
+  }
+
   status(now: Date): TokenStatus {
     const remaining = this.expiresAt.getTime() - now.getTime();
     if (remaining <= 0) return 'EXPIRED';

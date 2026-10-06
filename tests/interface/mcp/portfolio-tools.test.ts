@@ -77,7 +77,7 @@ describe('portfolio tools', () => {
     expect(uc.getClosedTrades.execute).toHaveBeenCalledWith({
       market: 'egypt',
       symbol: 'COMI',
-      from: new Date('2026-01-01'),
+      from: new Date('2025-12-31T22:00:00.000Z'),
       to: undefined,
       page: 1,
       limit: 20,
@@ -87,7 +87,7 @@ describe('portfolio tools', () => {
     expect(uc.getSellJournal.execute).toHaveBeenCalledWith({
       market: 'egypt',
       from: undefined,
-      to: new Date('2026-02-01'),
+      to: new Date('2026-02-01T21:59:59.999Z'),
       page: 2,
       limit: 20,
     });
@@ -95,8 +95,8 @@ describe('portfolio tools', () => {
     await conn.call('get_trading_metrics', { from: '2026-01-01', to: '2026-03-01' });
     expect(uc.getTradingMetrics.execute).toHaveBeenCalledWith({
       market: 'egypt',
-      from: new Date('2026-01-01'),
-      to: new Date('2026-03-01'),
+      from: new Date('2025-12-31T22:00:00.000Z'),
+      to: new Date('2026-03-01T21:59:59.999Z'),
     });
     await conn.call('get_trading_metrics', {});
     expect(uc.getTradingMetrics.execute).toHaveBeenLastCalledWith({

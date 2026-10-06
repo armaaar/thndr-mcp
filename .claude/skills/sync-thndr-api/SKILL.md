@@ -30,10 +30,10 @@ Servers may reject stale versions, so this is the most common fix.
 
 ## 3. Re-derive changed endpoints that we use
 
-Find which paths our adapters call:
+Find which paths our adapters call (string literals, template literals and path constants):
 
 ```bash
-grep -rhoE "'/[a-z0-9/_{}$.-]+'" src/infrastructure/thndr/*-gateway.ts | sort -u
+grep -rhoE "['\`]/[a-zA-Z0-9/_{}\$.:-]+['\`]" src/infrastructure/thndr/ | sort -u
 ```
 
 For each used path that changed, locate and read its call sites in the de-minified bundle:

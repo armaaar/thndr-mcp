@@ -12,6 +12,7 @@ import type {
 import { SCREEN_SORT_FIELDS } from '../../application/market-data/use-cases.js';
 import { CANDLE_RESOLUTIONS } from '../../domain/market-data/candle.js';
 import { MARKETS } from '../../domain/market-data/market.js';
+import { dateArg, parseDateArg } from './dates.js';
 import { type AnyTool, defineTool, READ_ONLY } from './tool.js';
 
 export interface MarketDataUseCases {
@@ -27,10 +28,6 @@ export interface MarketDataUseCases {
 
 export const market = z.enum(MARKETS).default('egypt').describe('Market: "egypt" (EGX, default) or "us"');
 export const symbol = z.string().min(1).describe('Ticker symbol (e.g. "COMI") or Thndr asset id (UUID)');
-const isoDate = z
-  .string()
-  .refine((v) => !Number.isNaN(Date.parse(v)), 'Must be an ISO-8601 date or datetime')
-  .describe('ISO-8601 date/time, e.g. 2026-01-31 or 2026-01-31T10:00:00+02:00');
 
 export function marketDataTools(useCases: MarketDataUseCases): AnyTool[] {
   return [
@@ -80,8 +77,8 @@ export function marketDataTools(useCases: MarketDataUseCases): AnyTool[] {
         market,
         resolution: z.enum(CANDLE_RESOLUTIONS).default('1d').describe('Bar size'),
         bars: z.number().int().min(1).max(2000).optional(),
-        from: isoDate.optional(),
-        to: isoDate.optional(),
+        from: dateArg.optional(),
+        to: dateArg.optional(),
       },
       annotations: READ_ONLY,
       handler: ({ symbol: s, market: m, resolution, bars, from, to }) =>
@@ -90,8 +87,8 @@ export function marketDataTools(useCases: MarketDataUseCases): AnyTool[] {
           market: m,
           resolution,
           bars,
-          from: from ? new Date(from) : undefined,
-          to: to ? new Date(to) : undefined,
+          from: parseDateArg(from, 'start'),
+          to: parseDateArg(to, 'end'),
         }),
     }),
     defineTool({

@@ -17,7 +17,7 @@ We cannot run integration tests against the real broker in CI (it needs a real f
 - **Interface**: MCP tools are tested end-to-end in-process using the SDK's `InMemoryTransport` and a real
   `Client`, against fake use-case dependencies.
 - Coverage is enforced by Vitest thresholds: lines, branches, functions and statements **≥ 95%** (target > 95%).
-  `src/main.ts` (composition root) and barrel files are excluded.
+  `src/main.ts` (entrypoint) and barrel files are excluded; the composition root is covered by an end-to-end test.
 - `npm run check` (typecheck + lint + coverage) must pass before every commit.
 
 ## Consequences

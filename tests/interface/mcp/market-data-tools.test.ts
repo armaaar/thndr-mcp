@@ -73,8 +73,8 @@ describe('market data tools', () => {
       market: 'egypt',
       resolution: '1h',
       bars: 5,
-      from: new Date('2026-01-01'),
-      to: new Date('2026-02-01'),
+      from: new Date('2025-12-31T22:00:00.000Z'), // 2026-01-01 00:00 Cairo (UTC+2)
+      to: new Date('2026-02-01T21:59:59.999Z'), // end of 2026-02-01 Cairo
     });
 
     await conn.call('get_market_depth', { symbol: 'COMI' });
