@@ -13,6 +13,8 @@ export const CLI_POSITIONALS: Readonly<Record<string, readonly string[]>> = {
   get_price_history: ['symbol'],
   get_market_depth: ['symbol'],
   get_recent_trades: ['symbol'],
+  get_index_constituents: ['index'],
+  get_peers: ['symbol'],
   get_position: ['symbol'],
   get_watchlist: ['id'],
   create_watchlist: ['name', 'symbols'],

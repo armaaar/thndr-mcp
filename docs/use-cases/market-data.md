@@ -1,7 +1,7 @@
 # Market Data use cases
 
-Code: one `Query` class per use case in `src/application/market-data/queries/`; shared `InstrumentResolver` and
-`MarketQuotesCache` in `src/application/market-data/services/` — Market Data's Open Host Service, which the
+Code: one `Query` class per use case in `src/application/market-data/queries/`; shared `InstrumentResolver`,
+`MarketQuotesCache` and `IndexMembership` in `src/application/market-data/services/` — Market Data's Open Host Service, which the
 Portfolio and Engagement use cases also consume
 ([ADR 0015](../adr/0015-five-layer-clean-architecture-cqs-and-context-map.md)). MCP tools and CLI commands are generated from these
 classes; CLI positionals come from `src/presentation/cli/positionals.ts`.
@@ -49,10 +49,14 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Input:** `symbol`, `market`.
 - **Main flow:**
   1. Resolve the symbol to an asset id.
-  2. Fetch the asset details (always fresh).
-- **Alternative/error flows:** common errors.
-- **Output:** `Instrument` including `description` and `logoUrl` when Thndr sends them.
-- **Thndr endpoints:** resolve (`/assets-service/assets/search` or cache) + `GET prod /assets-service/assets/{id}`.
+  2. In parallel: fetch the asset details (always fresh) and the market's index membership (`IndexMembership`,
+     cached 6 h).
+- **Alternative/error flows:** membership failure → `indices: null` (the details are still returned); common errors.
+- **Output:** `Instrument` including `description`, `logoUrl` and `tags` (Thndr's visible labels, e.g. "Banks",
+  "EGX30 Index", "Same Day Tradable") when Thndr sends them, plus `indices` (symbols of the indices the instrument
+  belongs to, e.g. `["EGX30", "EGX30CAPPED"]`; `[]` for none).
+- **Thndr endpoints:** resolve (`/assets-service/assets/search` or cache) + `GET prod /assets-service/assets/{id}`;
+  membership: `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}` per index.
 
 ## Price snapshot — `get_price_snapshot` (`GetPriceSnapshot`)
 
@@ -69,7 +73,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   - Resolved but absent from the snapshot (e.g. an index) → listed in `missing`.
 - **Output:** `quotes` (last, previousClose, open/high/low, change, changePercent, bid/ask and sizes, volume,
   value, trades, lower/upper price limit, 52-week high/low, P/E, EPS, dividend yield, listed shares, market cap,
-  30-day average volume, suspended, lastTradeAt) and `missing` (tickers).
+  5/30/90-day average volume, last trade price and volume, board, suspended, lastTradeAt) and `missing` (tickers).
 - **Thndr endpoints:** resolve + `GET prod /assets-service/assets/marketwatch`.
 
 ## Price history — `get_price_history` (`GetPriceHistory`)
@@ -139,17 +143,83 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 ## Screen the market — `screen_market` (`ScreenMarket`)
 
 - **Use case:** `ScreenMarket` (`Query`) in `src/application/market-data/queries/screen-market.ts`
-- **Invoke:** MCP `screen_market {"sortBy": "value", "limit": 10}` · CLI `thndr screen-market --sort-by value --limit 10` (e.g. `--sector Banks --min-change-percent 2`)
+- **Invoke:** MCP `screen_market {"sortBy": "value", "limit": 10}` · CLI `thndr screen-market --sort-by value --limit 10` (e.g. `--sector Banks --min-change-percent 2`, `--index EGX30`, `--preset momentum-movers`, `--screener-id <id>`)
 - **Goal:** filter and rank every instrument — top gainers/losers, most active, unusual volume, value stocks,
-  a sector.
-- **Input:** `market`, `sector` (substring), `minPrice`, `maxPrice`, `minChangePercent`,
-  `maxChangePercent`, `minValue`, `minRelativeVolume` (%), `maxPeRatio`, `minDividendYield` (%),
-  `includeSuspended` (default false), `sortBy` (`changePercent` default, `value`, `volume`, `relativeVolume`,
-  `marketCap`, `last`, `dividendYieldPercent`, `peRatio`), `order` (`desc` default), `limit` (1–100, default 20).
+  a sector, an index's members, a ThndrX preset or one of the user's saved screeners.
+- **Input:** `market`, `index` (index symbol, e.g. `EGX30`, `EGX70 EWI`), `preset` (`momentum-movers`,
+  `breakout-radar`, `value-yield`, `steady-performers`, `reversal-watch`), `screenerId` (a saved screener, see
+  `get_screeners`), `sector` (substring), `minPrice`, `maxPrice`, `minChangePercent`, `maxChangePercent`,
+  `minValue`, `minRelativeVolume` (%), `maxPeRatio`, `minDividendYield` (%), `includeSuspended` (default false),
+  `sortBy` (`changePercent` default, `value`, `volume`, `relativeVolume`, `marketCap`, `last`,
+  `dividendYieldPercent`, `peRatio`), `order` (`desc` default), `limit` (1–100, default 20).
 - **Main flow:**
-  1. Load the market snapshot (cached 10 s).
-  2. Add relative volume to each row; apply the filters (null fields fail their filter).
-  3. Sort (nulls last) and take `limit`.
-- **Alternative/error flows:** common errors. No matches → `total: 0`, empty `results`.
-- **Output:** `market`, `total` (matches before the limit), `results` (quotes + `relativeVolume`).
-- **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch`.
+  1. In parallel: load the market snapshot (cached 10 s), resolve `index` with `IndexMembership` (cached 6 h) and
+     load the saved screener (`screenerId`).
+  2. Drop index rows (board `INDX`) and, with `index`, every non-member.
+  3. Add relative volume to each row; apply the explicit criteria (null fields fail their filter) **and** the
+     preset's and saved screener's filters, evaluated exactly as ThndrX does
+     ([api §5.1](../api/market-data.md)).
+  4. Sort (nulls last) and take `limit`.
+- **Alternative/error flows:** unknown `index` → `NOT_FOUND` (lists the indices); unknown `screenerId` →
+  `NOT_FOUND`; a saved screener with a filter thndr-mcp cannot evaluate → `VALIDATION_ERROR` naming it; unknown
+  `preset` → `INVALID_INPUT`; common errors. No matches → `total: 0`, empty `results`.
+- **Output:** `market`, `index` (when given), `screeners` (applied preset/saved screener: `id`, `name`, `filters`
+  in plain words), `total` (matches before the limit), `results` (quotes + `relativeVolume`).
+- **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch`; with `index`: `GET prod
+  /assets-service/assets/{indexId}` per index (cached); with `screenerId`: `GET prod /users-service/screeners/{id}`.
+
+## Screeners — `get_screeners` (`GetScreeners`)
+
+- **Use case:** `GetScreeners` (`Query`) in `src/application/market-data/queries/get-screeners.ts`
+- **Invoke:** MCP `get_screeners` · CLI `thndr get-screeners [--market us]`
+- **Goal:** see which screeners can be run with `screen_market`.
+- **Input:** `market`.
+- **Main flow:**
+  1. Load the user's saved screeners of the market.
+  2. Describe each filter in plain words; add ThndrX's five built-in presets.
+- **Alternative/error flows:** common errors. No saved screeners → `saved: []`.
+- **Output:** `market`, `saved` and `presets`, each screener `id`, `name`, `filters` (e.g. `value ≥ 1,000,000`,
+  `week52HighDistance ≤ 10`, `sector is one of …`) and `unsupported` (filters thndr-mcp cannot evaluate; such a
+  screener is refused by `screen_market`).
+- **Thndr endpoints:** `GET prod /users-service/screeners?market=`.
+
+## Index constituents — `get_index_constituents` (`GetIndexConstituents`)
+
+- **Use case:** `GetIndexConstituents` (`Query`) in `src/application/market-data/queries/get-index-constituents.ts`
+- **Invoke:** MCP `get_index_constituents {"index": "EGX30"}` · CLI `thndr get-index-constituents EGX30 [--sort-by changePercent] [--limit 10]` (no argument lists the indices)
+- **Goal:** list the market's indices, or the members of one index with their quotes.
+- **Input:** `index` (optional; exact symbol ignoring case and separators, or a unique prefix: `egx70` →
+  `EGX70-EWI`), `market`, `sortBy` (`marketCap` default, `changePercent`, `value`, `volume`, `last`, `ticker`),
+  `order` (default `asc` for `ticker`, else `desc`), `limit` (1–300, default 100).
+- **Main flow:**
+  1. In parallel: load the market snapshot and the indices with their members (`IndexMembership`).
+  2. Without `index`: return every index with its level (its marketwatch row's last value), change % and member
+     count.
+  3. With `index`: resolve it, join its members with their quotes, count the members absent from the snapshot,
+     sort (nulls last) and take `limit`.
+- **Alternative/error flows:** unknown or ambiguous `index` → `NOT_FOUND` (lists the indices); common errors.
+- **Output:** without `index`: `market`, `indices` (`ticker`, `name`, `level`, `changePercent`, `memberCount`).
+  With `index`: `market`, `index` (same fields), `total`, `members` (`ticker`, `name`, `sector`, `last`,
+  `changePercent`, `value`, `volume`, `marketCap`) and `missingFromSnapshot`. Thndr publishes **no weights**, so none
+  are returned.
+- **Thndr endpoints:** `GET prod /assets-service/assets/marketwatch` + `GET prod /assets-service/assets/{indexId}`
+  per `INDX` row (`constituents`, cached 6 h).
+
+## Peers — `get_peers` (`GetPeers`)
+
+- **Use case:** `GetPeers` (`Query`) in `src/application/market-data/queries/get-peers.ts`
+- **Invoke:** MCP `get_peers {"symbol": "COMI"}` · CLI `thndr get-peers COMI [--limit 10]`
+- **Goal:** comparable instruments for one stock.
+- **Input:** `symbol`, `market`, `limit` (1–20, default 5; per list).
+- **Main flow:**
+  1. Resolve the symbol.
+  2. In parallel: load the market snapshot and Thndr's "similar stocks" (`recommendations_number = limit`).
+  3. Join the similar stocks with their quotes (the instrument itself is dropped).
+  4. Same sector: the other non-index rows of the snapshot with the instrument's sector (its quote's sector, else
+     its listing's), largest market cap first.
+- **Alternative/error flows:** a similar stock absent from the snapshot keeps its ticker, name and sector with null
+  prices; no sector → `sameSector: []`; common errors.
+- **Output:** `market`, `ticker`, `sector`, `similar` and `sameSector` (each `ticker`, `name`, `sector`, `last`,
+  `changePercent`, `value`, `marketCap`, `peRatio`, `dividendYieldPercent`), `sameSectorTotal`.
+- **Thndr endpoints:** resolve + `GET prod /assets-service/assets/{id}/recommendations?market&recommendations_number&include_feed&feed_detail`
+  + `GET prod /assets-service/assets/marketwatch`.

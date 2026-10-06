@@ -224,7 +224,10 @@ describe('toQuote', () => {
     low_price_limit: 72,
     max_limit: 999,
     min_limit: 1,
+    avg_5_day: 11_000,
     avg_30_day: 10_000,
+    avg_90_day: 9_000,
+    last_trade_volume: 25,
     high_52_week: 95,
     low_52_week: 60,
     market_id: 'NOPL',
@@ -263,6 +266,10 @@ describe('toQuote', () => {
       listedShares: 1000,
       marketCap: 80_500,
       averageVolume30d: 10_000,
+      averageVolume5d: 11_000,
+      averageVolume90d: 9_000,
+      lastTradePrice: 80.5,
+      lastTradeVolume: 25,
       suspended: false,
       lastTradeAt: new Date('2026-01-15T12:29:00Z'),
     });
@@ -285,6 +292,7 @@ describe('toQuote', () => {
       reuters: 'EGX30',
       market_id: 'INDX',
       last_trade_date: '1900-01-01T00:00:00+02:05:09',
+      last_trade_volume: 0,
       bid_price: 0,
       bid_volume: 0,
       ask_price: 0,
@@ -321,6 +329,7 @@ describe('toQuote', () => {
       dividendYieldPercent: null,
       listedShares: null,
       marketCap: null,
+      lastTradeVolume: null,
       lastTradeAt: null,
     });
   });
@@ -337,6 +346,7 @@ describe('toQuote', () => {
     });
     expect(quote).toMatchObject({
       last: 80,
+      lastTradePrice: 0,
       change: 1,
       marketCap: 80_000,
       lowerLimit: 1,
@@ -397,6 +407,7 @@ describe('indicatorToQuote', () => {
       last: 9000.5,
       changePercent: -0.4,
       previousClose: 9036,
+      lastTradePrice: 9000.5,
       board: null,
       currency: null,
       volume: null,

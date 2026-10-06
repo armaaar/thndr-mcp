@@ -98,7 +98,9 @@ export interface MarketwatchAssetDto {
   low_price_limit?: WireNumber;
   max_limit?: WireNumber;
   min_limit?: WireNumber;
+  avg_5_day?: WireNumber;
   avg_30_day?: WireNumber;
+  avg_90_day?: WireNumber;
   high_52_week?: WireNumber;
   low_52_week?: WireNumber;
 }
@@ -174,6 +176,40 @@ export interface MarketIndicatorDto {
 
 export interface MarketIndicatorsResponseDto {
   results?: MarketIndicatorDto[] | null;
+}
+
+/** `GET /assets-service/assets/{id}/recommendations` ("similar stocks", misc §3); results are asset payloads. */
+export interface RecommendationsResponseDto {
+  count?: number | null;
+  results?: AssetDto[] | null;
+}
+
+/** One filter of a saved screener (§5.1). */
+export interface ScreenerFilterDto {
+  /** A marketwatch field (`total_value`, `eng_desc`…) or a derived key (`price`, `relative_volume`…). */
+  filter_key?: string | null;
+  /** `NumberRange`, `StringArray`, `StringLoose`, `String`, `Number` (and `DateRange`, unused). */
+  type?: string | null;
+  /** Decimal strings; an empty or missing bound is open. */
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+  /** `StringArray`: a JSON-encoded array string such as `'["Banks","Real Estate"]'`. */
+  value?: string | number | null;
+  id?: string | null;
+}
+
+/** `GET /users-service/screeners/{id}` (§5.1). */
+export interface ScreenerDto {
+  id?: string | null;
+  name?: string | null;
+  market?: string | null;
+  source?: string | null;
+  filters?: ScreenerFilterDto[] | null;
+}
+
+/** `GET /users-service/screeners?market=` (§5.1). */
+export interface ScreenersResponseDto {
+  screeners?: ScreenerDto[] | null;
 }
 
 /** Value of a krakend `error_*` key (§0.2). */
