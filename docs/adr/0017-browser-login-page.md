@@ -24,10 +24,13 @@ We will run the whole login in a **local browser page**:
   code** (SVG) with the request number, and reports progress until the login completes — no "Accept" step.
 - The page is one more `LoginDialog` for the shared guided login (`presentation/browser/browser-login.ts` drives
   `runGuidedLogin`), so the steps and messages are the same as `thndr login`. A failed attempt can be retried on the
-  page; the page can cancel; it closes 15 minutes after it opened, or 30 seconds after the login ended.
+  page; the page can cancel; it closes 15 minutes after it opened, or 30 seconds after the login ended. Cancelling (or
+  expiry) also stops the guided login behind the page: it waits for the approval in 10-second steps and checks for
+  cancellation between steps, and a new login starts only after the previous one stopped (they share the login flow).
+- Only the tool call that started the login shows a prompt; concurrent calls join it silently.
 - The tool call waits for the page. How the user reaches it depends on the client:
   - URL elicitation: the client offers to open the page and gets an `elicitation/complete` notification.
-  - Form elicitation: the server opens the page and shows a one-line prompt with the link, cancelled once logged in.
+  - Form elicitation: the server opens the page and shows a short prompt with the link, cancelled once logged in.
   - Neither: the server opens the page; MCP progress notifications (every 15 s) carry the link.
 - A tool call the client cancels or times out leaves the page running; the user finishes and asks again.
 - Security of the page: the URL carries a 192-bit random token; only `127.0.0.1`/`localhost` `Host` headers are
