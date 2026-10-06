@@ -8,7 +8,7 @@ import {
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
 import { FakeResearchRepository, someFinancials } from '../../../../__tests__/support/fake-research';
-import { NotAuthenticatedError, UpstreamError } from '../../../errors';
+import { FeatureDisabledError, NotAuthenticatedError, UpstreamError } from '../../../errors';
 import { GetFinancials } from '../get-financials';
 
 const comi = () =>
@@ -263,12 +263,27 @@ describe('GetFinancials', () => {
       expect(out.notes?.[1]).toContain('no daily candles');
     });
 
+    it('compares within the instrument’s own market, e.g. Egypt for a simulator user', async () => {
+      const deps = sector();
+      const out = await new GetFinancials(deps).run({
+        symbol: deps.repository.instruments[0]?.id.value,
+        market: 'simulator',
+        compareToSector: true,
+      });
+      expect(out.sectorComparison?.sector).toBe('Banks');
+      expect(deps.repository.calls.getMarketQuotes).toEqual(['egypt']);
+    });
+
     it('uses today’s price when the candle request fails, and propagates other errors', async () => {
       const deps = sector();
       deps.repository.failures.getCandles = new UpstreamError('Thndr API error 500', 500);
       const out = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
       expect(out.sectorComparison?.valuationPrice).toMatchObject({ basis: 'currentPrice', price: 10 });
       expect(out.notes?.[1]).toContain('could not be loaded');
+
+      deps.repository.failures.getCandles = new FeatureDisabledError('Feature disabled for user');
+      const disabled = await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true });
+      expect(disabled.sectorComparison?.valuationPrice).toMatchObject({ basis: 'currentPrice' });
 
       deps.repository.failures.getCandles = new NotAuthenticatedError();
       await expect(
@@ -286,6 +301,11 @@ describe('GetFinancials', () => {
       expect(out.sectorComparison).toBeNull();
       expect(out.notes).toEqual([expect.stringContaining('429')]);
       expect(out.metrics.revenues?.latest).toEqual({ period: 'TTM Q2 26', value: 120 });
+
+      deps.research.failures.getFinancialsBatch = new FeatureDisabledError('Feature disabled for user');
+      expect(
+        (await new GetFinancials(deps).run({ symbol: 'COMI', compareToSector: true })).sectorComparison,
+      ).toBeNull();
 
       deps.research.failures.getFinancialsBatch = new NotAuthenticatedError();
       await expect(

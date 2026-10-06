@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   aCandle,
+  aUsInstrument,
   COMI_ID,
+  closes,
+  FakeMarketDataRepository,
+  idFor,
   setupMarketData,
   withInstruments,
 } from '../../../../__tests__/support/fake-market-data';
-import { NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
+import { FeatureDisabledError, NotAuthenticatedError, NotFoundError, UpstreamError } from '../../../errors';
 import { GetPricePerformance } from '../get-price-performance';
 
 const NOW = new Date('2026-10-06T12:00:00Z');
@@ -90,6 +94,9 @@ describe('GetPricePerformance', () => {
     deps.research.failures.getYearlyReturn = new NotFoundError('Asset not found');
     expect((await new GetPricePerformance(deps).run({ symbol: 'COMI' })).thndrOneYearReturn).toBeNull();
 
+    deps.research.failures.getYearlyReturn = new FeatureDisabledError('Feature disabled for user');
+    expect((await new GetPricePerformance(deps).run({ symbol: 'COMI' })).thndrOneYearReturn).toBeNull();
+
     deps.research.failures.getYearlyReturn = new NotAuthenticatedError();
     await expect(new GetPricePerformance(deps).run({ symbol: 'COMI' })).rejects.toMatchObject({
       code: 'NOT_AUTHENTICATED',
@@ -118,5 +125,90 @@ describe('GetPricePerformance', () => {
     const vol = out.volatility[0]?.annualisedPercent as number;
     expect(vol).toBe(Math.round(vol * 100) / 100);
     expect(out.maxDrawdown1Y?.percent).toBe(-9.5);
+  });
+
+  describe('outside Egypt (closing prices)', () => {
+    function setupUs() {
+      return setupMarketData(new FakeMarketDataRepository({ instruments: [aUsInstrument()] }), NOW);
+    }
+    /** Weekday closes (04:00Z, like Thndr's US series) from `from` to `to`, rising by 1 each. */
+    function weekdays(from: string, to: string, start: number): Array<[string, number]> {
+      const out: Array<[string, number]> = [];
+      let close = start;
+      for (let t = Date.parse(`${from}T04:00:00Z`); t <= Date.parse(`${to}T04:00:00Z`); t += 86_400_000) {
+        const day = new Date(t).getUTCDay();
+        if (day !== 0 && day !== 6) out.push([new Date(t).toISOString(), close++]);
+      }
+      return out;
+    }
+
+    it('joins the 1M, 1Y and full-history closes, labels the sources and never asks for candles', async () => {
+      const deps = setupUs();
+      deps.repository.closeSeries = {
+        '1M': closes(...weekdays('2026-09-07', '2026-10-06', 200)),
+        '1y': closes(...weekdays('2025-10-06', '2026-10-06', 100)),
+        all: closes(['2021-10-03T04:00:00Z', 20], ['2021-10-10T04:00:00Z', 21], ['2025-09-28T04:00:00Z', 90]),
+      };
+      deps.research.yearlyReturns[idFor('NVDA')] = { percent: 75.2, direction: 'gain' };
+      const out = await new GetPricePerformance(deps).run({ symbol: 'NVDA', market: 'us' });
+      expect(deps.repository.calls.getCandles).toEqual([]);
+      expect(deps.repository.calls.getCloses.map((c) => [c.market, c.span])).toEqual([
+        ['us', '1M'],
+        ['us', '1y'],
+        ['us', 'all'],
+      ]);
+      expect(out.history).toMatchObject({
+        resolution: 'closes',
+        firstDate: '2021-10-03',
+        sources: [
+          { span: '1M', granularity: 'daily', firstDate: '2026-09-07', points: 22 },
+          { span: '1y', granularity: 'daily', firstDate: '2025-10-06' },
+          { span: 'all', granularity: 'weekly', firstDate: '2021-10-03', points: 3 },
+        ],
+      });
+      // The finest series wins: the last close is the 1M one.
+      expect(out).toMatchObject({ asOf: '2026-10-06', lastClose: 221, currency: 'USD' });
+      // The 1Y series (synthetic, rising) peaks just before the 1M series takes over.
+      expect(out.week52).toMatchObject({ basis: 'close', high: 339, highDate: '2026-09-04' });
+      expect(out.returns.find((r) => r.period === '5Y')).toMatchObject({
+        baseDate: '2021-10-03',
+        baseClose: 20,
+      });
+      expect(out.volatility.find((v) => v.window === '30D')?.annualisedPercent).not.toBeNull();
+      expect(out.thndrOneYearReturn).toEqual({ percent: 75.2, direction: 'gain' });
+      expect(out.method).toMatch(/closing prices/);
+      expect(out.method).toMatch(/highest and lowest CLOSE/);
+    });
+
+    it('computes no volatility from weekly closes', async () => {
+      const deps = setupUs();
+      deps.repository.closeSeries = {
+        all: closes(
+          ...Array.from({ length: 60 }, (_, i): [string, number] => [
+            new Date(Date.parse('2025-08-03T04:00:00Z') + i * 7 * 86_400_000).toISOString(),
+            100 + (i % 3),
+          ]),
+        ),
+      };
+      const out = await new GetPricePerformance(deps).run({ symbol: 'NVDA', market: 'us' });
+      expect(out.volatility.every((v) => v.annualisedPercent === null)).toBe(true);
+      expect(out.history.sources?.map((s) => [s.span, s.granularity, s.points])).toEqual([
+        ['1M', 'unknown', 0],
+        ['1y', 'unknown', 0],
+        ['all', 'weekly', 60],
+      ]);
+      expect(out.returns.find((r) => r.period === '1M')?.returnPercent).not.toBeNull();
+    });
+  });
+
+  it('treats an instrument whose market is the simulator itself as Egyptian data (candles)', async () => {
+    const deps = setupMarketData(
+      new FakeMarketDataRepository({ instruments: [aUsInstrument({ ticker: 'COMI', market: 'simulator' })] }),
+      NOW,
+    );
+    const out = await new GetPricePerformance(deps).run({ symbol: 'COMI', market: 'simulator' });
+    expect(deps.repository.calls.getCandles).toHaveLength(1);
+    expect(deps.repository.calls.getCloses).toEqual([]);
+    expect(out.history.resolution).toBe('1d');
   });
 });

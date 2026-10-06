@@ -22,6 +22,12 @@ describe('renderLoginPage', () => {
       /<p class="notice" id="notice">([\s\S]*?)<\/p>/.exec(page)?.[1]?.replace(/\s+/g, ' ') ?? '';
     expect(notice).toContain('<strong>Unofficial</strong> — not affiliated with Thndr.');
     expect(notice).toContain('Everything runs locally on your computer and thndr-mcp collects no data');
+    const disclaimer =
+      /<p class="notice" id="disclaimer">([\s\S]*?)<\/p>/.exec(page)?.[1]?.replace(/\s+/g, ' ') ?? '';
+    expect(disclaimer).toContain('<strong>Not financial advice.</strong>');
+    expect(disclaimer).toContain(
+      'To the extent the law allows, the maintainers accept no liability for losses',
+    );
     expect(notice).toContain(
       'your email and code go only to thndr-mcp on this machine, which sends them straight to Thndr.',
     );

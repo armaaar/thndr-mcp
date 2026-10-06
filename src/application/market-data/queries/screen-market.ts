@@ -10,6 +10,7 @@ import {
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
 
@@ -79,7 +80,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
   readonly name = 'screen_market';
   readonly title = 'Screen the market';
   readonly description =
-    'Filter and rank every instrument of a market using the live snapshot — e.g. top gainers ' +
+    'Egypt only: filter and rank every instrument of the market using the live snapshot — e.g. top gainers ' +
     '(sortBy=changePercent), top losers (order=asc), most active (sortBy=value), unusual volume ' +
     '(minRelativeVolume=200), value stocks (maxPeRatio, minDividendYield), a sector, the members of an index ' +
     "(index=EGX30), one of ThndrX's built-in screeners (preset=momentum-movers, breakout-radar, value-yield, " +
@@ -94,6 +95,7 @@ export class ScreenMarket extends Query<typeof input, ScreenResult> {
 
   async execute(criteria: ScreenCriteria): Promise<ScreenResult> {
     const market = parseMarket(criteria.market);
+    requireMarketFeature(market, 'marketSnapshot');
     const [all, members, screeners] = await Promise.all([
       this.deps.quotes.get(market),
       criteria.index === undefined ? null : this.deps.indices.find(criteria.index, market),

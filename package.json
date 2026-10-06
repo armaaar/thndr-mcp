@@ -1,15 +1,17 @@
 {
   "name": "thndr-mcp",
   "version": "0.1.0",
-  "description": "Community MCP server for Thndr (Egyptian Exchange broker) — reverse-engineered, unofficial.",
-  "license": "MIT",
+  "description": "Unofficial, community MCP server and CLI for the Thndr broker — not affiliated with Thndr; not financial advice; use at your own risk.",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "thndr-mcp": "dist/thndr-mcp.js",
     "thndr": "dist/thndr.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "NOTICE",
+    "DISCLAIMER.md"
   ],
   "engines": {
     "node": ">=20"
@@ -26,10 +28,11 @@
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
     "check": "npm run typecheck && npm run lint && npm run coverage",
-    "sync:api": "tsx .claude/skills/sync-thndr-api/scripts/sync-thndr-bundle.ts",
-    "capture:fixtures": "tsx .claude/skills/sync-thndr-api/scripts/capture-fixtures.ts",
+    "sync:api": "tsx .claude/skills/sync-thndr-web-api/scripts/sync-thndr-bundle.ts",
+    "capture:fixtures": "tsx .claude/skills/sync-thndr-web-api/scripts/capture-fixtures.ts",
     "cli": "tsx src/presentation/cli/main.ts",
-    "find:call-sites": "tsx .claude/skills/sync-thndr-api/scripts/find-call-sites.ts"
+    "find:call-sites": "tsx .claude/skills/sync-thndr-web-api/scripts/find-call-sites.ts",
+    "sync:mobile": "bash .claude/skills/sync-thndr-mobile-api/scripts/fetch-apk.sh && bash .claude/skills/sync-thndr-mobile-api/scripts/decompile.sh"
   },
   "dependencies": {
     "@firebase/app": "^0.16.2",

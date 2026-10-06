@@ -17,7 +17,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Read-only** ([ADR 0006](../adr/0006-trading-safety.md)): nothing here places, modifies or cancels orders or
   moves funds (savings balances are read, never transferred). Every use case is a CQRS `Query`, so every MCP tool is annotated `readOnlyHint: true`.
 - **Preconditions:** a Thndr session exists.
-- **Input conventions:** `market` is `egypt` (default, EGP) or `us` (USD); `symbol` is a ticker or Thndr asset id.
+- **Input conventions:** `market` is `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading); activity, returns and the journal exist only in some markets (`FEATURE_DISABLED` otherwise) and savings are Egypt-only; `symbol` is a ticker or Thndr asset id.
   Date-filtered tools take either `from`/`to` (ISO dates; date-only values are Cairo market days) or a `period`
   preset — `today`, `7d`, `30d`, `90d` (the last N Cairo calendar days including today), `mtd`, `ytd`, `1y` (the
   last 12 months including today) — which starts at 00:00 Cairo on its first day and runs until now. Giving
@@ -184,7 +184,7 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
   `REWARD`, `OTHER`), `from`/`to` or `period` (optional, mutually exclusive), `page` (default 1; page mode only),
   `pageSize` (1–100, default 20; page mode only).
 - **Main flow (page mode, no range):**
-  1. Fetch one page from the market's provider (`EGID` for egypt, `ALPACA` for us).
+  1. Fetch one page from the market's provider (`EGID` for egypt, `ALPACA` for us, `ADX_UAE` for uae; the simulator has no activity feed).
   2. Categorise each row; if `category` is given, filter the fetched page.
 - **Main flow (range mode, `from`/`to`/`period`):**
   1. Resolve the range (same rules as the journal tools; errors say "Activity").
@@ -205,26 +205,36 @@ Thndr account holder. Both run the same use-case class through `runAndPresent`
 - **Use case:** `GetPortfolioAllocation` (`Query`) in `src/application/portfolio/queries/get-portfolio-allocation.ts`
 - **Invoke:** MCP `get_portfolio_allocation` · CLI `thndr get-portfolio-allocation [--market us]`
 - **Goal:** how the holdings are spread by asset class, sector and index (IBKR `get_pa_allocation`).
+- **Markets:** all. Egypt (and the simulator, which reads Egypt's data — `snapshotMarket`): sectors from the
+  snapshot and index buckets. US and UAE: no marketwatch or index call (Thndr answers 400 there); sectors from
+  instrument details; `byIndex: []`.
 - **Input:** `market`.
 - **Main flow:**
-  1. In parallel: wallet and portfolio, the market snapshot (`MarketQuotesCache`, 10 s cache) and index membership
-     (`IndexMembership`, 6 h cache).
+  1. In parallel: wallet and portfolio, and — when the market has a snapshot (Egypt; Egypt's for the simulator) —
+     the snapshot (`MarketQuotesCache`, 10 s cache) and index membership (`IndexMembership`, 6 h cache).
   2. Weight each position by market value against the portfolio value (domain `computeAllocation`).
   3. Join each position to its marketwatch row by instrument id, else by ticker, for the sector; take its indices
      from the membership map.
-  4. Group (domain `groupAllocation`): by asset class, by sector (no sector → `Funds (no sector)` for funds/ETFs,
-     else `Unclassified`), and by index (no index → `Not in any index`).
-- **Alternative/error flows:** common errors (any of the three reads failing fails the call). No holdings → empty
-  lists.
+  4. Holdings without a snapshot row (every US/UAE holding, US listings of the simulator, Egyptian rows missing from
+     the snapshot) that carry an instrument id: their sector is Thndr's industry from the instrument details
+     (`InstrumentResolver`, cached), heaviest first, at most 30 lookups (`MAX_SECTOR_LOOKUPS`), 5 at a time; lighter
+     holdings beyond the cap and failed lookups stay `Unclassified`, and a note gives the counts.
+  5. Group (domain `groupAllocation`): by asset class, by sector (no sector → `Funds (no sector)` for funds/ETFs,
+     else `Unclassified`), and by index (no index → `Not in any index`) where the market has indices.
+- **Alternative/error flows:** common errors (the account, snapshot or membership read failing fails the call; a
+  detail lookup failing with a Thndr error or not-found only leaves that holding unclassified; a session error still
+  fails the call). No holdings → empty lists.
 - **Output:** `market`, `currency`, `portfolioValue`, `basis` (denominator of every weight), `totalMarketValue`,
   `holdings` (ticker, instrumentId, assetClass, sector, indices, marketValue, weightPercent), `byAssetClass`
   (assetClass, positions, marketValue, weightPercent), `bySector` and `byIndex` (name, positions, marketValue,
-  weightPercent, tickers), `notes`.
+  weightPercent, tickers; `byIndex` is `[]` outside Egypt), `notes` (outside Egypt: no index buckets; when details
+  were used: how many holdings were looked up, skipped or failed).
 - **Notes:** weights exclude cash (portfolio value = positions). **Index buckets overlap** — a holding counts in
   every index it belongs to — so they do not sum to 100%. There is no country breakdown: every Thndr Egypt holding
   is EGX-listed. Mutual funds (e.g. a money-market fund) are not marketwatch rows, so they have no sector.
-- **Thndr endpoints:** `GET prod /market-service/accounts/wallet-and-portfolio`, `GET prod
-  /assets-service/assets/marketwatch`, `GET prod /assets-service/assets/{indexId}` per index (`constituents`).
+- **Thndr endpoints:** `GET prod /market-service/accounts/wallet-and-portfolio`; Egypt/simulator: `GET prod
+  /assets-service/assets/marketwatch`, `GET prod /assets-service/assets/{indexId}` per index (`constituents`); holdings
+  outside the snapshot: `GET prod /assets-service/assets/{id}` (≤ 30).
 
 ## Portfolio performance — `get_portfolio_performance` (`GetPortfolioPerformance`)
 

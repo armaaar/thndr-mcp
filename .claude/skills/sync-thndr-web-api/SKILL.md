@@ -1,5 +1,5 @@
 ---
-name: sync-thndr-api
+name: sync-thndr-web-api
 description: Re-sync thndr-mcp with the latest ThndrX (x.thndr.app) deployment — download the public bundle, diff the reverse-engineered API surface, bump the x-thndrx-runtime-version, and update docs/api, DTOs, translators and tests together. Use whenever Thndr endpoints start failing (unexpected 4xx/5xx, missing fields, MAPPING errors), when the user says Thndr/ThndrX "changed", "updated", "broke", asks to "sync", "refresh" or "re-check" the Thndr API, or before a release of thndr-mcp.
 ---
 
@@ -9,7 +9,8 @@ thndr-mcp talks to Thndr's **private** API, reverse-engineered from ThndrX's pub
 Thndr redeploys without notice, so this workflow re-derives what changed and updates the anti-corruption layer
 (Thndr data source `src/data-sources/thndr/**` and repositories + translators
 `src/repositories/thndr/**`) in one coherent change. Scope stays **read-only** (ADR 0006): if new order-entry or
-fund-movement endpoints appear, note them in the diff summary but do not document or implement them.
+fund-movement endpoints appear, document them under a "Write operations (documented, not implemented — ADR 0006)"
+heading (ADR 0019) but do not implement them.
 
 ## Bundled tools
 

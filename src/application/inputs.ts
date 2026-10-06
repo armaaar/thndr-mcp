@@ -5,7 +5,9 @@ import { MARKETS } from '../domain/shared-kernel/market';
 export const marketInput = z
   .enum(MARKETS)
   .default('egypt')
-  .describe('Market: "egypt" (EGX, default) or "us"');
+  .describe(
+    'Market: "egypt" (EGX, default), "us" (NYSE/Nasdaq via Alpaca), "uae" (ADX) or "simulator" (paper trading)',
+  );
 export const symbolInput = z.string().min(1).describe('Ticker symbol (e.g. "COMI") or Thndr asset id (UUID)');
 export const dateInput = z
   .string()

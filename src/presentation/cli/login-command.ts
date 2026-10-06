@@ -1,4 +1,5 @@
 import type { UseCase } from '../../application/use-case';
+import { terminalDisclaimer } from '../presenters/disclaimer';
 import { type LoginDialog, runGuidedLogin } from '../presenters/guided-login';
 import { EXIT_FAILURE, EXIT_OK } from './cli';
 
@@ -31,6 +32,8 @@ export async function runLoginCommand(
   io: PromptIo,
   attempts = 5,
 ): Promise<number> {
+  io.print(terminalDisclaimer());
+  io.print('');
   const result = await runGuidedLogin(useCases, terminalDialog(io), { attempts });
   io.print(result.message);
   return result.ok ? EXIT_OK : EXIT_FAILURE;

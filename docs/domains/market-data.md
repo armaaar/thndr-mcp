@@ -22,26 +22,37 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 
 | Term | Meaning |
 | --- | --- |
-| **Market** | A Thndr market account/venue, wire value of the `market` query param. Supported: `egypt` (default; aliases `egx`, `eg`) and `us` (alias `usa`). |
+| **Market** | A Thndr market (ADR 0021): `egypt` (default; EGX, EGP), `us` (NYSE/Nasdaq/ETFs via Alpaca, USD), `uae` (ADX, AED) or `simulator` (paper trading). Thndr's wire codes are mapped in the adapters (`uae` → `adsm` for instruments, `abudhabi` for accounts). Each market offers a different set of features (`marketSupports`); tools refuse unsupported combinations with `FEATURE_DISABLED`. |
 | **Instrument** | A tradable or reference listing: stock, ETF, index or fund (`AssetClass`: `STOCK`, `ETF`, `INDEX`, `FUND`, `UNKNOWN`). |
 | **Asset id** (`AssetId`) | Thndr's UUID for an instrument; the key used by every Thndr endpoint. Stored lower-case. |
 | **Ticker** (`Ticker`, shared kernel) | Exchange symbol such as `COMI`. Case-insensitive input. Users and agents refer to instruments by ticker *or* asset id. |
 | **Board** | EGX sub-market (`feed.market_id`, marketwatch `market_id`): `NOPL` main board, `OOTC` over-the-counter, `SME`, `INDX` indices, `FNDS` funds. On `Instrument.board` and `Quote.board`. |
-| **Tags** | Thndr's visible labels on an instrument's details (`Instrument.tags`): its sector, its indices ("EGX30 Index"), "sharia", "Same Day Tradable", "dollar_hedge"… Informational only: Thndr cannot list the instruments under a tag. |
+| **Tags** | Thndr's visible labels on an instrument's details (`Instrument.tags`): its sector, its indices ("EGX30 Index"), "sharia", "Same Day Tradable", "dollar_hedge"… Some of them are also **themes** (below), whose instruments can be listed. |
+| **Tag** / **theme** (`Tag`) | A curated group of instruments Thndr publishes per market (the app calls them themes): "Sharia", "Gold Funds", "Dividend Players"… with an id, slug, name, description (`about`), an instrument count and a featured flag. `get_tags` lists them, `get_tag_instruments` lists one's instruments (mobile-app endpoint, ADR 0021). Found by id, slug or name (`findTag`). |
+| **Visible market** (`VisibleMarket`) | A market Thndr lists for the user (`visible-markets`), possibly **restricted** for them (with Thndr's reason, e.g. `USER_UNDER_ELIGIBLE_AGE`), plus Thndr's **default market**. Markets thndr-mcp does not serve are reported by name only. |
+| **Mover** (`Mover`) | An instrument in Thndr's ranking of top **gainers** or **losers** of a market over a period (`1D`, `1W`, `1M`, `6M`, `1Y`), with its **return** over the period (percent), price and today's change. Egypt and US only. |
+| **Trending** | The instruments Thndr shows as trending in a market's Explore tab (ids, most trending first). Egypt, US and UAE. |
+| **Default indices** | The indices and benchmarks Thndr shows by default for a market (Egypt: EGX indices; US: SPY, QQQ, DIA…; UAE: FADGI…); `get_market_status` lists them with levels from the market indicators. |
+| **Dividend** (`Dividend`) | A distribution Thndr records for an instrument: **cash** (`ratio` = amount per share in `currency`) or **stock** (`ratio` = bonus shares per share held, 0.1 = one for ten), with a **record date** (holders on that day are entitled), payment **distributions** (date + part of the ratio), a frequency and a status `UPCOMING`, `ONGOING` or `PAST`. |
 | **Index** | An `INDX` instrument (EGX30, EGX30 Capped, EGX70 EWI, EGX100 EWI, EGX35-LV, Shariah, Tamayuz). Its **level** is the last value of its marketwatch row, in points. Symbols with spaces are sanitised (`EGX70-EWI`). |
 | **Constituent** (member) | An instrument listed in an index's `constituents`. Thndr gives membership only — **no weights**. |
 | **Peer** | A comparable instrument: one of Thndr's "similar stocks" (recommendations) or another instrument of the same sector. |
 | **Screener** | A named set of filters evaluated on the marketwatch snapshot exactly as ThndrX does. A **saved screener** is stored by the user in Thndr; a **preset** is one of ThndrX's five built-in "recommended screeners" (`momentum-movers`, `breakout-radar`, `value-yield`, `steady-performers`, `reversal-watch`). |
 | **52-week high/low distance** | Screener-derived: \|last trade − 52-week high (low)\| / high (low) × 100, rounded to an integer (0 when either is 0). |
 | **Suspended** | Trading halted on the symbol (Thndr `symbol_state === "S"`). |
-| **Quote** | Point-in-time trading snapshot of one instrument: board, last, previous close, OHLC, change, bid/ask with sizes, volume, value, trades, daily price limits, 52-week range, P/E, EPS, dividend yield, listed shares, market cap, 5/30/90-day average volume, last trade price, volume and time. |
+| **Quote** | Point-in-time trading snapshot of one instrument: board, last, previous close, OHLC, change, bid/ask with sizes, volume, value, trades, daily price limits, 52-week range, P/E, EPS, dividend yield, listed shares, market cap, 5/30/90-day average volume, last trade price, volume and time. In Egypt a marketwatch row; **outside Egypt a thin quote** built from the latest price (`quoteFromLatestPrice`): last, open, previous close, change and change % from the previous close, bid/ask when known and the price time (`lastTradeAt`); every other field null. |
+| **Latest price** (`LatestPrice`) | Thndr's bulk price of one instrument, any market (mobile gateway `securities/v2/price`): `last` and its `kind` (`trade`, `close`, a fund's `nav`, an FX `rate`), its time, the day's open and previous close, bid/ask. |
+| **Snapshot market** | The market whose marketwatch serves a market (`snapshotMarket`): Egypt for Egypt and the simulator (it trades Egypt's listings; its own marketwatch answers 400), none for the US and the UAE. |
 | **Last price** | `last_trade_price` when > 0, else `close_price` (0 means no trade yet today), as ThndrX does. `Quote.lastTradePrice` keeps the raw value (0 before the first trade) because ThndrX's screener formulas read it. |
 | **Price limits** | Daily price band (`lowerLimit`/`upperLimit`): the exchange's circuit-breaker limits. |
 | **Market cap** | Derived: `listedShares × last`. |
 | **Relative volume** | `volume / averageVolume30d × 100` (percent of the 30-day average). |
 | **Marketwatch** | Thndr's whole-market snapshot: one quote row per instrument of a market. |
-| **Market indicators** | Index levels (EGX30, EGX70…) and reference rates, returned as sparse quotes (last, previous close, change %). |
-| **Candle** / **resolution** | One OHLCV bar. Resolutions: `1min`, `5min`, `10min`, `1h`, `1d`, `1w` (wire `1MIN`…`1W`). |
+| **Market indicators** | Index levels and reference rates, returned as sparse quotes (last, previous close, change %). Thndr's feed ignores the market and mixes every market's indicators (EGX indices, US ETFs, ADX indices, USD/EGP); the market's default indices pick from it. |
+| **Candle** / **resolution** | One OHLCV bar. Resolutions: `1min`, `5min`, `10min`, `1h`, `1d`, `1w` (wire `1MIN`…`1W`). Egypt only: Thndr's candles are empty for US/UAE instruments. |
+| **Close point** / **closing-price history** | `{time, close}` — only a close. Outside Egypt the price history is a series of close points; open, high, low and volume are unknown and never derived. |
+| **Close span** | A trailing range Thndr serves closes for: `1d`, `1w`, `1M`, `6M`, `1y`, `2y`, `all` (~5 years). `spanCovering(from, now)` picks the shortest one reaching back to `from`. |
+| **Granularity** | The spacing of a close series, measured from its (lower) median gap: `intraday`, `hourly`, `daily`, `weekly`, `monthly`, `unknown`. Thndr fixes it per span (live 2026-10-06: `1w` hourly, `1M` daily, `1y` daily for UAE, `all` weekly). |
 | **History window** | The `from`/`to` range of a history request; Thndr serves about 5 years. |
 | **Order book** (market depth) | Bids and asks aggregated by price level, each with quantity and order count, plus total bid/ask quantity. |
 | **Spread** | Best ask − best bid, absolute and as percent of the mid price. |
@@ -56,7 +67,8 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | **Valuation price** | The price a company's own multiples use (`valuationPrice()`, ThndrX `valuateForPeriod`): the close of the last daily candle at or before the end of its latest period, from 3 years of candles (8 for `yoy`). Falls back to the current price without a period end or candles (as ThndrX) and when the candles do not reach back to the period end (ThndrX shows nothing then). Sector peers are always valued at the current price. |
 | **Sector comparison** | ThndrX's ranking of a company against every company of the same marketwatch sector with listed shares: per metric the sector median/min/max (zeros dropped) and a **percentile rank** 1–100 (100 = best, reversed when lower is better); per category a **rating** = rounded mean percentile of rated metrics, banded green/lightGreen/yellow/orange/red on the unrounded mean. Always every metric ThndrX compares (`COMPARISON_METRICS`, each with the Thndr key or formula it comes from as `source`). The company's price-based metrics use its valuation price, the sector sample current prices, so their percentile can fall slightly outside 1–100 (as in ThndrX). |
 | **Period return** | Close-to-close change over a trailing period (`1W` … `5Y`, `YTD`) from the **base close**: the last close on or before the period start (YTD: the last close of the previous year), else the first close at most 7 days after the start (`BASE_FORWARD_DAYS`: Thndr's ~5 years of candles often begin just after the 5Y start); `baseDate` says which. |
-| **Historical volatility** | Annualised standard deviation of daily log returns over the last 30, 90 or 252 sessions: sample stdev × √252, in percent. |
+| **Historical volatility** | Annualised standard deviation of daily log returns over the last 30, 90 or 252 sessions: sample stdev × √252, in percent. From closes, only the trailing run of daily closes (≤ 5 days apart) counts. |
+| **52-week range basis** | `high-low` (Egypt: daily highs and lows of candles) or `close` (elsewhere: the highest and lowest close — no intraday range is known). |
 | **Drawdown** | Fall of the close from its running peak; the **maximum drawdown** (1Y) is the largest one from the 1Y base close to the latest close. |
 | **Thndr one-year return** | Thndr's own one-year figure on the asset details (`annual_return`: value + gain/loss), shown for reference; its method is not published. |
 | **News article** | An item of Thndr's news feed: a news story or an exchange disclosure (`source` `egx`, often a PDF `link` with empty content), tagged with tickers. |
@@ -69,11 +81,13 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | `AssetId` (shared kernel, `shared-kernel/asset-id.ts`) | value object | Must be a UUID (`8-4-4-4-12` hex); normalised to lower-case. `AssetId.isAssetId(raw)` tests without throwing. |
 | `Market` (shared kernel, `shared-kernel/market.ts`) | enum + `parseMarket` | Empty → `egypt`; unknown → `VALIDATION_ERROR`. |
 | `AssetClass` (shared kernel, `shared-kernel/market.ts`) | enum + `parseAssetClass` | Unknown wire values become `UNKNOWN` (never fails). |
-| `Instrument` | read model | `id`, `ticker`, `name`, `assetClass`, `market`, `currency` (`EGP`/`USD`/null), `sector`, `board`, `tradable`, `suspended`, `priceDecimals` (2 or 3 on EGX), optional `description`, `logoUrl`, `tags` (visible tag names, Thndr's order, no duplicates). |
+| `Instrument` | read model | `id`, `ticker`, `name`, `assetClass`, `market`, `currency` (`EGP`/`USD`/`AED`/null), `sector`, `board`, `tradable`, `suspended`, `priceDecimals` (2 or 3 on EGX), optional `description`, `logoUrl`, `tags` (visible tag names, Thndr's order, no duplicates). |
 | `Quote` | read model | Every numeric field nullable (Thndr often omits them). `board` is `INDX` for index rows, which are in the snapshot but never screening results or peers. `relativeVolume(quote)` returns null without a 30-day average. |
 | `Screener` (`screener.ts`) | read model, deep-frozen | `id`, `name`, `market`, `preset`, `filters` (each a `ScreenerField` and a condition: `between` inclusive with open null bounds, `oneOf`, `contains` ignoring case, `equals`, `equalsNumber`) and `unsupported` (Thndr filters that cannot be evaluated, described). `SCREENER_PRESETS` holds ThndrX's presets. |
 | `matchesScreener(quote, filters)` | domain service | ThndrX's evaluator (bundle module 86697): derived `price`, `change`, `changePercent` (from `lastTradePrice` and previous close), `relativeVolume` (rounded; null fails the row), 52-week distances; `Number(null)` = 0 in ranges. `describeFilter` words a filter (`value ≥ 1,000,000`). |
 | `Candle` | value (`createCandle`) | All of OHLCV finite, valid time, `high ≥ low`. Frozen. |
+| `ClosePoint` (`close-series.ts`, `createClosePoint`) | value | Valid time, finite close. Frozen. `sortCloses` (oldest first, one per instant), `mergeCloseSeries(finest, …, coarsest)` (a coarser series only adds points more than 12 h older than everything kept — Thndr stamps a day's close at 00:00Z in one span and 04:00Z in another), `spanCovering`, `closeGranularity`. |
+| `LatestPrice`, `quoteFromLatestPrice(instrument, price)` (`latest-price.ts`) | read model + domain service | Change = last − previous close (6 decimals), change % from a positive previous close (4 decimals), `lastTradePrice` only for a `trade` price; the quote is frozen. |
 | `historyWindow(from, to, now)` | domain service | `from < to`; clamps to `[now − 5 years, now]`; empty after clamping → `VALIDATION_ERROR`. |
 | `OrderBook` | read model | Bids best (highest) first, asks best (lowest) first. `spread(book)` is null when a side is empty or best bid ≤ 0. |
 | `TapeTrade` | read model | Each trade carries the cursor used to page further back. |
@@ -82,8 +96,10 @@ API: [docs/api/market-data.md](../api/market-data.md), market status in
 | `valuation(statements, market)` | domain service | Market cap needs listed shares and a price; P/E dropped when negative; P/B falls back to price / BVPS; nothing without a period. Values at `market.price` (the caller passes the valuation price for the company, the current price for peers). |
 | `periodEnd(label)`, `valuationPrice(statements, candles, currentPrice)` | domain services | `periodEnd`: null for labels Thndr does not use. `valuationPrice`: the last candle with time ≤ the period end (any input order); `basis` `periodEndClose` with `priceDate`, or `currentPrice` with `reason` `noPeriod` / `noCandles` / `beforeHistory`. Frozen. `VALUATION_PRICE_YEARS` = 3 (`ttm`, `qoq`) / 8 (`yoy`). |
 | `compareWithSector(company, sector, mode)` (`sector-comparison.ts`) | domain service | ThndrX's comparison metrics (`COMPARISON_METRICS`, frozen: category, lowerIsBetter, rated, hidden in `qoq`, `source`, `priceBased`), `sectorStats`, `percentileRank` (null with < 2 values), `ratingBand` (applied to the unrounded mean). |
-| `pricePerformance(candles)` (`performance.ts`) | domain service | One session per Cairo market day (`marketDay`), positive closes only; `shiftDay` clamps month ends; base close on or before the start, else the first within `BASE_FORWARD_DAYS` (7) after it; returns null when history is too short; volatility null with fewer returns than the window; the 52-week range starts the day after the 1Y start and replaces lows ≤ 0 with the close; tied drawdown peaks keep the first. |
+| `pricePerformance(candles)` (`performance.ts`) | domain service | One session per Cairo market day (`marketDay`), positive closes only; `shiftDay` clamps month ends; base close on or before the start, else the first within `BASE_FORWARD_DAYS` (7) after it; returns null when history is too short; volatility null with fewer returns than the window; the 52-week range starts the day after the 1Y start and replaces lows ≤ 0 with the close (`basis: "high-low"`); tied drawdown peaks keep the first. |
+| `closePerformance(points)` (`performance.ts`) | domain service | The same statistics from closes: high = low = close (`week52.basis: "close"`); volatility from the trailing daily run only (consecutive sessions ≤ `MAX_DAILY_GAP_DAYS` = 5 calendar days apart). |
 | `NewsArticle`, `NewsPage`, `EconomicIndicators`, `YearlyReturn`, `dedupeNews` (`research.ts`) | read models | News ids are strings, tickers a list; macro series sorted oldest first. `dedupeNews`: articles with the same title (ignoring case and spacing), publication time and tickers are one (never without a title or time), the copy with a link (then more content) wins, first position kept. |
+| `MarketAccess`, `VisibleMarket`, `ListedInstrument`, `Mover`, `MoverList`, `Tag`, `TagPage`, `Dividend`, `DividendPage` (`discovery.ts`) | read models | Frozen. Visible markets are deduplicated (`abudhabi`/`adsm` → `uae`). Listed prices are null when Thndr's feed has none (a 0 price means none). Dividend dates are ISO `YYYY-MM-DD`; unknown types/statuses become `UNKNOWN`. `findTag(tags, query)`: exact id, slug or name (ignoring case, spaces, `-`, `_`), else a unique partial name match, else null. |
 
 Thndr reference symbols that don't fit the `Ticker` pattern (e.g. `USD/EGP`, `EGX70 EWI`) are sanitised by the
 anti-corruption layer (`USD-EGP`, `EGX70-EWI`) for indices and asset details.
@@ -109,7 +125,18 @@ Turns what a user types into an `Instrument`:
   `egx70-ewi`, `EGX33 (Sharia)`, or the name's first word when it has a digit, `EGX33`), else the only index whose
   symbol starts with it (`EGX70` → `EGX70-EWI`); otherwise `NOT_FOUND` listing the indices.
 - `membership(market)`: instrument id → symbols of its indices (used by `get_instrument_details`; open to Portfolio's
-  allocation).
+  allocation). Only for markets with indices (Egypt): callers never ask for the others.
+
+### `quoteInstruments` and `snapshotMarket`
+- `dataMarket(market)` (`services/snapshot-market.ts`): the market whose instrument data serves an instrument — its
+  own, except `simulator` → Egypt (the simulator trades Egypt's listings; an instrument reports `simulator` when
+  Thndr's payload says so or a simulator search hit omits its market). History, performance, details and peers route
+  through it, so one instrument is treated alike by every tool.
+- `snapshotMarket(market)`: `dataMarket` when it has a marketwatch — Egypt for Egypt and the simulator, none for the
+  US/UAE. Every marketwatch read goes through it, so the US and UAE never get a 400 from marketwatch.
+- `quoteInstruments(deps, instruments)` (`services/instrument-quotes.ts`): quotes keyed by asset id, each instrument
+  from its **own** market's source — its snapshot market's marketwatch row, else (and for Egyptian rows missing from
+  the snapshot) the bulk latest price, one call for all. Used by `get_price_snapshot` and `get_peers`.
 
 ### `MarketQuotesCache`
 - Caches the marketwatch snapshot per market for **10 s** (default `ttlMs`). One upstream call serves every
@@ -164,7 +191,9 @@ it as the `repository` dependency:
 | `searchInstruments(query, market)` | `GET /assets-service/assets/search?query&market&include_feed&feed_detail` |
 | `getInstrument(id)` | `GET /assets-service/assets/{id}` |
 | `getMarketQuotes(market)` | `GET /assets-service/assets/marketwatch?market` |
-| `getCandles(id, resolution, from, to)` | `GET /krakend-thndr-x/feed/advanced-charts/v2/{id}/trades` (unix-second timestamps) |
+| `getCandles(id, resolution, from, to)` | `GET /krakend-thndr-x/feed/advanced-charts/v2/{id}/trades` (unix-second timestamps; Egypt only — empty for US/UAE) |
+| `getLatestPrices(ids)` | `GET /krakend-thndr-app/securities/v2/price?asset_id=…` (repeated, sorted, unique, ≤ 50 per call; `{price, day_snapshot}` sections, nanosecond timestamps) |
+| `getCloses(id, market, span)` | `GET /assets-service/charts?asset_ids&option={span}&market={instrument market: egypt, us, adsm}` → `{id: {ISO time: close}}` |
 | `getOrderBook(id)` | `GET /assets-service/market-depth/{id}` |
 | `getRecentTrades(id, limit, before?)` | `GET /assets-service/market-depth/v3/trades-book/{id}?page_size&before` |
 | `getMarketSession(market, board?)` | `GET /market-service/markets/status` + `GET /market-service/markets/hours` |
@@ -183,6 +212,6 @@ All on `https://prod.thndr.app`; KrakenD responses pass through `assertNoKrakend
 | --- | --- |
 | `getFinancials(ticker, mode, dataPointCount?)` | `GET x.thndr.app/api/financials?symbol&mode&dataPointCount` (404 or no series → `NOT_FOUND`) |
 | `getFinancialsBatch(tickers, mode)` | `GET x.thndr.app/api/financials?symbols=A,B&mode` (404 → empty) |
-| `getNews({assetId?, locale, page})` | `GET prod.thndr.app/api/post/news/?asset_id&locale&page` (404 past the last page → empty) |
+| `getNews({assetId?, market?, locale, page})` | `GET prod.thndr.app/api/post/news/?asset_id&locale&page` (404 past the last page → empty); with `market` and no asset (only `MARKET_NEWS_MARKETS` = `us`): `GET prod.thndr.app/krakend-thndr-app/news/v1/market?markets=us&page&page_size=25` |
 | `getEconomicIndicators()` | `GET x.thndr.app/api/macros` |
 | `getYearlyReturn(id)` | `GET prod.thndr.app/assets-service/assets/{id}?include_yearly_return=true` (`annual_return`) |

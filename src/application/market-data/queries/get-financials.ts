@@ -22,10 +22,12 @@ import {
 } from '../../../domain/market-data/sector-comparison';
 import { roundTo } from '../../../domain/shared-kernel/guards';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
-import { UpstreamError } from '../../errors';
+import { FeatureDisabledError, UpstreamError } from '../../errors';
 import { marketInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { MarketDataDependencies } from '../dependencies';
+import { dataMarket } from '../services/snapshot-market';
 
 const DEFAULT_PERIODS = 8;
 const DAY_MS = 86_400_000;
@@ -146,7 +148,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
   readonly name = 'get_financials';
   readonly title = 'Company financials';
   readonly description =
-    'Financial statements and ratios of a listed company from Thndr (balance sheet, income statement, cash flow, ' +
+    'Egypt only: financial statements and ratios of a listed company from Thndr (balance sheet, income statement, cash flow, ' +
     'profitability, leverage, growth, per-share data) by period, with each metric’s latest value. ' +
     '`compareToSector` adds ThndrX’s sector comparison: per metric the sector median/min/max and a percentile rank.';
   readonly context = 'market-data';
@@ -161,6 +163,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
     const periods = params.periods ?? DEFAULT_PERIODS;
     const market = parseMarket(params.market);
     const instrument = await this.deps.resolver.resolve(params.symbol, market);
+    requireMarketFeature(dataMarket(instrument.market), 'financials');
     const statements = await this.deps.research.getFinancials(instrument.ticker, mode, periods);
 
     const available = Object.keys(statements.series);
@@ -188,7 +191,11 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
       availableMetrics: available,
     };
     if (params.compareToSector)
-      Object.assign(view, await this.sectorComparison(instrument, statements, market, mode));
+      // The sector sample is the instrument's own market (e.g. Egypt for a simulator user looking at COMI).
+      Object.assign(
+        view,
+        await this.sectorComparison(instrument, statements, dataMarket(instrument.market), mode),
+      );
     return view;
   }
 
@@ -215,7 +222,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
         mode,
       );
     } catch (error) {
-      if (!(error instanceof UpstreamError)) throw error;
+      if (!(error instanceof UpstreamError || error instanceof FeatureDisabledError)) throw error;
       return {
         sectorComparison: null,
         notes: [
@@ -272,7 +279,7 @@ export class GetFinancials extends Query<typeof input, FinancialsView> {
     try {
       return await this.deps.repository.getCandles(instrument.id, '1d', from, to);
     } catch (error) {
-      if (error instanceof UpstreamError) return null;
+      if (error instanceof UpstreamError || error instanceof FeatureDisabledError) return null;
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 import { assertNonEmpty } from '../../../domain/shared-kernel/guards';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { idInput } from '../inputs';
@@ -24,6 +25,7 @@ export class GetAlert extends Query<typeof input, AlertView> {
   async execute(params: InputOf<typeof input>): Promise<AlertView> {
     const id = assertNonEmpty(params.id, 'Alert id');
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'priceAlerts');
     const alert = await findAlert(this.deps, id, market);
     const [view] = await toAlertViews(this.deps, [alert], market);
     return view as AlertView;

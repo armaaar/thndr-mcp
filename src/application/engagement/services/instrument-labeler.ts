@@ -3,6 +3,7 @@ import type { AssetId } from '../../../domain/shared-kernel/asset-id';
 import type { Market } from '../../../domain/shared-kernel/market';
 import type { InstrumentResolver } from '../../market-data/services/instrument-resolver';
 import type { MarketQuotesCache } from '../../market-data/services/market-quotes-cache';
+import { snapshotMarket } from '../../market-data/services/snapshot-market';
 import type { EngagementDependencies } from '../dependencies';
 import { emptyLabel, type InstrumentLabel, InstrumentLabels } from './instrument-labels';
 
@@ -24,7 +25,7 @@ export class InstrumentLabeler {
   async label(ids: readonly AssetId[], market: Market): Promise<InstrumentLabels> {
     const out = new Map<string, InstrumentLabel>();
     if (ids.length === 0) return new InstrumentLabels(out);
-    const snapshot = await this.quotes.get(market).catch(() => [] as Quote[]);
+    const snapshot = await this.snapshot(market);
     const byId = new Map(snapshot.map((q) => [q.instrumentId.value, q]));
     const missing: AssetId[] = [];
     for (const id of ids) {
@@ -59,7 +60,13 @@ export class InstrumentLabeler {
 
   /** Current traded price of one instrument from the snapshot, or null when unknown. */
   async currentPrice(id: AssetId, market: Market): Promise<number | null> {
-    const snapshot = await this.quotes.get(market).catch(() => [] as Quote[]);
+    const snapshot = await this.snapshot(market);
     return snapshot.find((q) => q.instrumentId.equals(id))?.last ?? null;
+  }
+
+  /** The whole-market quotes serving `market` — none for the US and the UAE, which have no snapshot (ADR 0021). */
+  private async snapshot(market: Market): Promise<Quote[]> {
+    const source = snapshotMarket(market);
+    return source ? this.quotes.get(source).catch(() => [] as Quote[]) : [];
   }
 }

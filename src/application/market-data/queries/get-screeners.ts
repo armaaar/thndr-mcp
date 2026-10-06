@@ -36,7 +36,8 @@ export class GetScreeners extends Query<typeof input, Screeners> {
   readonly name = 'get_screeners';
   readonly title = 'Screeners';
   readonly description =
-    "The user's saved Thndr screeners and ThndrX's built-in presets, each with its id, name and filters in plain " +
+    "Egypt (screen_market runs only on Egypt's snapshot): the user's saved Thndr screeners and ThndrX's built-in " +
+    'presets, each with its id, name and filters in plain ' +
     'words. Run one with screen_market (screenerId or preset).';
   readonly context = 'market-data';
   readonly input = input;

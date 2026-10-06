@@ -20,7 +20,7 @@ API: [docs/api/trading-and-portfolio.md](../api/trading-and-portfolio.md). Use c
 
 | Term | Meaning |
 | --- | --- |
-| **Market account** | Cash and holdings of one market (`egypt` → EGP, `us` → USD). Every query is per market. |
+| **Market account** | Cash and holdings of one market (`egypt` → EGP, `us` → USD, `uae` → AED, `simulator` → a paper account in EGP). Every query is per market; activity, returns, journal and savings exist only in some markets (ADR 0021). |
 | **Buying power** | Cash usable for new buys (wire `purchase_power`). |
 | **Blocked cash** | Cash reserved by open buy orders (wire `cash_in_holding`). |
 | **Unsettled cash** | Sale proceeds not settled yet (wire `unsettled_cash`). |
@@ -61,7 +61,7 @@ API: [docs/api/trading-and-portfolio.md](../api/trading-and-portfolio.md). Use c
 
 | Element | File | Invariants / derivations |
 | --- | --- | --- |
-| `AccountSummary` (`createAccountSummary`) | `account-summary.ts` | Buying power, blocked, unsettled cash and portfolio value must be finite; optional figures finite when present. Derives `availableCash` and `totalAccountValue`. `accountCurrency(market)`: `us` → USD, else EGP. |
+| `AccountSummary` (`createAccountSummary`) | `account-summary.ts` | Buying power, blocked, unsettled cash and portfolio value must be finite; optional figures finite when present. Derives `availableCash` and `totalAccountValue`. `accountCurrency(market)`: the market profile's currency (EGP, USD, AED; EGP for the simulator). |
 | `Position` (`createPosition`) | `position.ts` | Quantity finite and ≥ 0; optional numbers finite. Fallbacks (ThndrX formulas): `averageCost = costValue / qty`, `costValue = averageCost × qty`, `marketValue = qty × marketPrice`, `unrealizedPnl = marketValue − costValue`, `unrealizedPnlPercent = pnl / costValue × 100`. |
 | `computeAllocation(positions, portfolioValue?)` | `position.ts` | Pure. Basis = portfolio value when positive, else sum of market values; positions without price count as 0; heaviest first; per-asset-class groups. |
 | `SellableQuantity` / `quantityBucket` | `sellable-quantity.ts` | `available = max(total − blocked, 0)`; missing numbers count as 0. |
@@ -115,7 +115,7 @@ as the `repository` dependency:
 | `getClosedTrades(query)` | `GET /market-service/trading-journals/full-trades?market&page&limit&symbol_code&from_date&to_date` |
 | `getSellJournal(query)` | `GET /krakend-thndr-x/trading-journals/v1/grouped-sells` (same params) |
 | `getTradingMetrics(range)` | `GET /krakend-thndr-x/trading-journals/v1/trading-metrics?from_date&to_date` (no market) |
-| `listActivities(market, page, pageSize)` | `GET /funding-service/account-activities?provider=EGID\|ALPACA&page&page_size` |
+| `listActivities(market, page, pageSize)` | `GET /funding-service/account-activities?provider=EGID\|ALPACA\|ADX_UAE&page&page_size` (no feed for the simulator: empty page without a call) |
 | `getSavings()` | `GET /krakend-thndr-x/savings/v1/clouds` |
 | `getSavingsYields()` | `GET /krakend-thndr-x/savings/v1/clouds-stats` |
 

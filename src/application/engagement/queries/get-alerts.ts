@@ -1,5 +1,6 @@
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, pageInput, symbolInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
@@ -36,6 +37,7 @@ export class GetAlerts extends Query<typeof input, Output> {
 
   async execute(params: InputOf<typeof input>): Promise<Output> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'priceAlerts');
     if (params.symbol !== undefined) {
       const instrument = await this.deps.resolver.resolve(params.symbol, market);
       const alerts = await this.deps.repository.listAlertsForInstrument(instrument.id);

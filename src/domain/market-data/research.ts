@@ -1,4 +1,12 @@
+import type { Market } from '../shared-kernel/market';
+
 /** Research content Thndr publishes besides prices: news, Egypt's macro indicators and its own one-year return. */
+
+/**
+ * Markets with their own market-wide news feed (the mobile gateway's `news/v1/market`, live-verified for the US on
+ * 2026-10-06). Elsewhere market-wide news is Thndr's mixed feed.
+ */
+export const MARKET_NEWS_MARKETS: readonly Market[] = Object.freeze(['us']);
 
 export const NEWS_LOCALES = ['en', 'ar'] as const;
 export type NewsLocale = (typeof NEWS_LOCALES)[number];

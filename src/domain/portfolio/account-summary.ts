@@ -1,4 +1,5 @@
 import { assertFiniteNumber, roundTo } from '../shared-kernel/guards';
+import { MARKET_PROFILES, type Market } from '../shared-kernel/market';
 import type { Currency } from '../shared-kernel/money';
 
 /** Raw cash and portfolio figures of one market account (ThndrX "wallet and portfolio"). */
@@ -45,6 +46,6 @@ export function createAccountSummary(input: AccountSummaryInput): AccountSummary
 }
 
 /** Cash currency of a Thndr market account. */
-export function accountCurrency(market: 'egypt' | 'us'): Currency {
-  return market === 'us' ? 'USD' : 'EGP';
+export function accountCurrency(market: Market): Currency {
+  return MARKET_PROFILES[market].currency;
 }

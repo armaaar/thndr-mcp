@@ -9,6 +9,7 @@ const ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 const OTHER = 'b0a4c53e-b12f-4e93-b94b-759b8eeaef14';
 const API = 'https://prod.thndr.app';
 const KRAKEND = 'https://prod.thndr.app/krakend-thndr-x';
+const GATEWAY = 'https://prod.thndr.app/krakend-thndr-app';
 
 const tokens = { getAccessToken: async () => 'TOKEN', invalidate: () => {} };
 
@@ -22,7 +23,7 @@ function setup(...responders: Responder[]) {
       runtimeVersion: '3.8.3',
       correlationId: () => 'cid',
     });
-  return { fetch, gateway: new ThndrMarketDataRepository(client(API), client(KRAKEND)) };
+  return { fetch, gateway: new ThndrMarketDataRepository(client(API), client(KRAKEND), client(GATEWAY)) };
 }
 
 function url(raw: string | undefined) {
@@ -297,13 +298,24 @@ describe('ThndrMarketDataRepository', () => {
       });
     });
 
-    it('omits the board when not given and tolerates an hours failure', async () => {
+    it('sends Thndr’s board per market when none is given, and tolerates an hours failure', async () => {
       const { fetch, gateway } = setup((req) =>
         req.url.includes('/status') ? json({ is_active: false }) : json({ detail: { msg: 'x' } }, 500),
       );
       const session = await gateway.getMarketSession('us', null);
-      expect(fetch.calls.map((c) => c.url)).toContain(`${API}/market-service/markets/status?market=us`);
+      expect(fetch.calls.map((c) => c.url)).toContain(
+        `${API}/market-service/markets/status?market=us&market_exchange=NOPL`,
+      );
       expect(session).toEqual({ market: 'us', isOpen: false, opensAt: null, closesAt: null });
+      await gateway.getMarketSession('uae');
+      await gateway.getMarketSession('egypt');
+      expect(fetch.calls.map((c) => c.url)).toEqual(
+        expect.arrayContaining([
+          `${API}/market-service/markets/status?market=abudhabi&market_exchange=adsm`,
+          `${API}/market-service/markets/hours?market=abudhabi`,
+          `${API}/market-service/markets/status?market=egypt&market_exchange=NOPL`,
+        ]),
+      );
     });
 
     it('treats a non-boolean is_active as closed and propagates status failures', async () => {

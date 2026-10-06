@@ -9,6 +9,7 @@ import { ThndrResearchRepository } from '../research-repository';
 const ID = '1923d036-45ad-480b-8c6b-1d1296862f6e';
 const API = 'https://prod.thndr.app';
 const WEB = 'https://x.thndr.app/api';
+const GATEWAY = 'https://prod.thndr.app/krakend-thndr-app';
 
 const tokens = { getAccessToken: async () => 'TOKEN', invalidate: () => {} };
 
@@ -16,7 +17,7 @@ function setup(...responders: Responder[]) {
   const fetch = fakeFetch(...responders);
   const client = (baseUrl: string) =>
     new ThndrHttpClient({ baseUrl, fetch, tokenProvider: tokens, runtimeVersion: '3.8.3' });
-  return { fetch, repo: new ThndrResearchRepository(client(API), client(WEB)) };
+  return { fetch, repo: new ThndrResearchRepository(client(API), client(WEB), client(GATEWAY)) };
 }
 
 const notFound = () => json({ error: 'Symbol not found' }, 404);
@@ -95,6 +96,44 @@ describe('ThndrResearchRepository', () => {
       const { fetch, repo } = setup(() => json({ count: 0, next: null, results: [] }));
       await repo.getNews({ locale: 'en', page: 1 });
       expect(fetch.calls[0]?.url).toBe(`${API}/api/post/news/?locale=en&page=1`);
+    });
+
+    it('reads US market news from the mobile gateway, 25 per page', async () => {
+      const { fetch, repo } = setup(() =>
+        json({
+          count: 115538,
+          next: 'http://backend-service/api/post/news/?markets=us&page=3&page_size=25',
+          results: [
+            { id: 698475, title: 'Why Marvell Stock Rallied', market: 'us', stocks: [{ symbol: 'NVDA' }] },
+          ],
+        }),
+      );
+      const page = await repo.getNews({ market: 'us', locale: 'en', page: 2 });
+      expect(fetch.calls[0]?.url).toBe(`${GATEWAY}/news/v1/market?markets=us&page=2&page_size=25`);
+      expect(fetch.calls[0]?.headers.authorization).toBe('Bearer TOKEN');
+      expect(page).toMatchObject({
+        total: 115538,
+        hasMore: true,
+        articles: [{ id: '698475', tickers: ['NVDA'] }],
+      });
+    });
+
+    it('surfaces a KrakenD error of the market news, and answers an empty page past the last one', async () => {
+      const failed = () =>
+        json({ 'error_news-service': { http_status_code: 500, http_body: '{"detail":{"msg":"down"}}' } });
+      await expect(setup(failed).repo.getNews({ market: 'us', locale: 'en', page: 1 })).rejects.toThrow(
+        /down/,
+      );
+      const invalid = () => json({ detail: 'Invalid page.' }, 404);
+      expect(await setup(invalid).repo.getNews({ market: 'us', locale: 'en', page: 9 })).toMatchObject({
+        articles: [],
+      });
+    });
+
+    it('keeps the legacy feed for an instrument even when a market is given', async () => {
+      const { fetch, repo } = setup(() => json({ results: [] }));
+      await repo.getNews({ assetId: AssetId.of(ID), market: 'us', locale: 'en', page: 1 });
+      expect(fetch.calls[0]?.url).toBe(`${API}/api/post/news/?asset_id=${ID}&locale=en&page=1`);
     });
 
     it('answers an empty page past the last one, but not a 404 on the first page', async () => {

@@ -1,4 +1,5 @@
 import type { AssetId } from '../shared-kernel/asset-id';
+import type { Market } from '../shared-kernel/market';
 import type { Ticker } from '../shared-kernel/ticker';
 import type { FinancialMode, FinancialStatements } from './financials';
 import type { EconomicIndicators, NewsLocale, NewsPage, YearlyReturn } from './research';
@@ -6,6 +7,11 @@ import type { EconomicIndicators, NewsLocale, NewsPage, YearlyReturn } from './r
 export interface NewsQuery {
   /** Omit for market-wide news. */
   assetId?: AssetId;
+  /**
+   * Market-wide news of one market (only the markets in `MARKET_NEWS_MARKETS`); without it, market-wide news is
+   * Thndr's mixed feed of every market.
+   */
+  market?: Market;
   locale: NewsLocale;
   /** 1-based. */
   page: number;

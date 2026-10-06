@@ -1,4 +1,5 @@
 import type { Candle } from './candle';
+import type { ClosePoint } from './close-series';
 import { MARKET_TIME_ZONE } from './market-calendar';
 
 /** Trailing periods of {@link pricePerformance}. YTD starts at the last close of the previous calendar year. */
@@ -40,6 +41,8 @@ export interface Volatility {
 }
 
 export interface RangeExtremes {
+  /** `high-low`: daily highs and lows of candles; `close`: highest and lowest close (no intraday range known). */
+  basis: 'high-low' | 'close';
   high: number;
   highDate: string;
   low: number;
@@ -62,7 +65,10 @@ export interface PricePerformance {
   sessions: number;
   returns: PeriodReturn[];
   volatility: Volatility[];
-  /** Highest high and lowest low of the daily candles over the last 52 weeks (lows ≤ 0 replaced by the close). */
+  /**
+   * Over the last 52 weeks: the highest high and lowest low of daily candles (lows ≤ 0 replaced by the close), or the
+   * highest and lowest close for a close series.
+   */
   week52: RangeExtremes | null;
   /** Over the last year (from the 1Y base close), on closes. */
   maxDrawdown1Y: Drawdown | null;
@@ -117,14 +123,36 @@ function periodStart(period: PerformancePeriod, asOf: string): string {
   }
 }
 
-/** One session per market day (the last candle of a day wins), oldest first, positive closes only. */
-function sessions(candles: readonly Candle[]): Session[] {
+/** One session per market day (the last bar of a day wins), oldest first, positive closes only. */
+function sessions(bars: ReadonlyArray<Pick<Candle, 'time' | 'close' | 'high' | 'low'>>): Session[] {
   const byDay = new Map<string, Session>();
-  for (const c of [...candles].sort((a, b) => a.time.getTime() - b.time.getTime())) {
+  for (const c of [...bars].sort((a, b) => a.time.getTime() - b.time.getTime())) {
     if (!(c.close > 0)) continue;
     byDay.set(marketDay(c.time), { day: marketDay(c.time), close: c.close, high: c.high, low: c.low });
   }
   return [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day));
+}
+
+/** Calendar days between two market days. */
+function daysBetween(from: string, to: string): number {
+  return (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000;
+}
+
+/**
+ * Longest gap, in calendar days, between two consecutive sessions of a daily series (weekends and holidays included).
+ * A wider gap ends the daily part of a close series (Thndr's longer spans are weekly).
+ */
+export const MAX_DAILY_GAP_DAYS = 5;
+
+/** The trailing run of a series whose consecutive sessions are at most {@link MAX_DAILY_GAP_DAYS} apart. */
+function dailyTail(series: readonly Session[]): Session[] {
+  let start = series.length - 1;
+  while (
+    start > 0 &&
+    daysBetween((series[start - 1] as Session).day, (series[start] as Session).day) <= MAX_DAILY_GAP_DAYS
+  )
+    start--;
+  return series.slice(Math.max(start, 0));
 }
 
 /** Index of the last session on or before `day`, or -1. */
@@ -153,6 +181,25 @@ function stdev(values: readonly number[]): number {
  */
 export function pricePerformance(candles: readonly Candle[]): PricePerformance {
   const series = sessions(candles);
+  return performanceOf(series, series, 'high-low');
+}
+
+/**
+ * The same statistics from a closing-price series (markets without candles, ADR 0021). Returns and the drawdown use
+ * the closes as they are; the 52-week range is the highest and lowest close; volatility uses only the trailing daily
+ * part of the series (consecutive closes at most {@link MAX_DAILY_GAP_DAYS} days apart), so weekly points never pass
+ * for daily returns.
+ */
+export function closePerformance(points: readonly ClosePoint[]): PricePerformance {
+  const series = sessions(points.map((p) => ({ time: p.time, close: p.close, high: p.close, low: p.close })));
+  return performanceOf(series, dailyTail(series), 'close');
+}
+
+function performanceOf(
+  series: readonly Session[],
+  daily: readonly Session[],
+  basis: RangeExtremes['basis'],
+): PricePerformance {
   const last = series.at(-1);
   if (!last) {
     return {
@@ -178,7 +225,7 @@ export function pricePerformance(candles: readonly Candle[]): PricePerformance {
     };
   });
 
-  const logReturns = series.slice(1).map((s, i) => Math.log(s.close / (series[i] as Session).close));
+  const logReturns = daily.slice(1).map((s, i) => Math.log(s.close / (daily[i] as Session).close));
   const volatility = (Object.entries(VOLATILITY_WINDOWS) as Array<[VolatilityWindow, number]>).map(
     ([window, tradingDays]): Volatility => ({
       window,
@@ -196,7 +243,7 @@ export function pricePerformance(candles: readonly Candle[]): PricePerformance {
   for (const s of lastYear) {
     // A low ≤ 0 is a bad bar (closes are positive): fall back to the session's close.
     const low = s.low > 0 ? s.low : s.close;
-    if (!week52) week52 = { high: s.high, highDate: s.day, low, lowDate: s.day };
+    if (!week52) week52 = { basis, high: s.high, highDate: s.day, low, lowDate: s.day };
     if (s.high > week52.high) Object.assign(week52, { high: s.high, highDate: s.day });
     if (low < week52.low) Object.assign(week52, { low, lowDate: s.day });
   }

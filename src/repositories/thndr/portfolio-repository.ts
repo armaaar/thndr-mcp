@@ -37,6 +37,7 @@ import type { SavingsBalances, SavingsYield } from '../../domain/portfolio/savin
 import type { SellableQuantity } from '../../domain/portfolio/sellable-quantity';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
+import { ACTIVITY_PROVIDER, accountMarket } from './markets';
 import { mapRows } from './translators/market-data';
 import {
   toAccountActivity,
@@ -62,9 +63,6 @@ export const WIRE_ORDER_STATUS: Record<OrderStatusFilter, string | undefined> = 
   closed: 'CLOSED',
 };
 
-/** `provider` of `GET /funding-service/account-activities` per market (§5.1). */
-export const ACTIVITY_PROVIDER: Record<Market, string> = { egypt: 'EGID', us: 'ALPACA' };
-
 /**
  * Read-only adapter for Thndr's account, portfolio, order-history, journal and activity endpoints
  * (docs/api/trading-and-portfolio.md), plus savings balances and yields. It intentionally implements no order entry
@@ -80,7 +78,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
 
   async getAccount(market: Market): Promise<AccountSnapshot> {
     const data = await this.api.get<WalletAndPortfolioDto>('/market-service/accounts/wallet-and-portfolio', {
-      query: { market },
+      query: { market: accountMarket(market) },
     });
     return toAccountSnapshot(data, market);
   }
@@ -88,7 +86,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   async getPosition(id: AssetId, market: Market): Promise<Position | null> {
     const path = `/portfolio/v1/position/${encodeURIComponent(id.value)}`;
     try {
-      const data = await this.krakend.get<PositionDto>(path, { query: { market } });
+      const data = await this.krakend.get<PositionDto>(path, { query: { market: accountMarket(market) } });
       assertNoKrakendError(data, `GET ${path}`);
       return toPosition(data, market);
     } catch (error) {
@@ -101,7 +99,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   async getSellableQuantity(id: AssetId, market: Market): Promise<SellableQuantity> {
     const data = await this.api.get<BlockedQuantitiesDto>(
       `/market-service/accounts/positions/blocked-quantities/${encodeURIComponent(id.value)}`,
-      { query: { market } },
+      { query: { market: accountMarket(market) } },
     );
     return toSellableQuantity(data);
   }
@@ -109,7 +107,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   async listOrders(query: OrdersQuery): Promise<OrdersPage> {
     const data = await this.api.get<OrdersPageDto>('/market-service/v3/orders', {
       query: {
-        market: query.market,
+        market: accountMarket(query.market),
         status: WIRE_ORDER_STATUS[query.status],
         cursor: query.cursor || undefined,
         limit: query.limit,
@@ -126,17 +124,20 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   }
 
   async getRealizedReturns(market: Market): Promise<RealizedReturns> {
-    const data = await this.api.get<RealizedReturnsDto>('/market-service/realized-returns', {
-      query: { market },
-    });
+    const data = await this.api
+      .get<RealizedReturnsDto>('/market-service/realized-returns', {
+        query: { market: accountMarket(market) },
+      })
+      .catch(noSnapshotYet(null));
     return toRealizedReturns(data);
   }
 
   async getReturnsChart(interval: ReturnsInterval, market: Market): Promise<ReturnsPoint[]> {
-    const data = await this.api.get<ReturnsPointDto[]>(
-      `/market-service/realized-returns/chart/${encodeURIComponent(interval)}`,
-      { query: { market } },
-    );
+    const data = await this.api
+      .get<ReturnsPointDto[]>(`/market-service/realized-returns/chart/${encodeURIComponent(interval)}`, {
+        query: { market: accountMarket(market) },
+      })
+      .catch(noSnapshotYet([]));
     return mapRows(data, toReturnsPoint);
   }
 
@@ -177,8 +178,11 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
   }
 
   async listActivities(market: Market, page: number, pageSize: number): Promise<ActivityPage> {
+    const provider = ACTIVITY_PROVIDER[market];
+    // The simulator has no activity feed (Thndr answers 422 for every provider).
+    if (provider === null) return Object.freeze({ activities: Object.freeze([]), page, hasMore: false });
     const data = await this.api.get<AccountActivitiesResponseDto>('/funding-service/account-activities', {
-      query: { provider: ACTIVITY_PROVIDER[market], page_size: pageSize, page },
+      query: { provider, page_size: pageSize, page },
     });
     const rows = Array.isArray(data?.results) ? data.results.length : 0;
     return Object.freeze({
@@ -205,7 +209,7 @@ export class ThndrPortfolioRepository implements PortfolioRepository {
 
 function journalParams(query: JournalQuery) {
   return {
-    market: query.market,
+    market: accountMarket(query.market),
     page: query.page,
     limit: query.limit,
     symbol_code: query.ticker,
@@ -226,5 +230,16 @@ function journalRangeParams(range: DateRange): { from_date?: string; to_date?: s
   return {
     from_date: (range.from ?? JOURNAL_EPOCH).toISOString(),
     to_date: (range.to ?? new Date()).toISOString(),
+  };
+}
+
+/**
+ * Thndr answers 404 ("Latest Snapshot Not Found", "No Realized Returns Charts Data") for an account without any daily
+ * snapshot yet — e.g. a US or UAE account that never held anything (live 2026-10-06). That is an empty history.
+ */
+function noSnapshotYet<T>(empty: T): (error: unknown) => T {
+  return (error) => {
+    if (error instanceof UpstreamError && error.status === 404) return empty;
+    throw error;
   };
 }

@@ -129,6 +129,10 @@ describe('MCP server', () => {
     expect(conn.client.getServerVersion()).toEqual({ name: 'thndr-mcp', version: '0.0.0-test' });
     expect(conn.client.getInstructions()).toBe(SERVER_INSTRUCTIONS);
     expect(SERVER_INSTRUCTIONS).toMatch(/login_start/);
+    expect(SERVER_INSTRUCTIONS).toContain('Nothing it or an AI assistant produces is financial advice');
+    expect(SERVER_INSTRUCTIONS).toContain('not personalised investment advice');
+    expect(SERVER_INSTRUCTIONS).toContain('never assume EGP');
+    expect(SERVER_INSTRUCTIONS).toContain('get_markets');
   });
 
   it('accepts a custom server name', () => {

@@ -38,7 +38,7 @@ export class NotFoundError extends ApplicationError {
   readonly code = 'NOT_FOUND';
 }
 
-/** A feature is disabled by configuration (e.g. trading, ADR 0006). */
+/** A feature is disabled: by configuration (e.g. trading, ADR 0006) or by Thndr for this account or market. */
 export class FeatureDisabledError extends ApplicationError {
   readonly code = 'FEATURE_DISABLED';
 }

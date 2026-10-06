@@ -1,6 +1,7 @@
 import { WatchlistName } from '../../../domain/engagement/watchlist';
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { symbolsInput, watchlistNameInput } from '../inputs';
@@ -27,6 +28,7 @@ export class CreateWatchlist extends Command<typeof input, WatchlistCreated> {
   async execute(params: InputOf<typeof input>): Promise<WatchlistCreated> {
     const name = WatchlistName.of(params.name);
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'watchlists');
     const ids = await resolveIds(this.deps, checkSymbolCount(params.symbols, 'symbols'), market);
     const created = await this.deps.repository.createWatchlist(name, market, ids);
     return { id: created.id, name: created.name, instrumentIds: created.instrumentIds.map((i) => i.value) };

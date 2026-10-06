@@ -9,6 +9,7 @@ import type { DateRange } from '../../../domain/portfolio/journal';
 import { ValidationError } from '../../../domain/shared-kernel/errors';
 import { type Market, parseMarket } from '../../../domain/shared-kernel/market';
 import { marketInput, pageInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { clamp } from '../../paging';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
@@ -54,6 +55,7 @@ export class ListAccountActivity extends Query<typeof input, AccountActivityResu
 
   async execute(params: InputOf<typeof input>): Promise<AccountActivityResult> {
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'activity');
     const category = parseActivityCategory(params.category);
     const keep = (a: AccountActivity) => category === null || a.category === category;
     const range = resolveRange(params, this.deps.clock, 'Activity');

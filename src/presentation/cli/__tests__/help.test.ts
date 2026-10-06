@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { byName, FakeCommand, FakeQuery, fakeUseCases } from '../../../__tests__/support/fake-use-cases';
+import { terminalDisclaimer } from '../../presenters/disclaimer';
 import { renderCommandHelp, renderOverview } from '../help';
 
 const useCase = (name: string) => byName(fakeUseCases(), name);
@@ -30,7 +31,8 @@ describe('renderOverview', () => {
     expect(out).toContain('  get-position        Position');
     expect(out).toContain('  delete-watchlist    Delete watchlist');
     expect(out).toContain('  create-watchlist    Create watchlist');
-    expect(lines.at(-1)).toMatch(/^Run `thndr <command> --help`/);
+    expect(out).toContain('Run `thndr <command> --help`');
+    expect(out.endsWith(terminalDisclaimer())).toBe(true);
   });
 
   it('keeps the login line aligned when every command name is shorter than "login"', () => {

@@ -1,6 +1,9 @@
 # thndr-mcp documentation
 
-thndr-mcp is a community, **unofficial**, read-only (with respect to money) MCP server **and CLI** for the
+> Unofficial, not affiliated with Thndr, not financial advice, provided "AS IS" at your own risk — see the
+> [Disclaimer](../DISCLAIMER.md).
+
+thndr-mcp is a community, **unofficial**, currently read-only (with respect to money) MCP server **and CLI** for the
 [Thndr](https://thndr.app) broker on the Egyptian Exchange (EGX). It is built with Domain-Driven Design
 ([ADR 0003](adr/0003-ddd-hexagonal-architecture.md)) in five Clean Architecture layers — domain, application,
 repositories, data sources, presentation — with Command–Query Separation and an enforced context map
@@ -32,6 +35,9 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [0016](adr/0016-login-on-demand-via-mcp-elicitation.md) | Login on demand: a tool that needs a session triggers the guided login (shared with `thndr login`) and is retried once; dialog refined by 0017. |
 | [0017](adr/0017-browser-login-page.md) | The MCP login runs in a local browser page (127.0.0.1, random token): email, code, then the approval QR code; works with or without elicitation (Claude Code, Claude Desktop, …). |
 | [0018](adr/0018-analytics-from-thndr-data-only.md) | New analytics (allocation, performance, index members, peers, financials, news, macro data, savings, screeners) use only Thndr data and no paid features; no crawling to fake missing endpoints. |
+| [0019](adr/0019-document-write-operations.md) | Write operations (orders, funding, subscriptions…) are documented with full request shapes in marked sections; implementing any needs a superseding ADR. |
+| [0020](adr/0020-apache-license-and-disclaimer.md) | Apache-2.0 (unmodified) plus NOTICE and DISCLAIMER.md; the disclaimer is shown in the README, CLI, MCP instructions and login page. |
+| [0021](adr/0021-all-thndr-markets.md) | Markets egypt, us, uae and simulator, Thndr's wire codes mapped in the adapters, and a per-market feature table that makes unsupported combinations fail fast. |
 
 ## Domains — [`domains/`](domains/README.md)
 
@@ -60,6 +66,7 @@ shared path ([ADR 0012](adr/0012-use-case-classes-shared-by-mcp-and-cli.md)), sh
 | [auth.md](api/auth.md) | Firebase identity, device-approval 2FA, full-access token exchange, refresh and logout. |
 | [market-data.md](api/market-data.md) | Assets, marketwatch, charts/candles, market depth, trades book, watchlists, screeners, price alerts, notifications. |
 | [trading-and-portfolio.md](api/trading-and-portfolio.md) | Wallet and portfolio, positions, orders, realized returns, trading journal, account activity, market status. |
+| [mobile-app.md](api/mobile-app.md) | The Thndr Android app's API per market (Egypt, US, UAE): markets a user has, mobile gateway, quotes, charts, account, new read-only features, cross-check with ours, write operations (documented, not implemented). |
 | [endpoints.generated.md](api/endpoints.generated.md) | Generated list of base URLs and paths found in the ThndrX bundle (`npm run sync:api`); do not edit. |
 
 ## Context map

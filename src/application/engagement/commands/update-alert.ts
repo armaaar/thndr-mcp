@@ -8,6 +8,7 @@ import { assertNonEmpty, assertPositive } from '../../../domain/shared-kernel/gu
 import { parseMarket } from '../../../domain/shared-kernel/market';
 import { UpstreamError } from '../../errors';
 import { marketInput } from '../../inputs';
+import { requireMarketFeature } from '../../market-features';
 import { Command, type InputOf } from '../../use-case';
 import type { EngagementDependencies } from '../dependencies';
 import { directionInput, frequencyInput, idInput, priceInput } from '../inputs';
@@ -52,6 +53,7 @@ export class UpdateAlert extends Command<typeof input, Output> {
       throw new ValidationError('Nothing to change: provide a new price, direction or frequency');
     }
     const market = parseMarket(params.market);
+    requireMarketFeature(market, 'priceAlerts');
     const existing = await findAlert(this.deps, id, market);
     const price = params.price ?? existing.targetPrice;
     const frequency = explicitFrequency ?? existing.frequency ?? DEFAULT_ALERT_FREQUENCY;

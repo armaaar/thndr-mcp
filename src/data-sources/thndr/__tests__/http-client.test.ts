@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fakeFetch, json } from '../../../__tests__/support/fake-fetch';
-import { NotAuthenticatedError, UpstreamError } from '../../../application/errors';
+import { FeatureDisabledError, NotAuthenticatedError, UpstreamError } from '../../../application/errors';
 import { describeError, rateLimitWaitMs, ThndrHttpClient } from '../http-client';
 
 function tokens(...values: string[]) {
@@ -189,6 +189,54 @@ describe('ThndrHttpClient', () => {
     await vi.runAllTimersAsync();
     expect(await pending).toEqual({ v: 3 });
     vi.useRealTimers();
+  });
+
+  it('does not refresh the token for a feature-disabled 403', async () => {
+    const fetch = fakeFetch(() =>
+      json({ detail: { msg: 'Feature disabled for user', type: 'FEATURE_DISABLED_FOR_USER' } }, 403),
+    );
+    const tp = tokens('T');
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tp,
+      runtimeVersion: '1',
+    });
+    const error = await client.get('/x').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(FeatureDisabledError);
+    expect((error as Error).message).toBe(
+      'Thndr does not offer this for your account or market (GET /x): Feature disabled for user',
+    );
+    expect(tp.invalidate).not.toHaveBeenCalled();
+    expect(fetch.calls).toHaveLength(1);
+    const noMsg = fakeFetch(() => json({ detail: { type: 'FEATURE_DISABLED_FOR_USER' } }, 403));
+    await expect(
+      new ThndrHttpClient({
+        baseUrl: 'https://api.test',
+        fetch: noMsg,
+        tokenProvider: tp,
+        runtimeVersion: '1',
+      }).get('/y'),
+    ).rejects.toThrow('Feature disabled for the user');
+  });
+
+  it('still refreshes for any other 403, including a non-JSON one', async () => {
+    const fetch = fakeFetch(
+      () => new Response('forbidden', { status: 403 }),
+      () => json({ v: 1 }),
+      () => json({ detail: { type: 'OTHER' } }, 403),
+      () => json({ v: 2 }),
+    );
+    const tp = tokens('A', 'B', 'C', 'D');
+    const client = new ThndrHttpClient({
+      baseUrl: 'https://api.test',
+      fetch,
+      tokenProvider: tp,
+      runtimeVersion: '1',
+    });
+    expect(await client.get('/x')).toEqual({ v: 1 });
+    expect(await client.get('/z')).toEqual({ v: 2 });
+    expect(tp.invalidate).toHaveBeenCalledTimes(2);
   });
 
   it('throws NotAuthenticatedError when the retry is still 401', async () => {

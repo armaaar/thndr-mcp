@@ -110,10 +110,10 @@ Small, stable concepts every context may use. Changes here affect everyone, so k
 | --- | --- |
 | `errors.ts` | `DomainError` (abstract, has `code`), `ValidationError` (`VALIDATION_ERROR`), `BusinessRuleViolation` (custom code). |
 | `guards.ts` | `assertFiniteNumber`, `assertPositive`, `assertPositiveInteger`, `assertNonEmpty`, `roundTo` (float-safe rounding). |
-| `money.ts` | `Money` value object (amount rounded to 4 decimals, currency `EGP` or `USD`, same-currency arithmetic). |
+| `money.ts` | `Money` value object (amount rounded to 4 decimals, currency `EGP`, `USD` or `AED`, same-currency arithmetic). |
 | `ticker.ts` | `Ticker` value object: trimmed, upper-cased, `^[A-Z0-9][A-Z0-9._-]{0,14}$`. |
 | `asset-id.ts` | `AssetId` value object: Thndr's instrument identifier (a UUID, lower-cased). |
-| `market.ts` | `Market` (`egypt` default, `us`) with `parseMarket` (aliases `egx`, `eg`, `usa`); `AssetClass` with `parseAssetClass`. |
+| `market.ts` | `Market` (`egypt` default, `us`, `uae`, `simulator`) with `parseMarket`, `MARKET_PROFILES` (name, currency, time zone) and the per-market feature table (`marketSupports`, `marketsSupporting`, ADR 0021); `AssetClass` with `parseAssetClass`. |
 
 Application-level errors (`src/application/errors.ts`) are shared across contexts too: `NOT_AUTHENTICATED`,
 `SESSION_EXPIRED`, `NOT_FOUND`, `UPSTREAM_ERROR`, `FEATURE_DISABLED`. The presenter `presentError`

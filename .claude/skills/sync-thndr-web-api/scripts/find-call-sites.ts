@@ -1,7 +1,7 @@
 /**
  * Finds the call sites of an API path in the synced ThndrX bundle, beautifying matching chunks on demand.
  *
- *   npx tsx .claude/skills/sync-thndr-api/scripts/find-call-sites.ts "/market-service/v3/orders" [context-lines]
+ *   npx tsx .claude/skills/sync-thndr-web-api/scripts/find-call-sites.ts "/market-service/v3/orders" [context-lines]
  *
  * Requires `npm run sync:api` first (bundle in .cache/thndr-bundle/js).
  */

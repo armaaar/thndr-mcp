@@ -1,6 +1,12 @@
 # thndr-mcp
 
-An **unofficial, community** toolkit for [Thndr](https://thndr.app), the Egyptian Exchange (EGX) broker, with two
+> **Unofficial and not affiliated with Thndr. Not financial advice. Provided "AS IS", at your own risk — to the maximum
+> extent permitted by law, the maintainers accept no responsibility for financial decisions, losses or any other
+> liability arising from its use.**
+> Read the [Disclaimer](#disclaimer) before using it.
+
+An **unofficial, community** toolkit for [Thndr](https://thndr.app), the broker for the Egyptian Exchange (EGX), US
+stocks (NYSE, Nasdaq and ETFs, through Alpaca) and the Abu Dhabi Securities Exchange (ADX), with two
 interfaces that offer **exactly the same use cases**:
 
 - **`thndr-mcp`**: a [Model Context Protocol](https://modelcontextprotocol.io) server. Ask Claude about your
@@ -15,9 +21,9 @@ Both are generated from the same list of use-case classes and run them through o
 
 > Thndr publishes no API. This project uses the private API of Thndr's own web platform
 > [ThndrX](https://x.thndr.app), reverse-engineered from its public JavaScript (see [`docs/api`](docs/api)). It is
-> not affiliated with or endorsed by Thndr. It may break when Thndr changes things. Use at your own risk.
+> not affiliated with or endorsed by Thndr. It may break when Thndr changes things. See the [Disclaimer](#disclaimer).
 
-**Read-only for money ([ADR 0006](docs/adr/0006-trading-safety.md)):** neither interface ever places, modifies or cancels
+**Currently read-only for money ([ADR 0006](docs/adr/0006-trading-safety.md)):** neither interface places, modifies or cancels
 orders and never moves funds. Trade in the Thndr app.
 
 ## Requirements
@@ -103,10 +109,16 @@ The session is stored in `~/.config/thndr-mcp/session.json` (mode `0600`). Delet
 
 ## Use cases (MCP tools = CLI commands)
 
+Every tool takes a `market`: `egypt` (EGX, default), `us`, `uae` or `simulator` (Thndr's paper-trading account).
+Thndr offers different features per market — for example the order book, financials and whole-market screens exist only
+for Egypt, and US/UAE price history is closing prices only — so a tool asked for something a market lacks answers
+`FEATURE_DISABLED` and says where it is available. `get_markets` lists your markets and what works in each
+([ADR 0021](docs/adr/0021-all-thndr-markets.md)).
+
 | Area | MCP tool names (CLI uses kebab-case) |
 | --- | --- |
 | Session | `auth_status`, `login_start`, `login_verify_code`, `login_request_approval`, `login_complete`, `login_import_session`, `logout` |
-| Market data | `search_instruments`, `get_instrument_details`, `get_price_snapshot`, `get_price_history`, `get_market_depth`, `get_recent_trades`, `get_market_status`, `screen_market`, `get_screeners`, `get_index_constituents`, `get_peers`, `get_price_performance`, `get_financials`, `get_news`, `get_economic_indicators` |
+| Market data | `search_instruments`, `get_instrument_details`, `get_price_snapshot`, `get_price_history`, `get_market_depth`, `get_recent_trades`, `get_market_status`, `screen_market`, `get_screeners`, `get_index_constituents`, `get_peers`, `get_price_performance`, `get_financials`, `get_news`, `get_economic_indicators`, `get_markets`, `get_market_movers`, `get_trending`, `get_tags`, `get_tag_instruments`, `get_dividends` |
 | Portfolio | `get_account_summary`, `get_account_positions`, `get_position`, `get_account_orders`, `get_realized_returns`, `get_closed_trades`, `get_sell_journal`, `get_trading_metrics`, `get_account_activity`, `get_portfolio_allocation`, `get_portfolio_performance`, `get_savings` |
 | Engagement | `get_watchlists`, `get_watchlist`, `create_watchlist`, `edit_watchlist`, `delete_watchlist`, `get_alerts`, `get_alert`, `create_alert`, `update_alert`, `delete_alert`, `get_notifications`, `mark_notifications_read` |
 
@@ -148,6 +160,45 @@ Firebase, session file, logging), and `src/presentation` (presenters, MCP and CL
 See [`docs/`](docs/README.md) for ADRs, domain models, use cases and the API specs, and [`CLAUDE.md`](CLAUDE.md) for
 contributor rules.
 
+## Disclaimer
+
+**Unofficial project.** thndr-mcp is an independent, community, open-source project. It is not affiliated with,
+endorsed, sponsored or supported by Thndr (Thndr Technology Holding, Thndr Securities Brokerage), Axis Markets, Alpaca
+Securities LLC, the Egyptian Exchange (EGX), Egypt's Financial Regulatory Authority (FRA), the Abu Dhabi Securities
+Exchange (ADX) or Anthropic. All names and trademarks belong to their owners and are used only to identify the
+services this software works with.
+
+**Not financial advice.** Nothing this software produces — data, calculations, or anything an AI assistant generates
+from them — is financial, investment, tax or legal advice, or a recommendation to buy, sell or hold any security. The
+maintainers and contributors are not licensed brokers or investment advisers. Investing carries risk, including the
+loss of capital. Do your own research and consult a licensed professional.
+
+**AI output can be wrong.** AI assistants can misread data, invent figures or draw wrong conclusions. Check everything
+in the official Thndr app before you act.
+
+**No warranty; use at your own risk.** The software is provided "AS IS", without warranty of any kind (see
+[LICENSE](LICENSE)). It relies on a private, undocumented API that Thndr may change, limit or block at any time. Data
+may be incomplete, delayed, wrong or unavailable. To the maximum extent permitted by applicable law, the maintainers
+and contributors are not liable for any loss or damage arising from the software or its use, including trading or
+investment losses, lost profits, decisions based on its output, data errors, delays, outages, and any restriction,
+suspension or closure of your account or other action by Thndr or any third party.
+
+**Your responsibility.** You alone are responsible for how you use this software. You must comply with Thndr's terms
+and client agreements and with the securities laws and regulations that apply to you. Using an unofficial client may
+breach your broker's terms.
+
+**Interoperability.** The API was learned by observing Thndr's own web and mobile apps, used with the maintainers' own
+accounts, solely so that independently written software can work with Thndr. thndr-mcp accesses only your own
+account, with your own credentials. This repository contains no copy of Thndr's apps; `docs/api` quotes only short
+excerpts of client code where they are needed to describe the interface.
+
+**Privacy.** thndr-mcp runs on your computer and sends nothing to the maintainers. It talks to Thndr and its service
+providers. Data you ask an AI assistant to analyse goes to that assistant's provider under the provider's terms. Your
+session token is stored locally: protect it like a password.
+
+The same text is in [DISCLAIMER.md](DISCLAIMER.md).
+
 ## License
 
-MIT
+[Apache License 2.0](LICENSE). See also [NOTICE](NOTICE). Contributions are accepted under the same license
+([CONTRIBUTING.md](CONTRIBUTING.md)); report vulnerabilities as described in [SECURITY.md](SECURITY.md).

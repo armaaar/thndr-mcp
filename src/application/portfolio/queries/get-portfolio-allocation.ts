@@ -6,20 +6,34 @@ import {
   NO_INDEX,
   sectorBucket,
 } from '../../../domain/portfolio/allocation';
-import { type AssetClassWeight, computeAllocation } from '../../../domain/portfolio/position';
+import {
+  type AssetClassWeight,
+  computeAllocation,
+  type PositionWeight,
+} from '../../../domain/portfolio/position';
 import type { AssetClass, Market } from '../../../domain/shared-kernel/market';
-import { parseMarket } from '../../../domain/shared-kernel/market';
+import { MARKET_PROFILES, marketSupports, parseMarket } from '../../../domain/shared-kernel/market';
+import { FeatureDisabledError, NotFoundError, UpstreamError } from '../../errors';
 import { marketInput } from '../../inputs';
+import { snapshotMarket } from '../../market-data/services/snapshot-market';
 import { type InputOf, Query } from '../../use-case';
 import type { PortfolioDependencies } from '../dependencies';
 
 const input = { market: marketInput };
 
+/** Instrument-details lookups for sectors missing from the market snapshot, heaviest holdings first. */
+export const MAX_SECTOR_LOOKUPS = 30;
+/** Lookups in flight at once (Thndr rate-limits bursts). */
+const LOOKUP_CONCURRENCY = 5;
+
 export interface AllocationHolding {
   readonly ticker: string;
   readonly instrumentId: string | null;
   readonly assetClass: AssetClass;
-  /** Sector bucket: the market snapshot's sector, `Funds (no sector)` or `Unclassified`. */
+  /**
+   * Sector bucket: the market snapshot's sector (Egypt), else the instrument's industry from its details, else
+   * `Funds (no sector)` or `Unclassified`.
+   */
   readonly sector: string;
   /** Symbols of the indices the holding belongs to. */
   readonly indices: readonly string[];
@@ -46,9 +60,11 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
   readonly name = 'get_portfolio_allocation';
   readonly title = 'Portfolio allocation';
   readonly description =
-    'Holdings weighted by market value and grouped by asset class, by sector (from the market snapshot; ' +
-    '"Unclassified" or "Funds (no sector)" when Thndr gives none) and by index membership (EGX30, EGX70 EWI, ' +
-    'Shariah…). Index buckets overlap and do not sum to 100%.';
+    'All markets: holdings weighted by market value and grouped by asset class and by sector ("Unclassified" or ' +
+    '"Funds (no sector)" when Thndr gives none). Egypt (and the simulator, through Egypt\'s data): sectors from the ' +
+    'market snapshot and buckets by index membership (EGX30, EGX70 EWI, Shariah…; they overlap and do not sum to ' +
+    `100%). US and UAE: sectors from instrument details (at most ${MAX_SECTOR_LOOKUPS} holdings, heaviest first) and ` +
+    'no index buckets.';
   readonly context = 'portfolio';
   readonly input = input;
 
@@ -58,25 +74,34 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
 
   async execute(params: InputOf<typeof input>): Promise<PortfolioAllocationResult> {
     const market = parseMarket(params.market);
+    // US/UAE have no marketwatch (Thndr answers 400); the simulator trades Egypt's listings and reads Egypt's.
+    const snapshot = snapshotMarket(market);
+    const withIndices = snapshot !== null && marketSupports(snapshot, 'indices');
     const [{ summary, positions }, quotes, membership] = await Promise.all([
       this.deps.repository.getAccount(market),
-      this.deps.quotes.get(market),
-      this.deps.indices.membership(market),
+      snapshot ? this.deps.quotes.get(snapshot) : Promise.resolve([] as Quote[]),
+      withIndices ? this.deps.indices.membership(snapshot) : Promise.resolve(new Map<string, string[]>()),
     ]);
     const allocation = computeAllocation(positions, summary.portfolioValue);
     const byId = new Map<string, Quote>(quotes.map((q) => [q.instrumentId.value, q]));
     const byTicker = new Map<string, Quote>(quotes.map((q) => [q.ticker.value, q]));
+    const quoteOf = (p: PositionWeight) =>
+      (p.instrumentId ? byId.get(p.instrumentId.value) : undefined) ?? byTicker.get(p.ticker.value);
+    const details = await this.sectorsFromDetails(
+      allocation.positions.filter((p) => !quoteOf(p)),
+      market,
+    );
 
     const holdings: AllocationHolding[] = allocation.positions.map((p) => {
-      const quote =
-        (p.instrumentId ? byId.get(p.instrumentId.value) : undefined) ?? byTicker.get(p.ticker.value);
+      const quote = quoteOf(p);
       // The matched quote's id is the snapshot's (and the index members') id; the position's id is only a fallback.
       const id = quote?.instrumentId.value ?? p.instrumentId?.value ?? null;
+      const sector = quote ? quote.sector : id ? details.sectors.get(id) : undefined;
       return Object.freeze({
         ticker: p.ticker.value,
         instrumentId: id,
         assetClass: p.assetClass,
-        sector: sectorBucket(quote?.sector, p.assetClass),
+        sector: sectorBucket(sector, p.assetClass),
         indices: Object.freeze([...((id ? membership.get(id) : undefined) ?? [])].sort()),
         marketValue: p.marketValue,
         weightPercent: p.weightPercent,
@@ -84,6 +109,29 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
     });
 
     const basis = allocation.basis;
+    const notes = [
+      'Weights are shares of the portfolio value (market value of positions; cash is excluded).',
+    ];
+    if (withIndices) {
+      notes.push(
+        'Index buckets overlap: a holding counts in every index it belongs to, so they do not sum to 100%.',
+        'Sectors come from Thndr\'s market snapshot; funds have no sector there and are grouped as "Funds (no sector)".',
+      );
+    } else {
+      notes.push(
+        `No index buckets: Thndr publishes index membership only for Egypt, not for the ${MARKET_PROFILES[market].name} market.`,
+      );
+    }
+    if (details.looked > 0 || details.skipped > 0)
+      notes.push(
+        `Sectors of ${details.looked} holding(s) absent from a market snapshot come from their instrument details ` +
+          `(Thndr's industry), at most ${MAX_SECTOR_LOOKUPS}, heaviest first` +
+          (details.skipped > 0
+            ? `; ${details.skipped} lighter holding(s) were not looked up (Unclassified)`
+            : '') +
+          (details.failed > 0 ? `; ${details.failed} lookup(s) failed (Unclassified)` : '') +
+          '.',
+      );
     return {
       market,
       currency: summary.currency,
@@ -93,12 +141,48 @@ export class GetPortfolioAllocation extends Query<typeof input, PortfolioAllocat
       holdings,
       byAssetClass: allocation.byAssetClass,
       bySector: groupAllocation(holdings, basis, (h) => [h.sector]),
-      byIndex: groupAllocation(holdings, basis, (h) => (h.indices.length > 0 ? h.indices : [NO_INDEX])),
-      notes: [
-        'Weights are shares of the portfolio value (market value of positions; cash is excluded).',
-        'Index buckets overlap: a holding counts in every index it belongs to, so they do not sum to 100%.',
-        'Sectors come from Thndr\'s market snapshot; funds have no sector there and are grouped as "Funds (no sector)".',
-      ],
+      byIndex: withIndices
+        ? groupAllocation(holdings, basis, (h) => (h.indices.length > 0 ? h.indices : [NO_INDEX]))
+        : [],
+      notes,
     };
+  }
+
+  /**
+   * Sectors (Thndr's industry) of holdings the snapshot does not cover, from instrument details: holdings with an
+   * instrument id, heaviest first, at most {@link MAX_SECTOR_LOOKUPS}; a failed lookup leaves the holding unclassified.
+   */
+  private async sectorsFromDetails(
+    uncovered: readonly PositionWeight[],
+    market: Market,
+  ): Promise<{ sectors: Map<string, string | null>; looked: number; skipped: number; failed: number }> {
+    const withId = [...uncovered]
+      .filter((p) => p.instrumentId !== null)
+      .sort((a, b) => b.marketValue - a.marketValue);
+    const chosen = withId.slice(0, MAX_SECTOR_LOOKUPS);
+    const sectors = new Map<string, string | null>();
+    let failed = 0;
+    for (let i = 0; i < chosen.length; i += LOOKUP_CONCURRENCY) {
+      await Promise.all(
+        chosen.slice(i, i + LOOKUP_CONCURRENCY).map(async (p) => {
+          const id = (p.instrumentId as NonNullable<PositionWeight['instrumentId']>).value;
+          try {
+            sectors.set(id, (await this.deps.resolver.resolve(id, market)).sector);
+          } catch (error) {
+            // A missing or failing listing only costs its sector; session and programming errors still surface.
+            if (
+              !(
+                error instanceof UpstreamError ||
+                error instanceof NotFoundError ||
+                error instanceof FeatureDisabledError
+              )
+            )
+              throw error;
+            failed++;
+          }
+        }),
+      );
+    }
+    return { sectors, looked: chosen.length, skipped: withId.length - chosen.length, failed };
   }
 }

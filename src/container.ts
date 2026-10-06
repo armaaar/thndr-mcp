@@ -22,12 +22,15 @@ import type { LoginDependencies } from './application/identity/dependencies';
 import { GetAuthStatus } from './application/identity/queries/get-auth-status';
 import { SessionTokenProvider } from './application/identity/services/session-token-provider';
 import type { MarketDataDependencies } from './application/market-data/dependencies';
+import { GetDividends } from './application/market-data/queries/get-dividends';
 import { GetEconomicIndicators } from './application/market-data/queries/get-economic-indicators';
 import { GetFinancials } from './application/market-data/queries/get-financials';
 import { GetIndexConstituents } from './application/market-data/queries/get-index-constituents';
 import { GetInstrumentDetails } from './application/market-data/queries/get-instrument-details';
 import { GetMarketDepth } from './application/market-data/queries/get-market-depth';
+import { GetMarketMovers } from './application/market-data/queries/get-market-movers';
 import { GetMarketStatus } from './application/market-data/queries/get-market-status';
+import { GetMarkets } from './application/market-data/queries/get-markets';
 import { GetNews } from './application/market-data/queries/get-news';
 import { GetPeers } from './application/market-data/queries/get-peers';
 import { GetPriceHistory } from './application/market-data/queries/get-price-history';
@@ -35,6 +38,9 @@ import { GetPricePerformance } from './application/market-data/queries/get-price
 import { GetPriceSnapshot } from './application/market-data/queries/get-price-snapshot';
 import { GetRecentTrades } from './application/market-data/queries/get-recent-trades';
 import { GetScreeners } from './application/market-data/queries/get-screeners';
+import { GetTagInstruments } from './application/market-data/queries/get-tag-instruments';
+import { GetTags } from './application/market-data/queries/get-tags';
+import { GetTrending } from './application/market-data/queries/get-trending';
 import { ScreenMarket } from './application/market-data/queries/screen-market';
 import { SearchInstruments } from './application/market-data/queries/search-instruments';
 import { IndexMembership } from './application/market-data/services/index-membership';
@@ -66,6 +72,7 @@ import { type FetchFn, ThndrHttpClient } from './data-sources/thndr/http-client'
 import { FileLoginFlowRepository } from './repositories/local/login-flow-repository';
 import { FileSessionRepository } from './repositories/local/session-repository';
 import { HttpThndrAuthGateway } from './repositories/thndr/auth-gateway';
+import { ThndrDiscoveryRepository } from './repositories/thndr/discovery-repository';
 import { ThndrEngagementRepository } from './repositories/thndr/engagement-repository';
 import { ThndrMarketDataRepository } from './repositories/thndr/market-data-repository';
 import { ThndrPortfolioRepository } from './repositories/thndr/portfolio-repository';
@@ -109,6 +116,8 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   const tokens = new SessionTokenProvider(sessions, authGateway, clock, logger);
   const api = http(config.apiBaseUrl, tokens);
   const krakend = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-x`, tokens);
+  // The mobile app's own KrakenD gateway (docs/api/mobile-app.md §4.A): bulk prices for every market, explore lists.
+  const appGateway = http(`${config.apiBaseUrl.replace(/\/+$/, '')}/krakend-thndr-app`, tokens);
   /** ThndrX's own routes on x.thndr.app/api (financials, macros), with the full-access token. */
   const web = http(config.webBaseUrl, tokens);
   const login: LoginDependencies = {
@@ -121,13 +130,14 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
   };
 
   // Market Data
-  const marketRepository = new ThndrMarketDataRepository(api, krakend);
+  const marketRepository = new ThndrMarketDataRepository(api, krakend, appGateway);
   const resolver = new InstrumentResolver(marketRepository);
   const quotes = new MarketQuotesCache(marketRepository, clock);
   const indices = new IndexMembership(marketRepository, quotes, clock);
   const market: MarketDataDependencies = {
     repository: marketRepository,
-    research: new ThndrResearchRepository(api, web),
+    research: new ThndrResearchRepository(api, web, appGateway),
+    discovery: new ThndrDiscoveryRepository(api, appGateway),
     resolver,
     quotes,
     indices,
@@ -174,6 +184,12 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     new GetFinancials(market),
     new GetNews(market),
     new GetEconomicIndicators(market),
+    new GetMarkets(market),
+    new GetMarketMovers(market),
+    new GetTrending(market),
+    new GetTags(market),
+    new GetTagInstruments(market),
+    new GetDividends(market),
     new GetAccountSummary(portfolio),
     new GetPositions(portfolio),
     new GetPosition(portfolio),
@@ -200,5 +216,5 @@ export function compose(config: AppConfig, overrides: CompositionOverrides = {})
     new MarkNotificationsRead(engagement),
   ];
 
-  return { useCases, logger, api, krakend };
+  return { useCases, logger, api, krakend, appGateway };
 }

@@ -63,7 +63,7 @@ describe('GetWatchlist', () => {
     const repository = new FakeEngagementRepository();
     repository.getWatchlist = async () => aWatchlist({ name: 'Detail' });
     const deps = engagementSetup(repository);
-    expect((await new GetWatchlist(deps).execute({ id: 'wl-1', market: 'egx' as never })).name).toBe(
+    expect((await new GetWatchlist(deps).execute({ id: 'wl-1', market: 'EGYPT' as never })).name).toBe(
       'Detail',
     );
     expect(repository.calls.listWatchlists).toEqual([]);

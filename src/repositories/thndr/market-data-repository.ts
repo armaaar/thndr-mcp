@@ -3,6 +3,8 @@ import type {
   AssetDto,
   AssetSearchResponseDto,
   CandlesResponseDto,
+  ChartsResponseDto,
+  GatewayPriceResponseDto,
   MarketDepthResponseDto,
   MarketHoursDto,
   MarketIndicatorsResponseDto,
@@ -17,12 +19,15 @@ import type { ThndrHttpClient } from '../../data-sources/thndr/http-client';
 import { assertNoKrakendError } from '../../data-sources/thndr/krakend';
 import { parseTimestamp } from '../../data-sources/thndr/wire';
 import type { Candle, CandleResolution } from '../../domain/market-data/candle';
+import type { ClosePoint, CloseSpan } from '../../domain/market-data/close-series';
 import type { Instrument, Quote } from '../../domain/market-data/instrument';
+import type { LatestPrice } from '../../domain/market-data/latest-price';
 import type { MarketSession, OrderBook, TapeTrade } from '../../domain/market-data/order-book';
 import type { MarketDataRepository } from '../../domain/market-data/repository';
 import type { Screener } from '../../domain/market-data/screener';
 import type { AssetId } from '../../domain/shared-kernel/asset-id';
 import type { Market } from '../../domain/shared-kernel/market';
+import { accountMarket, instrumentMarket, statusExchange } from './markets';
 import {
   indicatorToQuote,
   mapRows,
@@ -34,24 +39,29 @@ import {
   toTapeTrade,
   WIRE_RESOLUTION,
 } from './translators/market-data';
+import { toClosePoints, toLatestPrices, WIRE_CLOSE_OPTION } from './translators/prices';
 import { toScreener } from './translators/screener';
 
 const FEED = { include_feed: true, feed_detail: true } as const;
+/** Ids per bulk-price request (the mobile app batches its gateway reads by 50). */
+const PRICE_BATCH = 50;
 
 /**
  * Adapter for Thndr's market-data endpoints (docs/api/market-data.md).
- * `api` targets https://prod.thndr.app, `krakend` targets https://prod.thndr.app/krakend-thndr-x; every krakend
- * response goes through {@link assertNoKrakendError}.
+ * `api` targets https://prod.thndr.app, `krakend` targets https://prod.thndr.app/krakend-thndr-x and `gateway` the
+ * mobile app's https://prod.thndr.app/krakend-thndr-app (docs/api/mobile-app.md §4.A); every KrakenD response goes
+ * through {@link assertNoKrakendError}.
  */
 export class ThndrMarketDataRepository implements MarketDataRepository {
   constructor(
     private readonly api: ThndrHttpClient,
     private readonly krakend: ThndrHttpClient,
+    private readonly gateway: ThndrHttpClient,
   ) {}
 
   async searchInstruments(query: string, market: Market): Promise<Instrument[]> {
     const data = await this.api.get<AssetSearchResponseDto>('/assets-service/assets/search', {
-      query: { query, market, ...FEED },
+      query: { query, market: instrumentMarket(market), ...FEED },
     });
     return mapRows(data?.assets, (row) => toInstrument(row, market));
   }
@@ -72,7 +82,7 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
 
   async getMarketQuotes(market: Market): Promise<Quote[]> {
     const data = await this.api.get<MarketwatchResponseDto>('/assets-service/assets/marketwatch', {
-      query: { market },
+      query: { market: instrumentMarket(market) },
     });
     return mapRows(data?.assets, toQuote);
   }
@@ -88,6 +98,32 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
     });
     assertNoKrakendError(data, `GET ${path}`);
     return mapRows(data?.trades_candles, toCandle);
+  }
+
+  async getLatestPrices(ids: readonly AssetId[]): Promise<LatestPrice[]> {
+    const unique = [...new Set(ids.map((id) => id.value))].sort();
+    const out: LatestPrice[] = [];
+    for (let i = 0; i < unique.length; i += PRICE_BATCH) {
+      const path = '/securities/v2/price';
+      const data = await this.gateway.get<GatewayPriceResponseDto>(path, {
+        query: { asset_id: unique.slice(i, i + PRICE_BATCH) },
+      });
+      // The day snapshot only adds open/previous close: without it the price section is still a usable answer.
+      const usable =
+        data && typeof data === 'object' && Array.isArray(data.price?.results)
+          ? (({ error_asset_day_snapshot_v2: _ignored, ...rest }) => rest)(data as Record<string, unknown>)
+          : data;
+      assertNoKrakendError(usable, `GET ${path}`);
+      out.push(...toLatestPrices(usable as GatewayPriceResponseDto));
+    }
+    return out;
+  }
+
+  async getCloses(id: AssetId, market: Market, span: CloseSpan): Promise<ClosePoint[]> {
+    const data = await this.api.get<ChartsResponseDto>('/assets-service/charts', {
+      query: { asset_ids: id.value, option: WIRE_CLOSE_OPTION[span], market: instrumentMarket(market) },
+    });
+    return toClosePoints(data, id);
   }
 
   async getOrderBook(id: AssetId): Promise<OrderBook> {
@@ -108,10 +144,12 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
   async getMarketSession(market: Market, board?: string | null): Promise<MarketSession> {
     const [status, hours] = await Promise.all([
       this.api.get<MarketStatusDto>('/market-service/markets/status', {
-        query: { market, market_exchange: board || undefined },
+        query: { market: accountMarket(market), market_exchange: statusExchange(market, board) },
       }),
       // Hours only enrich the answer: tolerate failures.
-      this.api.get<MarketHoursDto>('/market-service/markets/hours', { query: { market } }).catch(() => null),
+      this.api
+        .get<MarketHoursDto>('/market-service/markets/hours', { query: { market: accountMarket(market) } })
+        .catch(() => null),
     ]);
     return Object.freeze({
       market,
@@ -123,7 +161,7 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
 
   async getMarketIndicators(market: Market): Promise<Quote[]> {
     const data = await this.api.get<MarketIndicatorsResponseDto>('/assets-service/assets/market-indicators', {
-      query: { market, page_count: 100, ...FEED },
+      query: { market: instrumentMarket(market), page_count: 100, ...FEED },
     });
     return mapRows(data?.results, indicatorToQuote);
   }
@@ -136,13 +174,15 @@ export class ThndrMarketDataRepository implements MarketDataRepository {
   async getSimilarInstruments(id: AssetId, market: Market, limit: number): Promise<Instrument[]> {
     const data = await this.api.get<RecommendationsResponseDto>(
       `/assets-service/assets/${encodeURIComponent(id.value)}/recommendations`,
-      { query: { market, recommendations_number: limit, ...FEED } },
+      { query: { market: instrumentMarket(market), recommendations_number: limit, ...FEED } },
     );
     return mapRows(data?.results, (row) => toInstrument(row, market));
   }
 
   async getScreeners(market: Market): Promise<Screener[]> {
-    const data = await this.api.get<ScreenersResponseDto>('/users-service/screeners', { query: { market } });
+    const data = await this.api.get<ScreenersResponseDto>('/users-service/screeners', {
+      query: { market: accountMarket(market) },
+    });
     return mapRows(data?.screeners, (row) => toScreener(row, market));
   }
 

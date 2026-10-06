@@ -3,6 +3,7 @@ import type { JournalQuery } from '../../domain/portfolio/repository';
 import { parseMarket } from '../../domain/shared-kernel/market';
 import { Ticker } from '../../domain/shared-kernel/ticker';
 import { marketInput, pageInput } from '../inputs';
+import { requireMarketFeature } from '../market-features';
 import { clamp } from '../paging';
 import type { Clock } from '../ports/clock';
 import type { InputOf } from '../use-case';
@@ -22,8 +23,10 @@ export type JournalInput = InputOf<typeof journalInput>;
 /** Builds a validated journal query; date-only bounds are Cairo market days, `period` is a preset range. */
 export function journalQuery(params: JournalInput, clock: Clock): JournalQuery {
   const range = resolveRange(params, clock);
+  const market = parseMarket(params.market);
+  requireMarketFeature(market, 'journal');
   return {
-    market: parseMarket(params.market),
+    market,
     page: clamp(params.page, 1, 1, 10_000),
     limit: clamp(params.limit, 20, 1, 100),
     ...range,
