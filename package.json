@@ -55,17 +55,17 @@
     "sync:mobile": "bash .claude/skills/sync-thndr-mobile-api/scripts/fetch-apk.sh && bash .claude/skills/sync-thndr-mobile-api/scripts/decompile.sh"
   },
   "dependencies": {
-    "@firebase/app": "^0.16.2",
-    "@firebase/auth": "^1.13.6",
+    "@firebase/app": "^0.16.3",
+    "@firebase/auth": "^1.13.7",
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "qrcode": "^1.5.4",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
     "@types/js-beautify": "^1.14.3",
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "@types/qrcode": "^1.5.6",
     "@vitest/coverage-v8": "^5.0.3",
     "js-beautify": "^2.0.3",
